@@ -1,0 +1,59 @@
+python-dotenv
+pytz
+requests
+
+langchain==0.3.1
+langchain-community==0.3.1
+langchain-google-genai
+transformers
+sentence_transformers
+pillow
+tiktoken
+openai
+
+# webbaseload related
+bs4
+fake_useragent
+
+notion-client
+tweepy
+mysql-connector-python
+redis
+
+youtube-transcript-api
+pytube
+
+# RAG
+llama-index>=0.9
+
+# Vector database
+chromadb>=0.4
+pymilvus>=2.4
+pinecone-client
+
+# RSS
+feedparser
+
+# Speech to Text
+SpeechRecognition
+
+# Text to Speech
+pyttsx3
+
+soundfile
+openai-whisper
+
+yt-dlp
+
+# Arvix
+arxiv
+pymupdf
+
+# AutoGen
+pyautogen==0.2.2
+docker
+duckduckgo_search
+
+# Remove it once httpx fix the dependency issue
+httpx[socks]
+httpcore>=1
