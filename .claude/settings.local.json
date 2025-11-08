@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "SlashCommand(/bmad:bmm:workflows:workflow-init)",
+      "SlashCommand(/bmad:bmm:workflows:product-brief)",
+      "SlashCommand(/bmad:bmm:workflows:prd)",
+      "WebSearch",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
