@@ -1,0 +1,4 @@
+workspace/*
+
+# test라는 이름이 앞에 붙은 파이썬 파일
+test_*.py
