@@ -77,7 +77,7 @@ NUMBERED LIST SUMMARY IN BOTH ENGLISH AND {}, AFTER FINISHING ALL ENGLISH PART, 
 """
 
 LLM_PROMPT_SUMMARY_COMBINE_PROMPT3 = """
-Write a concise and precise numbered list summary of the following text without losing any numbers and key points (English numbers need to be converted to digital numbers):
+Write a concise and precise numbered list summary of the following text without losing any numbers and key points (English numbers need to be converted to digital numbers, write in KOREAN):
 ```{text}```
 """
 
