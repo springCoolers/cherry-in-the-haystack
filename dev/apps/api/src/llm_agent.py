@@ -194,9 +194,10 @@ class LLMAgentBase:
         # TODO: support non-openAI llm
         if provider == "openai":
             model_name = model_name or os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
-            if os.getenv('OPENAI_PROXY') is not None:
-                client = httpx.Client(proxies={"http://": os.getenv("OPENAI_PROXY"),
-                                               "https://": os.getenv("OPENAI_PROXY")})
+            proxy = os.getenv('OPENAI_PROXY')
+            if proxy and proxy.strip():
+                client = httpx.Client(proxies={"http://": proxy,
+                                            "https://": proxy})
                 llm = ChatOpenAI(
                     # model_name="text-davinci-003"
                     model_name=model_name,

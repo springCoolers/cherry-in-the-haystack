@@ -29,3 +29,9 @@ build/
 # Logs
 *.log
 logs/
+
+# env
+.env
+
+# venv
+.venv
