@@ -18,9 +18,10 @@ class EmbeddingOpenAI_1x(Embedding):
     def __init__(self, model_name="text-embedding-ada-002"):
         super().__init__(model_name)
 
-        if os.getenv('OPENAI_PROXY') is not None:
-            client = httpx.Client(proxies={"http://": os.getenv("OPENAI_PROXY"),
-                                           "https://": os.getenv("OPENAI_PROXY")})
+        proxy = os.getenv('OPENAI_PROXY')
+        if proxy and proxy.strip():
+            client = httpx.Client(proxies={"http://": proxy,
+                                           "https://": proxy})
             self.client = OpenAI(http_client=client)
         else:
             self.client = OpenAI()
