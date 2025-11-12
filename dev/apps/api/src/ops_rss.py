@@ -450,7 +450,7 @@ class OperatorRSS(OperatorBase):
                 op_notion = OperatorNotion()
 
                 # Get the latest toread database id from index db
-                db_index_id = op_notion.get_index_toread_dbid()
+                # db_index_id = op_notion.get_index_toread_dbid()
 
                 # database_id = utils.get_notion_database_id_toread(
                 #     notion_agent, db_index_id)
