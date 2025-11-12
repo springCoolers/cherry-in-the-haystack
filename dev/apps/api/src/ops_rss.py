@@ -305,18 +305,24 @@ class OperatorRSS(OperatorBase):
                 # the source url. For RSS, we will load content
                 # from this entrypoint
                 if not content:
-                    print("page content is empty, fallback to load web page via WebBaseLoader")
+                    # First, try to use RSS summary field if available
+                    rss_summary = page.get("summary", "")
+                    if rss_summary:
+                        print("page content is empty, using RSS summary field")
+                        content = rss_summary
+                    else:
+                        print("page content is empty, fallback to load web page via WebBaseLoader")
 
-                    try:
-                        content = utils.load_web(source_url)
-                        print(f"Page content ({len(content)} chars)")
+                        try:
+                            content = utils.load_web(source_url)
+                            print(f"Page content ({len(content)} chars)")
 
-                    except Exception as e:
-                        print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
+                        except Exception as e:
+                            print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
 
-                    if not content:
-                        print("[ERROR] Empty Web page loaded via WebBaseLoader, skip it")
-                        continue
+                        if not content:
+                            print("[ERROR] Empty Web page loaded via WebBaseLoader, skip it")
+                            continue
 
                 content = content[:SUMMARY_MAX_LENGTH]
                 summary = llm_agent.run(content)
