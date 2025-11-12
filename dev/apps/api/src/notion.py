@@ -1453,10 +1453,109 @@ class NotionAgent:
         categories: list,
         rate_number
     ):
-        properties, blocks = self._createDatabaseItem_ArticleBase(
-            page, append_notion_url=False)
+        """
+        Create RSS item in ToRead database with custom format:
+        - Properties: AI summary, URL
+        - Blocks: ## {title}\n{summary}\n{link}
+        """
+        summary = page.get("__summary") or ""
+        title = page["title"]
+        url = page["url"]
+        created_time_pdt = utils.convertUTC2PDT_str(page["created_time"])
 
-        # Append original article link
+        # Properties: Name, Created at, AI summary, URL
+        properties = {
+            "Name": {
+                "title": [
+                    {
+                        "text": {
+                            "content": title
+                        }
+                    }
+                ]
+            },
+            "Created at": {
+                "date": {
+                    "start": created_time_pdt.isoformat(),
+                }
+            },
+            "AI summary": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": summary[:2000]  # Notion limit: 2000 chars
+                        }
+                    }
+                ]
+            },
+            "URL": {
+                "url": url
+            }
+        }
+
+        # Blocks: ## {title}\n{summary}\n{link}
+        blocks = []
+
+        # Heading 2: {title}
+        blocks.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": title
+                        }
+                    }
+                ]
+            }
+        })
+
+        # Summary paragraphs (split by newline, handle 2000 char limit)
+        summary_lines = summary.split('\n')
+        current_block = ""
+
+        for line in summary_lines:
+            if len(current_block) + len(line) + 1 > 2000:
+                # Flush current block
+                if current_block:
+                    blocks.append({
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "text": {
+                                        "content": current_block
+                                    }
+                                }
+                            ]
+                        }
+                    })
+                current_block = line
+            else:
+                if current_block:
+                    current_block += "\n" + line
+                else:
+                    current_block = line
+
+        # Flush remaining
+        if current_block:
+            blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": current_block
+                            }
+                        }
+                    ]
+                }
+            })
+
+        # Link
         blocks.append({
             "object": "block",
             "type": "paragraph",
@@ -1464,14 +1563,13 @@ class NotionAgent:
                 "rich_text": [
                     {
                         "text": {
-                            "content": "Article Link",
+                            "content": url,
                             "link": {
-                                "url": page["url"],
-                            },
-                        },
-                        "href": page["url"],
-                    },
-                ],
+                                "url": url
+                            }
+                        }
+                    }
+                ]
             }
         })
 
