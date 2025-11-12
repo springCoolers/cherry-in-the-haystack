@@ -41,8 +41,9 @@ workflow_status:
   create-design: conditional
 
   # Phase 2: Solutioning
-  create-architecture: recommended
+  architecture: docs/architecture.md  # Completed 2025-11-08
   validate-architecture: optional
+  epic-tech-context: required  # Next: Generate technical specs from PRD+Architecture
   solutioning-gate-check: required
 
   # Phase 3: Implementation
