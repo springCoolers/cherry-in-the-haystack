@@ -9,6 +9,7 @@ from ops_article import OperatorArticle
 from ops_youtube import OperatorYoutube
 from ops_rss import OperatorRSS
 from ops_reddit import OperatorReddit
+from ops_crawl_blog_superhuman import OperatorCrawlBlogSuperhuman
 import utils
 
 
@@ -139,6 +140,27 @@ def save_reddit(args, op, data):
     op.save2json(args.data_folder, args.run_id, "reddit.json", data)
 
 
+def pull_crawl(args, op):
+    """
+    Pull from Crawl
+    """
+    print("######################################################")
+    print("# Pull from Crawl")
+    print("######################################################")
+
+    def run():
+        return op.pull()
+
+    return utils.prun(run) or {}
+
+
+def save_crawl(args, op, data):
+    print("######################################################")
+    print("# Save Crawl data to json file")
+    print("######################################################")
+    op.save2json(args.data_folder, args.run_id, "crawl.json", data)
+
+
 def run(args):
     sources = args.sources.split(",")
     print(f"Sources: {sources}")
@@ -170,6 +192,13 @@ def run(args):
             op = OperatorReddit()
             data = pull_reddit(args, op)
             save_reddit(args, op, data)
+
+        # NOTE: currently only crawl Zain Kahn's blog posts (superhuman.ai)
+        # NOTE: if need to crawl other blogs, maybe refactor the architecture for handle crawler operators
+        elif source == "CrawlBlogSuperhuman":
+            op = OperatorCrawlBlogSuperhuman()
+            data = pull_crawl(args, op)
+            save_crawl(args, op, data)
 
 
 if __name__ == "__main__":
