@@ -227,7 +227,19 @@ def process_crawl(args, op, source="crawl"):
     data_deduped = op.dedup(data, target="toread")
     data_summarized = op.summarize(data_deduped)
     data_ranked = op.rank(data_summarized)
-    return op.createStats(data, data_deduped, data_summarized, data_ranked)
+
+    targets = args.targets.split(",")
+    pushed_stats = op.push(data_ranked, targets)
+
+    return op.createStats(
+        source,
+        "",
+        data,
+        data_deduped=data_deduped,
+        data_summarized=data_summarized,
+        data_ranked=data_ranked,
+        pushed_stats=pushed_stats
+    )
 
 
 def run(args):
