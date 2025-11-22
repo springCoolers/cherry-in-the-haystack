@@ -10,7 +10,7 @@ from ops_article import OperatorArticle
 from ops_youtube import OperatorYoutube
 from ops_rss import OperatorRSS
 from ops_reddit import OperatorReddit
-
+from ops_crawl_blog_superhuman import OperatorCrawlBlogSuperhuman
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix", help="runtime prefix path",
@@ -219,6 +219,29 @@ def process_reddit(args):
         data_summarized, data_ranked, pushed_stats)
 
 
+def process_crawl(args, op, source="crawl"):
+    print("#####################################################")
+    print("# Process Crawl")
+    print("#####################################################")
+    data = op.readFromJson(args.data_folder, args.run_id, f"{source}.json")
+    data_deduped = op.dedup(data, target="toread")
+    data_summarized = op.summarize(data_deduped)
+    data_ranked = op.rank(data_summarized)
+
+    targets = args.targets.split(",")
+    pushed_stats = op.push(data_ranked, targets)
+
+    return op.createStats(
+        source,
+        "",
+        data,
+        data_deduped=data_deduped,
+        data_summarized=data_summarized,
+        data_ranked=data_ranked,
+        pushed_stats=pushed_stats
+    )
+
+
 def run(args):
     sources = args.sources.split(",")
     stats = []
@@ -241,6 +264,12 @@ def run(args):
 
         elif source == "Reddit":
             stat = process_reddit(args)
+
+        # NOTE: currently only crawl Zain Kahn's blog posts (superhuman.ai)
+        # NOTE: if need to crawl other blogs, maybe refactor the architecture for handle crawler operators
+        elif source == "CrawlBlogSuperhuman":
+            op = OperatorCrawlBlogSuperhuman()
+            stat = process_crawl(args, op, source=source)
 
         stats.extend(stat)
 
