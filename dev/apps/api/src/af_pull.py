@@ -154,11 +154,11 @@ def pull_crawl(args, op):
     return utils.prun(run) or {}
 
 
-def save_crawl(args, op, data):
+def save_crawl(args, op, data, source="crawl"):
     print("######################################################")
     print("# Save Crawl data to json file")
     print("######################################################")
-    op.save2json(args.data_folder, args.run_id, "crawl.json", data)
+    op.save2json(args.data_folder, args.run_id, f"{source}.json", data)
 
 
 def run(args):
@@ -198,7 +198,7 @@ def run(args):
         elif source == "CrawlBlogSuperhuman":
             op = OperatorCrawlBlogSuperhuman()
             data = pull_crawl(args, op)
-            save_crawl(args, op, data)
+            save_crawl(args, op, data, source=source)
 
 
 if __name__ == "__main__":

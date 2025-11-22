@@ -257,7 +257,7 @@ def run(args):
         # NOTE: if need to crawl other blogs, maybe refactor the architecture for handle crawler operators
         elif source == "CrawlBlogSuperhuman":
             op = OperatorCrawlBlogSuperhuman()
-            stat = process_crawl(args, op, source)
+            stat = process_crawl(args, op, source=source)
 
         stats.extend(stat)
 
