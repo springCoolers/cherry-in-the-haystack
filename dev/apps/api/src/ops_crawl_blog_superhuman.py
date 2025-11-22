@@ -232,7 +232,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
     def dedup(self, extractedPages, target="inbox"):
         print("#####################################################")
-        print("# Dedup RSS")
+        print("# Dedup CrawlBlogSuperhuman")
         print("#####################################################")
         print(f"Number of pages: {len(extractedPages)}")
 
@@ -260,7 +260,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
     def filter(self, pages, **kwargs):
         print("#####################################################")
-        print("# Filter RSS (After Scoring)")
+        print("# Filter CrawlBlogSuperhuman (After Scoring)")
         print("#####################################################")
         k = kwargs.setdefault("k", 3)
         min_score = kwargs.setdefault("min_score", 4)
@@ -289,7 +289,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
     def score(self, data, **kwargs):
         print("#####################################################")
-        print("# Scoring RSS")
+        print("# Scoring CrawlBlogSuperhuman")
         print("#####################################################")
         start_date = kwargs.setdefault("start_date", "")
         max_distance = kwargs.setdefault("max_distance", 0.45)
@@ -325,7 +325,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                 scored_page["__relevant_score"] = page_score
 
                 scored_list.append(scored_page)
-                print(f"RSS article scored {page_score}")
+                print(f"CrawlBlogSuperhuman article scored {page_score}")
 
             except Exception as e:
                 print(f"[ERROR]: Score page failed, skip: {e}")
@@ -336,7 +336,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
     def summarize(self, pages):
         print("#####################################################")
-        print("# Summarize RSS Articles")
+        print("# Summarize CrawlBlogSuperhuman Articles")
         print("#####################################################")
         SUMMARY_MAX_LENGTH = int(os.getenv("SUMMARY_MAX_LENGTH", 20000))
         print(f"Number of pages: {len(pages)}")
@@ -363,19 +363,21 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             st = time.time()
 
             llm_summary_resp = client.get_notion_summary_item_id(
-                "rss", list_name, page_id
+                "superhuman_blog", list_name, page_id
             )
 
             if not llm_summary_resp:
                 # Double check the content, if empty, load it from
-                # the source url. For RSS, we will load content
+                # the source url. For CrawlBlogSuperhuman, we will load content
                 # from this entrypoint
                 if not content:
-                    # First, try to use RSS summary field if available
-                    rss_summary = page.get("summary", "")
-                    if rss_summary:
-                        print("page content is empty, using RSS summary field")
-                        content = rss_summary
+                    # First, try to use CrawlBlogSuperhuman summary field if available
+                    summary = page.get("summary", "")
+                    if summary:
+                        print(
+                            "page content is empty, using CrawlBlogSuperhuman summary field"
+                        )
+                        content = summary
                     else:
                         print(
                             "page content is empty, fallback to load web page via WebBaseLoader"
@@ -403,7 +405,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                     f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}, summary: {summary}"
                 )
                 client.set_notion_summary_item_id(
-                    "rss",
+                    "superhuman_blog",
                     list_name,
                     page_id,
                     summary,
@@ -430,9 +432,9 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
         Rank page summary (not the entire content)
         """
         print("#####################################################")
-        print("# Rank RSS Articles")
+        print("# Rank CrawlBlogSuperhuman Articles")
         print("#####################################################")
-        ENABLED = utils.str2bool(os.getenv("RSS_ENABLE_CLASSIFICATION", "False"))
+        ENABLED = utils.str2bool(os.getenv("CRAWL_ENABLE_CLASSIFICATION", "False"))
         print(f"Number of pages: {len(pages)}, enabled: {ENABLED}")
 
         llm_agent = LLMAgentCategoryAndRanking()
@@ -467,7 +469,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                 continue
 
             llm_ranking_resp = client.get_notion_ranking_item_id(
-                "rss", list_name, page_id
+                "superhuman_blog", list_name, page_id
             )
 
             category_and_rank_str = None
@@ -482,7 +484,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                     f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}"
                 )
                 client.set_notion_ranking_item_id(
-                    "rss",
+                    "superhuman_blog",
                     list_name,
                     page_id,
                     category_and_rank_str,
@@ -531,7 +533,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
     def push(self, pages, targets, topk=3):
         print("#####################################################")
-        print("# Push RSS")
+        print("# Push Crawl Blog Superhuman")
         print("#####################################################")
         print(f"Number of pages: {len(pages)}")
         print(f"Targets: {targets}")
@@ -580,11 +582,14 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                         categories_topk = []
                         rating = page.get("__rate") or -1
 
+                        # NOTE: using same structure as RSS (ops_rss.py)
                         notion_agent.createDatabaseItem_ToRead_RSS(
                             database_id, page, topics_topk, categories_topk, rating
                         )
 
-                        self.markVisited(page_id, source="rss", list_name=list_name)
+                        self.markVisited(
+                            page_id, source="superhuman_blog", list_name=list_name
+                        )
 
                     except Exception as e:
                         print(f"[ERROR]: Push to notion failed, skip: {e}")
