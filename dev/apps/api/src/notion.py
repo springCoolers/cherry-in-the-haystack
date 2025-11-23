@@ -2348,9 +2348,9 @@ class NotionAgent:
             },
             "AI summary": {
                 "rich_text": [
-                        "text": {
+                        {"text": {
                             "content": summary[:2000]  # Notion limit: 2000 chars
-                        }
+                        }}
                 ]
             },
             "URL": {
