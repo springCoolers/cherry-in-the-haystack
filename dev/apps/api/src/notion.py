@@ -2346,6 +2346,16 @@ class NotionAgent:
             "Take Aways": {
                 "rich_text": {}
             },
+            "AI summary": {
+                "rich_text": [
+                        {"text": {
+                            "content": summary[:2000]  # Notion limit: 2000 chars
+                        }}
+                ]
+            },
+            "URL": {
+                "url": url
+            }
         }
 
         # Create the new database under the specified page
