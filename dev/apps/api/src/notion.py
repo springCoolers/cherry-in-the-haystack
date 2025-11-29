@@ -2347,14 +2347,10 @@ class NotionAgent:
                 "rich_text": {}
             },
             "AI summary": {
-                "rich_text": [
-                        {"text": {
-                            "content": summary[:2000]  # Notion limit: 2000 chars
-                        }}
-                ]
+                "rich_text": {}
             },
             "URL": {
-                "url": url
+                "url": {}
             }
         }
 
