@@ -50,6 +50,7 @@ The product builds on the existing Auto-News infrastructure, transforming it fro
 - Output to Notion workspaces
 
 **New Architecture:** The LLM Engineering Handbook Platform
+> 해당 부분에 sync db　등이 들어가야 할 것으로 보입니다.
 ```
 Stage 1: Content Ingestion (Auto-News Engine)
   ↓
@@ -124,6 +125,7 @@ The LLM Engineering Handbook is organized into three main content sections, each
 - Evaluation methodologies
 
 **Content Pipeline:**
+> 이 부분도 rating등이 빠진 것으로 보입니다.
 ```
 Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector Database → Handbook Publication
 ```
@@ -134,6 +136,7 @@ Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector
 **Purpose:** Deep technical content not suitable for beginners or general use
 
 **Topics:** Same domains as Basics, but with advanced depth:
+> LLM에 관한 내용이긴 하지만 예시들을 조정할 필요가 있지 않을까 합니다.
 - Advanced prompting (chain-of-thought, constitutional AI)
 - Multi-hop RAG, hybrid search
 - PEFT, LoRA, QLoRA techniques
@@ -170,6 +173,7 @@ Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector
    - **General:** Newly introduced, trending productivity tools
 
 4. **Business Cases & Case Studies** ⭐ (Priority)
+  > 왜 이게 Priority일까?
    - Company product launches (chatbots, document automation) with architecture details
    - Conference presentations (e.g., Baemin's text-to-SQL implementation)
    - VC funding & M&A trends in LLM space
@@ -201,6 +205,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 
 **Content at Launch:**
 - **Basics Section:**
+> ContentList/Source보고 topic 수정 필요
   - Minimum 6 core topic pages (Prompting, RAG, Fine-tuning, Agents, Embeddings, Evaluation)
   - Each topic with introductory content and practical examples
 - **Advanced Section:**
@@ -210,6 +215,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
   - Minimum 10 entries per category from first month of curation
 
 **Web Interface:**
+> 우선은 깃북위주로 생각하자.
 - Public-facing static website (read-only)
 - Navigation structure for 3 main sections
 - Clean, readable layout optimized for technical content
