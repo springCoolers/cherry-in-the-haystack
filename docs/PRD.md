@@ -8,15 +8,16 @@
 
 ## Executive Summary
 
-**cherry-in-the-haystack** evolves from a personal content curation tool into **The LLM Engineering Handbook** — a living, community-driven knowledge base that serves as the default reference for anyone building with AI products.
+**cherry-in-the-haystack** evolves from a personal content curation tool into **Cherry for LLM Engineers** — a living, community-driven knowledge base that serves as the default reference for anyone building with AI products.
 
 The product addresses the critical problem of fragmented, rapidly-changing LLM knowledge that overwhelms practitioners. Engineers, builders, and product teams currently rely on scattered Twitter posts, Discord chats, papers, repos, and blog updates that become outdated within weeks. There is no single, living source of truth that organizes this knowledge and helps people make practical decisions when building real AI products.
 
-**The LLM Engineering Handbook provides:**
+**Cherry for LLM Engineers provides:**
 - Continuously updated, structured map of what matters right now
 - Clear explanations, trade-offs, and practical examples
 - Collective intelligence that compounds instead of fading
 - Orientation in a chaotic, fast-moving landscape
+- Living knowledge graph connecting concepts, evidence, and sources
 
 ### What Makes This Special
 
@@ -49,16 +50,46 @@ The product builds on the existing Auto-News infrastructure, transforming it fro
 - LLM-powered categorization, ranking, summarization
 - Output to Notion workspaces
 
-**New Architecture:** The LLM Engineering Handbook Platform
+**New Architecture:** Cherry for LLM Engineers Platform
 ```
 Stage 1: Content Ingestion (Auto-News Engine)
   ↓
-Stage 2: Human Peer Review (Notion Review System)
+Stage 2: Knowledge Team Review (Notion Review System)
   ↓
-Stage 3: AI Synthesis (MECE Knowledge Structure)
+Stage 3: Knowledge Graph Building (Graph DB with Ontology + Evidence + Link Layers)
   ↓
-Stage 4: Publication (Public Handbook Web Interface)
+Stage 4: Writer Agent Synthesis (AI-generated pages from knowledge graph)
+  ↓
+Stage 5: Publication (Public Web Interface)
 ```
+
+**Knowledge Infrastructure: Concept-Centric Graph Database**
+
+A three-layer knowledge system optimized for stable concept ontology with dynamic evidence:
+
+- **1. Concept Layer** (Stable, normalized)
+  - Abstract ideas as unique noun-phrase nodes (e.g., "Evaluation-Driven Development")
+  - Concepts reused across all sources for consistency
+  - Relations between concepts: prerequisite, related, subtopic, extends, contradicts
+  - Evidence NOT stored in concept nodes (only linked)
+  - Each concept includes: title, summary, relations, sources
+
+- **2. Evidence Layer** (High volume, source-attached)
+  - Paragraphs/snippets with full source metadata
+  - Types: paraphrase, direct quote, figure reference
+  - Evidence can link to multiple concepts
+  - Schema: evidence_id, source, location, text, excerpt, comment, tags, linked_concepts
+
+- **3. Linking Layer** (Dynamic mappings)
+  - Connects concepts ↔ evidence via typed relations
+  - Link schema: concept_id, evidence_id, relation_type, confidence_score
+  - Every evidence must link to ≥1 concept
+  - Enables dynamic relation blocks in UI with embedded evidence previews
+
+**Design Goals:**
+- Clean concept graph (concepts only, no evidence nodes)
+- Evidence previews embedded inside relation blocks
+- Stable concept ontology + dynamic evidence accumulation
 
 **Future Vision:** "GitHub for Personal Knowledge Management"
 - Personal knowledge repositories
@@ -69,11 +100,11 @@ Stage 4: Publication (Public Handbook Web Interface)
 
 ## Success Criteria
 
-Success means the handbook becomes the **most time-efficient way to stay sharp in the LLM world**, where people return naturally and recommend it enthusiastically.
+Success means Cherry becomes the **most time-efficient way to stay sharp in the LLM world**, where people return naturally and recommend it enthusiastically.
 
 ### User Experience Success Metrics
 
-**Clarity:** Users consistently report "Ah, now I finally understand this"
+**Clarity:** Users consistently report "Ah, now I finally understand"
 - Measured by: User feedback, comprehension surveys, community testimonials
 
 **Confidence:** Users know which approach to choose and why
@@ -88,11 +119,10 @@ Success means the handbook becomes the **most time-efficient way to stay sharp i
 ### Community & Growth Metrics
 
 - **Active Contributors:** 20+ team members (current baseline) growing to 50+ within 6 months
+  - **Knowledge Team:** Structured subset responsible for weekly news review, monthly concept reviews, and study sessions
 - **Content Freshness:** Critical sections updated within 1 week of major releases
 - **User Engagement:**
   - 10,000 unique monthly readers within 3 months
-  - 50,000 unique monthly readers within 6 months
-  - Average 3+ pages per session
 - **Community Impact:**
   - Recognized as go-to reference in AI engineering communities (Twitter, Discord, Reddit mentions)
   - Referenced in production codebases and technical blogs
@@ -108,7 +138,7 @@ Success means the handbook becomes the **most time-efficient way to stay sharp i
 
 ## Product Scope
 
-The LLM Engineering Handbook is organized into three main content sections, each with distinct content pipelines and update mechanisms.
+Cherry for LLM Engineers is organized into three main content sections, each with distinct content pipelines and update mechanisms.
 
 ### Content Structure
 
@@ -125,8 +155,13 @@ The LLM Engineering Handbook is organized into three main content sections, each
 
 **Content Pipeline:**
 ```
-Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector Database → Handbook Publication
+Curated Text Sources → Evidence Layer Storage → Ontology Building → Writer Agent Synthesis → Publication
 ```
+
+**Content Promotion Flow:**
+- New concepts emerge in **Advanced** section first
+- Concepts with sustained importance (metric-based evaluation) promote to **Basics** section
+- Monthly review cycle (2nd Saturday) for concept promotion decisions
 
 **Update Strategy:** Continuously updated as new authoritative books or significant lectures emerge
 
@@ -141,9 +176,9 @@ Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector
 - Custom embedding models
 - Adversarial evaluation, benchmarking
 
-**Content Pipeline:** Same as Basics section
+**Content Pipeline:** Same as Basics section (Evidence Layer → Ontology → Writer Agent)
 
-**Update Strategy:** Continuous updates from cutting-edge research and practitioner insights
+**Update Strategy:** Continuous updates from cutting-edge research and practitioner insights. New concepts appear here first before potential promotion to Basics.
 
 #### 3. Newly Discovered Section
 **Purpose:** Fresh, high-value content from the rapidly evolving LLM ecosystem
@@ -182,8 +217,17 @@ Curated Text Sources → Deduplication (chunk-level) → AI Synthesis → Vector
 
 **Content Pipeline:**
 ```
-Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 Items → Weekly Human Approval → Direct Publish (NO synthesis)
+Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Knowledge Team Weekly Review → Graph DB Mapping → Direct Publish (NO synthesis)
 ```
+
+**Knowledge Team Review Process (Weekly - Wednesday):**
+1. Assigned team members review their allocated news items in Notion DB
+2. Team validates and corrects:
+   - Summary accuracy
+   - Score (1-5 scale)
+   - Relation to ontology graph (LLM-assisted mapping)
+3. Status changed to "finished" when review complete
+4. Top 20 items (score 5, sorted) flow to weekly newsletter generation
 
 **Update Strategy:** Weekly batch approval and publication of top-rated content
 
@@ -193,18 +237,20 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 
 **Core Infrastructure:**
 - ✅ Auto-News engine configured for LLM-focused sources (Twitter, Discord, GitHub, papers, blogs)
-- ✅ Deduplication system operating at content level (pre-scoring)
+- ✅ Vector database & system operating at content level (pre-scoring)
 - ✅ AI agent 1-5 scoring system integrated into Notion
-- ✅ Notion-based human review workflow with weekly approval cycle
-- ✅ Vector database for deduplicated, value-added content storage
-- ✅ AI synthesis agents for Basics/Advanced content (chunk-level analysis)
+- ✅ Notion-based Knowledge Team review workflow with weekly approval cycle
+- ✅ Graph Database with three-layer architecture:
+  - Ontology Layer: Concept nodes and relationships
+  - Evidence Layer: Source texts and materials
+  - Link Layer: Concept-to-evidence mappings
+- ✅ Writer Agent for Basics/Advanced page generation from knowledge graph
 
 **Content at Launch:**
 - **Basics Section:**
-  - Minimum 6 core topic pages (Prompting, RAG, Fine-tuning, Agents, Embeddings, Evaluation)
-  - Each topic with introductory content and practical examples
+  - Topics extracted from Curated Books and Lectures
 - **Advanced Section:**
-  - At least 3 advanced topics with deep technical content
+  - Topics extracted from Curated Books and Lectures
 - **Newly Discovered:**
   - All 5 categories established with initial content
   - Minimum 10 entries per category from first month of curation
@@ -217,15 +263,24 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 - NO user accounts, bookmarking, search, or commenting in MVP
 
 **Contribution Workflow:**
-- GitHub PR workflow for handbook text contributions
+- GitHub PR workflow for content contributions
 - URL submission mechanism for new data sources
-- 20-person team active (content + development contributors)
+- 20+ person team active (content + development contributors)
+- **Knowledge Team** (subset of contributors):
+  - Weekly review cycle (Wednesday) for news validation and ontology mapping
+  - Monthly concept promotion meetings (2nd Saturday)
+  - Wednesday study sessions for evidence layer seeding
 
 **AI Capabilities:**
 - Chunk-level (paragraph) deduplication and value assessment
 - Automatic identification of unique, value-adding content vs noise
 - AI-assisted quality scoring (1-5 scale)
-- Pattern-based content quality evaluation
+- LLM-based ontology graph mapping (concept-to-news relationships)
+- Writer Agent for page generation:
+  - Loads concept + connected concepts + relationships from Graph DB
+  - Collects mapped evidence sources (글감)
+  - Generates appropriate outline structure
+  - Composes pages by citing/paraphrasing evidence
 
 **What's NOT in MVP:**
 - In-app editing
@@ -268,7 +323,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 - Automated "changelog" for major topic updates
 
 **Developer Tools:**
-- Public API for handbook content access
+- Public API for content access
 - Webhook integrations
 - RSS feeds per category
 - Markdown export functionality
@@ -287,7 +342,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 
 **Personal Knowledge Repositories:**
 - Users maintain their own private knowledge bases
-- Fork and customize handbook content to personal context
+- Fork and customize content to personal context
 - Private notes and annotations layer over public content
 - Personal taxonomy and organization preferences
 
@@ -317,7 +372,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 
 **Integration Ecosystem:**
 - Notion, Obsidian, Roam integration for personal notes
-- IDE plugins for in-context handbook reference
+- IDE plugins for in-context reference
 - Slack/Discord bots for team knowledge sharing
 - CI/CD integration for automated best practice checks
 
@@ -333,7 +388,7 @@ Auto-News Aggregation → Deduplication → AI Agent Scoring (1-5) → Score 5 I
 
 ### MVP Architecture: Static Site Generation (Jupyter Book)
 
-For MVP, the handbook uses **Jupyter Book** for static site generation rather than a custom web application. This provides:
+For MVP, Cherry uses **Jupyter Book** for static site generation rather than a custom web application. This provides:
 - Professional documentation layout out-of-the-box
 - Zero infrastructure overhead for hosting
 - Fast, SEO-friendly static pages
@@ -343,13 +398,18 @@ For MVP, the handbook uses **Jupyter Book** for static site generation rather th
 
 **Newly Discovered Content Pipeline:**
 ```
-Auto-News Ingestion
+Auto-News Ingestion + Deduplication
   ↓
-Notion Review (1-5 scoring + weekly approval)
+AI Scoring (1-5) + Auto-assignment to Knowledge Team members
   ↓
-Postgres Database (approved score-5 items)
+Knowledge Team Review (Notion - Wednesday weekly)
+  - Validate summaries
+  - Confirm scores
+  - LLM-assisted ontology graph mapping
   ↓
-Automated GitHub Commit (markdown files)
+Graph DB Link Layer (concept-to-news mappings)
+  ↓
+Automated GitHub Commit (top 20 items, markdown files)
   ↓
 Jupyter Book Rebuild (GitHub Actions)
   ↓
@@ -358,26 +418,95 @@ GitHub Pages Deployment
 
 **Basics/Advanced Content Pipeline:**
 ```
-Curated Text Sources (PDFs, books, websites)
+Curated Text Sources (PDFs, books, websites, study materials)
   ↓
-AI Synthesis & Deduplication
+Evidence Layer Storage (Graph DB)
   ↓
-Manual GitHub PR (markdown files)
+Knowledge Team Study Sessions (Wednesday - evidence review)
+  ↓
+Ontology Extraction (new concept noun phrases detected monthly)
+  ↓
+Knowledge Team Concept Review (2nd Saturday monthly)
+  - Evaluate new concept candidates (word count metrics)
+  - Discuss and finalize TOC updates
+  - Decide concept promotion (Advanced → Basics)
+  ↓
+Writer Agent Page Generation
+  - Load concept + connected concepts + relationships
+  - Collect mapped evidence sources
+  - Generate outline
+  - Compose page (cite/paraphrase evidence)
+  ↓
+Automated GitHub Commit (new/updated pages)
   ↓
 Jupyter Book Rebuild (GitHub Actions)
   ↓
 GitHub Pages Deployment
 ```
 
+### Concept Page Structure (UI Design)
+
+**Design Philosophy:** Concept-first rendering with dynamic relation blocks and embedded evidence previews.
+
+**Page Layout for Basics/Advanced Concepts:**
+
+```
+Concept: [Concept Title]
+Summary: [1-2 sentence definition]
+
+Prerequisites:
+  - [Related Concept Name]
+      Why: [1-line explanation of relationship]
+      ↳ "[Evidence excerpt]" — [Source] [paraphrase/direct/figure]
+  - [Another Prerequisite]
+      Why: [...]
+      ↳ "[Evidence preview]" — [Source] [type]
+
+Related:
+  - [Related Concept]
+      Why: [...]
+      ↳ "[Evidence excerpt]" — [Source] [type]
+
+Subtopics:
+  - [Narrower Concept]
+      Why: [...]
+      ↳ "[Evidence excerpt]" — [Source] [type]
+
+Extends:
+  - [Advanced Version Concept]
+      Why: [...]
+      ↳ "[Evidence excerpt]" — [Source] [type]
+
+Sources & Commentary:
+  1. [Source A] — [Reading order suggestion, e.g., "easiest intro"]
+  2. [Source B] — [Context, e.g., "complements A"]
+  3. [Paper C] — [Comment, e.g., "canonical reference"]
+
+Contributors: [Knowledge Team members who curated this concept]
+
+[Optional: Graph visualization showing this concept's position]
+```
+
+**Dynamic Relation Blocks:**
+- Each relation type (Prerequisites, Related, Subtopics, Extends, Contradicts) is a repeatable block
+- Rendered only if relations exist (empty sections not shown)
+- Evidence previews embedded directly under each related concept
+- Multiple evidence items per relation displayed as indented list
+
+**Evidence Preview Format:**
+- Excerpt: 1-2 sentences from source material
+- Source: Book/paper/blog with location (e.g., "Ch3", "Section 2.1")
+- Comment type: [paraphrase], [direct], [figure] indicates how evidence is used
+
 ### Content Repository Structure
 
 **GitHub Repository Organization:**
-- Single repository for handbook content
+- Single repository for Cherry content
 - Separate repository for Auto-News pipeline codebase
 
 **Content Structure (2-level depth):**
 ```
-handbook-repo/
+cherry-repo/
 ├── basics/
 │   ├── prompting/
 │   │   ├── index.md (parent concept)
@@ -409,17 +538,6 @@ handbook-repo/
 - Maximum 2 levels of depth to maintain clarity and navigation simplicity
 
 ### Automation Requirements
-
-**Postgres → GitHub Pipeline:**
-- **Trigger:** Weekly batch job (or on-demand trigger)
-- **Process:**
-  1. Query Postgres for approved score-5 items
-  2. Format as markdown files with metadata (date, category, source)
-  3. Direct commit to GitHub (no PR, automated committer)
-  4. Organize by category folder structure
-- **Idempotency:** Handle duplicate prevention and update logic
-- **Metadata:** Each markdown file includes frontmatter (title, date, category, tags, source URL)
-
 **GitHub → Jupyter Book Deployment:**
 - **Trigger:** GitHub Actions on push to main branch
 - **Process:**
@@ -462,7 +580,7 @@ handbook-repo/
 ### Hosting & Deployment
 
 **GitHub Pages:**
-- **Domain:** Custom domain (e.g., `llm-handbook.dev` or `handbook.cherry-ai.dev`)
+- **Domain:** Custom domain (https://springcoolers.github.io/llm-handbook/_contents/intro.html)
 - **SSL:** Automatic via GitHub Pages
 - **Branch:** Deploy from `gh-pages` branch (Jupyter Book standard)
 - **Build Frequency:** On every commit to main (automated)
@@ -484,28 +602,24 @@ handbook-repo/
 
 **Initial Population:**
 
-**Basics Section (6 core topics):**
+**Basics Section:**
 1. Source curated content from:
    - O'Reilly books (PDF extraction)
    - Canonical blog posts and documentation
    - Academic papers and tutorials
-2. AI synthesis to extract key concepts
-3. Human editing for clarity and structure
-4. Manual PR submission for review
-5. Merge and publish
+2. AI extracts and normalize paragraph level's key concepts
+3. AI writes relation(link), check the ontology on Graph DB for similar concept, add or merge with the concepts
+4. Writer Agent writes pages, based on TOC given by knowledge team 
+5. Human editing for clarity and structure
+6. Manual PR submission for review, Merge and publish
 
-**Advanced Section (3 topics minimum):**
+**Advanced Section :**
 - Same process as Basics, but with deeper technical content
 
 **Newly Discovered Section:**
 - Seed with first month of Auto-News curation
 - 10+ entries per category from existing Notion database
 - Backfill high-quality content from recent months
-
-**Timeline:**
-- Basics seeding: 2-4 weeks (parallel work on 6 topics)
-- Advanced seeding: 1-2 weeks (3 topics)
-- Newly Discovered seeding: 1 week (batch import from existing curation)
 
 ### Browser & Platform Support
 
@@ -525,29 +639,6 @@ handbook-repo/
 - Screen reader compatibility
 - Semantic HTML structure
 - Sufficient color contrast
-
-### API Requirements (Future)
-
-**Not in MVP**, but considerations for Growth phase:
-
-**Content API:**
-- REST endpoints for handbook content
-- JSON responses with markdown content
-- Endpoints:
-  - `GET /api/sections` - List all sections
-  - `GET /api/sections/{section}/topics` - Topics in section
-  - `GET /api/topics/{topic}` - Topic content
-  - `GET /api/search?q=query` - Search content
-
-**Contribution API:**
-- Accept URL submissions
-- Webhook for GitHub PR notifications
-- Integration with Notion review workflow
-
-**Design Considerations:**
-- GraphQL may be better for flexible querying
-- Rate limiting and authentication for public API
-- Versioning strategy (v1, v2, etc.)
 
 ---
 
@@ -584,20 +675,22 @@ Organized by user-facing capabilities, each requirement connects to the core pro
 - **User Value:** Only high-quality, relevant content reaches users - the 80% noise is filtered out
 - **Acceptance Criteria:**
   - AI agent scores content based on defined criteria (relevance, depth, novelty, practicality)
-  - Score 5 = top-tier content worthy of handbook inclusion
+  - Score 5 = top-tier content worthy of inclusion
   - Scoring completes within 5 minutes of ingestion
   - Pattern-based learning improves scoring accuracy over time
 - **Magic Thread:** 🌟 This delivers the "speed" promise - users trust the curation quality
 
-**FR-2.2: Human Peer Review Workflow**
-- **Description:** Weekly human review and approval of top-scored content in Notion
-- **User Value:** Community wisdom ensures quality, not just AI judgment
+**FR-2.2: Knowledge Team Review Workflow**
+- **Description:** Structured weekly review and approval process managed by Knowledge Team in Notion
+- **User Value:** Community wisdom and domain expertise ensures quality, not just AI judgment
 - **Acceptance Criteria:**
-  - Score-5 items queued in Notion review dashboard
-  - Reviewers can approve, reject, or request edits
-  - Weekly batch approval cycle (configurable)
-  - Approved items automatically flow to next pipeline stage
-  - Audit trail of reviewer decisions
+  - Score-5 items auto-assigned to Knowledge Team members in Notion
+  - Team members can validate summaries, adjust scores, and request edits
+  - Weekly review cycle (Wednesday) with structured meeting
+  - LLM-assisted ontology graph mapping during review
+  - Status tracking: pending → in_review → finished
+  - Top 20 finished items (score 5) flow to newsletter generation
+  - Audit trail of all review decisions
 
 **FR-2.3: Content Value Assessment**
 - **Description:** AI identifies unique, value-adding information vs repetitive noise
@@ -608,9 +701,69 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - "Unique" flag for truly novel information
   - Value score based on: novelty, depth, practical applicability, evidence quality
 
-### 3. AI Synthesis & Knowledge Structuring
+### 3. Knowledge Graph & Database Management
 
-**FR-3.1: MECE Knowledge Organization**
+**FR-3.1: Graph Database Three-Layer Architecture**
+- **Description:** Concept-centric knowledge system with stable ontology and dynamic evidence
+- **User Value:** Structured knowledge enables intelligent synthesis, relationship discovery, and evidence traceability
+- **Acceptance Criteria:**
+
+  **Concept Layer (Stable):**
+  - Store concepts as unique noun-phrase nodes only (no sentences, no examples in nodes)
+  - Concepts must be reusable across all sources
+  - Relation types: prerequisite, related, subtopic, extends, contradicts (dynamic, extensible)
+  - Evidence NEVER stored in concept nodes (only linked)
+  - Concept schema: title, summary, relations (with embedded evidence previews), sources, contributors
+  - Concepts must support dynamic relation block rendering in UI
+
+  **Evidence Layer (High Volume):**
+  - Store paragraphs/snippets separately from concepts
+  - Required metadata: source, location, text, excerpt, comment, tags, linked_concepts
+  - Evidence types: paraphrase, direct quote, figure reference
+  - Evidence can link to multiple concepts (many-to-many)
+  - Evidence previews format: excerpt + source + comment (shown in relation blocks)
+
+  **Linking Layer (Dynamic):**
+  - Link schema: concept_id, evidence_id, relation_type, confidence_score
+  - Every evidence MUST link to ≥1 concept
+  - Support relation-type filtering and confidence thresholds
+  - Enable dynamic relation block queries (e.g., "get all prerequisites with evidence for concept X")
+
+  **Performance:**
+  - Graph queries complete in under 500ms for writer agent
+  - Support concurrent reads during page generation
+  - Efficient traversal for concept → related concepts → evidence chains
+
+  **Integration:**
+  - Coexists with Vector DB (used only for deduplication)
+  - Graph view shows concepts only (no evidence nodes cluttering visualization)
+
+- **Magic Thread:** 🌟 The concept-centric graph makes knowledge reusable and evidence traceable
+
+**FR-3.2: Ontology Extraction & Concept Discovery**
+- **Description:** Monthly extraction of new concept noun phrases from evidence layer
+- **User Value:** Cherry stays current with emerging LLM concepts and techniques
+- **Acceptance Criteria:**
+  - Monthly batch job (2nd Saturday) extracts new concept candidates from evidence layer
+  - Word count and frequency metrics filter noise vs meaningful concepts
+  - LLM-assisted concept relationship detection
+  - Concept candidates presented to Knowledge Team for review
+  - Approved concepts added to Ontology Layer with initial relationships
+  - New concepts default to Advanced section (promotion to Basics based on sustained importance)
+
+**FR-3.3: Evidence Collection & Study Sessions**
+- **Description:** Knowledge Team study sessions populate Evidence Layer with curated texts
+- **User Value:** High-quality source materials ensure accuracy and depth
+- **Acceptance Criteria:**
+  - Wednesday study sessions review texts (books, papers, documentation)
+  - Reviewed texts stored in Evidence Layer with metadata (source, date, topic, quality)
+  - Text chunking for efficient storage and retrieval
+  - Evidence tagged with relevant concept associations
+  - Study session notes captured for context
+
+### 4. AI Synthesis & Knowledge Structuring
+
+**FR-4.1: MECE Knowledge Organization**
 - **Description:** Structure content into Mutually Exclusive, Collectively Exhaustive taxonomy
 - **User Value:** Users can navigate logically without gaps or overlaps - delivers the "clarity" promise
 - **Acceptance Criteria:**
@@ -621,40 +774,70 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Taxonomy evolves based on emerging topics
 - **Magic Thread:** 🌟 This is the "orientation in chaos" - the structured map that makes users say "now I understand"
 
-**FR-3.2: Content Synthesis for Basics/Advanced**
-- **Description:** AI synthesizes curated sources into cohesive explanations
-- **User Value:** Users get distilled knowledge, not raw dumps of information
+**FR-4.2: Writer Agent for Page Generation**
+- **Description:** AI agent generates Basics/Advanced pages from knowledge graph using structured schemas
+- **User Value:** Users get distilled, well-structured knowledge from multiple evidence sources with full traceability
 - **Acceptance Criteria:**
-  - Extract key concepts from multiple sources
-  - Generate unified explanations with examples
-  - Identify trade-offs and decision criteria
-  - Cite original sources for verification
-  - Flag conflicting information for human review
+  - **Input:** Concept node from Ontology Layer (triggered monthly after concept review)
+  - **Step 1:** Query CONCEPT schema from Graph DB
+    - Load target concept + connected concepts + relationships
+    - Retrieve relation types (prerequisite, related, subtopic, extends, contradicts)
+  - **Step 2:** Query LINK schema to collect evidence_ids for this concept
+    - Filter by relation type and confidence threshold
+  - **Step 3:** Query EVIDENCE schema to retrieve full evidence details
+    - Full text, excerpts, source metadata, comment types
+  - **Step 4:** Generate page structure following Concept Page UI Design:
+    - Title and summary
+    - Dynamic relation blocks (only non-empty sections)
+    - Evidence previews embedded in each relation item
+    - Sources & Commentary section with reading order
+    - Contributors list
+  - **Step 5:** Compose page content by:
+    - Citing evidence with proper attribution
+    - Paraphrasing where appropriate
+    - Maintaining evidence preview format (excerpt + source + comment type)
+    - Including "why" explanations for each relation
+  - Generated pages follow style guide (clarity, examples, trade-offs)
+  - Flag conflicting evidence from multiple sources for Knowledge Team review
+  - Page generation completes within 10 minutes per concept
+  - Output: Markdown file conforming to Concept Page Structure
 - **Domain Constraint:** EdTech quality standards - must be accurate and pedagogically sound
+- **Magic Thread:** 🌟 Writer agent transforms fragmented evidence into coherent, traceable knowledge
 
-**FR-3.3: Evolving Taxonomy Management**
+**FR-4.3: Concept Promotion Flow (Advanced → Basics)**
+- **Description:** Promote concepts from Advanced to Basics based on sustained importance
+- **User Value:** Basics section reflects truly foundational concepts, not just trendy topics
+- **Acceptance Criteria:**
+  - New concepts default to Advanced section
+  - Metric-based evaluation tracks concept importance over time (mentions, usage, stability)
+  - Monthly Knowledge Team review (2nd Saturday) evaluates promotion candidates
+  - Promoted concepts move from Advanced → Basics with page updates
+  - Promotion decisions documented with rationale
+  - Community can suggest promotion candidates via GitHub issues
+
+**FR-4.4: Evolving Taxonomy Management**
 - **Description:** Continuously update content categories as LLM field evolves
-- **User Value:** Handbook stays current with emerging topics and techniques
+- **User Value:** Cherry stays current with emerging topics and techniques
 - **Acceptance Criteria:**
   - New categories can be added without restructuring
   - Content can be reassigned when taxonomy changes
   - Category deprecation with content migration plan
-  - "Newly Discovered" categories reviewed quarterly for promotion to Basics/Advanced
+  - "Newly Discovered" categories reviewed quarterly for relevance
 
-### 4. Content Publishing & Distribution
+### 5. Content Publishing & Distribution
 
-**FR-4.1: Automated Publication Pipeline**
-- **Description:** Approved content automatically flows from Postgres → GitHub → Jupyter Book → Public site
+**FR-5.1: Automated Publication Pipeline**
+- **Description:** Approved content automatically flows from Notion → GitHub → Jupyter Book → Public site
 - **User Value:** Fresh content reaches users within hours, not days - delivers the "speed" promise
 - **Acceptance Criteria:**
-  - Weekly batch: Postgres → GitHub commit (markdown files)
+  - Weekly batch: Notion → GitHub commit (markdown files)
   - GitHub push triggers Jupyter Book rebuild (under 5 minutes)
   - GitHub Pages deployment automatic
   - Zero-downtime deployments
   - Rollback capability for broken builds
-- **Magic Thread:** 🌟 Weekly updates keep the handbook feeling "alive"
+- **Magic Thread:** 🌟 Weekly updates keep Cherry feeling "alive"
 
-**FR-4.2: Structured Handbook Display**
+**FR-5.2: Structured Content Display**
 - **Description:** Jupyter Book renders content with professional layout and navigation
 - **User Value:** Users can read, navigate, and search efficiently
 - **Acceptance Criteria:**
@@ -666,40 +849,20 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - "Last updated" timestamps
   - Breadcrumb navigation
 
-**FR-4.3: Content Metadata & Organization**
-- **Description:** Every page includes structured metadata for discoverability
-- **User Value:** Users find content via search engines and social sharing
-- **Acceptance Criteria:**
-  - Frontmatter: title, date, category, tags, source URL
-  - SEO meta tags (title, description, keywords)
-  - Open Graph tags for social sharing
-  - Descriptive URLs (e.g., `/basics/rag/naive-rag`)
-  - Auto-generated sitemap
+### 6. Content Contribution & Collaboration
 
-**FR-4.4: "Newly Discovered" Card Layouts**
-- **Description:** Visual card-based presentation for recent updates
-- **User Value:** Users quickly scan latest developments with visual hierarchy
-- **Acceptance Criteria:**
-  - Card format with: title, summary (1-2 lines), date, category badge, external link
-  - 5 category groups (Model Updates, Framework Updates, Productivity Tools, Business Cases, How People Use AI)
-  - Collapsible sections for accumulated news
-  - Chronological ordering within categories
-  - "Last 30 days" and "Archive" views
-
-### 5. Content Contribution & Collaboration
-
-**FR-5.1: GitHub PR Workflow for Content**
-- **Description:** Contributors submit handbook text via GitHub pull requests
-- **User Value:** Community can contribute knowledge while maintaining quality gates
+**FR-6.1: GitHub PR Workflow for Direct Content**
+- **Description:** Contributors can also submit complete pages via GitHub pull requests (alternative to evidence submission)
+- **User Value:** Flexibility for contributors who prefer writing full pages vs submitting evidence
 - **Acceptance Criteria:**
   - Contributors fork repo, create branch, submit PR
   - PR template with contribution guidelines
   - Automated checks: markdown linting, link validation
   - Maintainer review and approval required
-  - Merge triggers automatic handbook rebuild
-- **Magic Thread:** 🌟 Community contributions make intelligence "compound"
+  - Merge triggers automatic rebuild
+- **Note:** Evidence submission (FR-6.1) is preferred for knowledge graph integration
 
-**FR-5.2: URL Submission for Sources**
+**FR-6.2: URL Submission for Sources**
 - **Description:** Community submits URLs for Auto-News to monitor
 - **User Value:** Crowdsourced source discovery expands coverage
 - **Acceptance Criteria:**
@@ -709,18 +872,9 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Approved URLs added to Auto-News source list
   - Feedback to submitter (approved/rejected/reason)
 
-**FR-5.3: Contributor Recognition**
-- **Description:** Track and display contributor names/avatars
-- **User Value:** Recognition motivates ongoing participation
-- **Acceptance Criteria:**
-  - "Contributors" page listing all contributors
-  - GitHub profile integration
-  - Contribution stats (PRs merged, URLs submitted, reviews)
-  - Optional: contributor badges/tiers
+### 7. Content Source Management
 
-### 6. Content Source Management
-
-**FR-6.1: Auto-News Source Configuration**
+**FR-7.1: Auto-News Source Configuration**
 - **Description:** Manage which sources Auto-News monitors for "Newly Discovered"
 - **User Value:** Focused on LLM-specific sources, not generic tech news
 - **Acceptance Criteria:**
@@ -729,7 +883,7 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Per-source enable/disable toggle
   - Source health monitoring (last successful pull, error rate)
 
-**FR-6.2: Curated Text Management for Basics/Advanced**
+**FR-7.2: Curated Text Management for Basics/Advanced**
 - **Description:** Manage library of curated sources (books, papers, canonical posts)
 - **User Value:** Authoritative, high-quality foundation content
 - **Acceptance Criteria:**
@@ -738,21 +892,11 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Version tracking for updated sources
   - Source prioritization (canonical vs supplementary)
 
-### 7. Quality Control & Moderation
+### 8. Quality Control & Moderation
 
-**FR-7.1: Content Approval Gates**
-- **Description:** Multi-stage approval prevents low-quality content from publication
-- **User Value:** Users trust the handbook as consistently high-quality
-- **Acceptance Criteria:**
-  - Stage 1: AI scoring (1-5, only 5s proceed)
-  - Stage 2: Human peer review (weekly approval)
-  - Stage 3: Automated checks (markdown, links, formatting)
-  - Stage 4: Maintainer approval for GitHub PRs
-- **Magic Thread:** 🌟 Quality gates deliver the "confidence" promise
-
-**FR-7.2: Content Correction & Updates**
+**FR-8.1: Content Correction & Updates**
 - **Description:** Fix errors, update outdated information, improve clarity
-- **User Value:** Handbook remains accurate and trustworthy over time
+- **User Value:** Cherry remains accurate and trustworthy over time
 - **Acceptance Criteria:**
   - Error reporting mechanism (GitHub issues)
   - Fast-track corrections for critical errors
@@ -760,18 +904,9 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Changelog for major page updates
   - Deprecated content marked clearly with alternatives
 
-**FR-7.3: Conflict Resolution for Contradictory Information**
-- **Description:** Handle cases where sources disagree
-- **User Value:** Users see multiple perspectives on controversial topics
-- **Acceptance Criteria:**
-  - Flag contradictions during synthesis
-  - Present multiple viewpoints with evidence
-  - Community discussion mechanism (future: comments)
-  - Expert endorsements for preferred approaches
+### 9. Vector Database & Semantic Search (Backend)
 
-### 8. Vector Database & Semantic Search (Backend)
-
-**FR-8.1: Vector Storage for Deduplication**
+**FR-9.1: Vector Storage for Deduplication**
 - **Description:** Store embeddings of all unique content chunks
 - **User Value:** Enables intelligent deduplication and similarity detection
 - **Acceptance Criteria:**
@@ -780,40 +915,28 @@ Organized by user-facing capabilities, each requirement connects to the core pro
   - Similarity search: cosine similarity threshold for duplicates
   - Efficient querying (under 100ms for similarity check)
 
-**FR-8.2: Semantic Search Foundation (Future)**
-- **Description:** Vector database enables future semantic search capabilities
-- **User Value:** Not in MVP, but foundation laid for Growth phase
-- **Acceptance Criteria:**
-  - Embeddings compatible with future search API
-  - Metadata supports faceted search
-  - Related content identification ready
-
 ---
 
 ## Acceptance Criteria Summary
 
 **MVP Launch Readiness:**
-- ✅ 6 Basics topics live with practical examples
-- ✅ 3 Advanced topics with deep content
-- ✅ 5 "Newly Discovered" categories populated (10+ items each)
 - ✅ Auto-News pipeline operational (ingestion → review → publish)
 - ✅ Jupyter Book deployed on GitHub Pages with custom domain
 - ✅ GitHub PR workflow documented and tested
-- ✅ 20+ active contributors onboarded
 - ✅ Content freshness: at least one "Newly Discovered" update per week
 
 ---
 
 ## Non-Functional Requirements
 
-These quality attributes ensure the handbook delivers on its promise of being the **most time-efficient way to stay sharp in the LLM world.**
+These quality attributes ensure Cherry delivers on its promise of being the **most time-efficient way to stay sharp in the LLM world.**
 
 ### Performance
 
 **Why it matters for THIS product:** Speed is one of the three core value promises. Users must be able to "catch up in minutes, not days."
 
 **NFR-P1: Page Load Performance**
-- Handbook pages load in under 2 seconds on 3G connection
+- Pages load in under 2 seconds on 3G connection
 - Time to First Contentful Paint (FCP): under 1 second
 - Largest Contentful Paint (LCP): under 2.5 seconds
 - Images and assets optimized for web delivery
@@ -829,7 +952,7 @@ These quality attributes ensure the handbook delivers on its promise of being th
 - AI scoring: complete scoring within 5 minutes of ingestion
 - Deduplication check: under 100ms per item (vector similarity)
 - AI synthesis: generate synthesized page within 10 minutes
-- Postgres → GitHub commit: batch of 50 items in under 2 minutes
+- Notion → GitHub commit: batch of 50 items in under 2 minutes
 - Jupyter Book rebuild: full site build under 5 minutes
 
 **NFR-P4: API Rate Limiting Compliance**
@@ -843,9 +966,9 @@ These quality attributes ensure the handbook delivers on its promise of being th
 **Why it matters for THIS product:** Content and user base expected to grow 5x within 6 months. Platform must scale gracefully.
 
 **NFR-S1: Content Volume Scaling**
-- Support 1,000+ handbook pages without performance degradation
-- Vector database handles 100,000+ embedded chunks efficiently
-- Postgres handles 10,000+ reviewed items
+- Support 1,000+ pages without performance degradation
+- **Graph DB** handles 10,000+ concept nodes with 100,000+ relationships efficiently
+- Vector database handles 100,000+ embedded chunks efficiently (deduplication only)
 - Jupyter Book builds scale to 1,000+ pages (under 10 minutes)
 
 **NFR-S2: Traffic Scaling**
@@ -867,7 +990,7 @@ These quality attributes ensure the handbook delivers on its promise of being th
 
 ### Reliability & Availability
 
-**Why it matters for THIS product:** Users must trust the handbook as a dependable reference. "Living knowledge base" requires consistent updates.
+**Why it matters for THIS product:** Users must trust Cherry as a dependable reference. "Living knowledge base" requires consistent updates.
 
 **NFR-R1: Public Site Uptime**
 - 99.5% uptime target (GitHub Pages SLA)
@@ -885,6 +1008,7 @@ These quality attributes ensure the handbook delivers on its promise of being th
 - No data loss during pipeline processing
 - Idempotent operations (re-running doesn't create duplicates)
 - Postgres backups: daily with 30-day retention
+- **Graph DB backups:** daily with 60-day retention (all three layers)
 - Vector database backups: weekly with 60-day retention
 - Git history serves as content version control
 
@@ -952,10 +1076,10 @@ These quality attributes ensure the handbook delivers on its promise of being th
 **Why it matters for THIS product:** Multiple systems must work together seamlessly for the automated pipeline to function.
 
 **NFR-I1: Auto-News Integration**
-- Clean API contract between Auto-News and Postgres
+- Clean API contract between Auto-News, Notion and Postgres
 - Structured data format for content items (JSON schema)
 - Error handling for malformed data
-- Version compatibility between Auto-News and handbook repo
+- Version compatibility between Auto-News and Cherry repo
 
 **NFR-I2: Notion Integration**
 - Notion API rate limits respected (3 requests/second)
@@ -969,13 +1093,22 @@ These quality attributes ensure the handbook delivers on its promise of being th
 - Automated commits use dedicated bot account
 - Webhook for deployment notifications
 
-**NFR-I4: Vector Database Integration**
+**NFR-I4: Graph Database Integration**
+- Three-layer architecture (Ontology, Evidence, Link) consistently maintained
+- Clean API for Writer Agent to query concepts, relationships, and evidence
+- Support for Neo4j or compatible graph database
+- Efficient graph traversal queries (under 500ms)
+- Backup/restore procedures for all three layers
+- Migration path if graph DB provider changes
+
+**NFR-I5: Vector Database Integration**
 - Pluggable architecture supports multiple providers (Milvus, ChromaDB, Pinecone)
 - Consistent embedding format across providers
 - Migration path between vector DB providers
 - Backup/restore procedures documented
+- **Note:** Vector DB used only for deduplication (Graph DB is primary knowledge store)
 
-**NFR-I5: Multi-LLM Provider Support**
+**NFR-I6: Multi-LLM Provider Support**
 - Graceful fallback between OpenAI, Gemini, Ollama
 - Configuration-driven provider selection
 - Cost tracking per provider
@@ -1045,9 +1178,9 @@ These quality attributes ensure the handbook delivers on its promise of being th
 
 ## References
 
-- **Project Overview:** C:\Users\Hankeol\Desktop\Dev\cherry-in-the-haystack\docs\project-overview.md
-- **Architecture Documentation:** C:\Users\Hankeol\Desktop\Dev\cherry-in-the-haystack\docs\architecture-api.md
-- **Auto-News Upstream Reference:** C:\Users\Hankeol\Desktop\Dev\cherry-in-the-haystack\bmad\docs\reference\auto-news-upstream\autonews-README.md
+- **Project Overview:** .\docs\project-overview.md
+- **Architecture Documentation:** .\docs\architecture-api.md
+- **Auto-News Upstream Reference:** .\docs\reference\auto-news-upstream\autonews-README.md
 
 ---
 
@@ -1071,7 +1204,7 @@ This workflow will:
 
 3. **Architecture Review**
    - Run: `/bmad:bmm:workflows:architecture`
-   - Validate technical decisions for Auto-News → Handbook transformation
+   - Validate technical decisions for Auto-News → Cherry transformation
    - Document integration points and data flows
 
 4. **Implementation**
@@ -1082,7 +1215,7 @@ This workflow will:
 
 ## Product Magic Summary
 
-**The LLM Engineering Handbook delivers "orientation in chaos" through:**
+**Cherry for LLM Engineers delivers "orientation in chaos" through:**
 
 🌟 **Comprehensive Coverage** - Auto-News aggregates from 10+ sources so users don't have to monitor dozens of channels
 
@@ -1090,7 +1223,7 @@ This workflow will:
 
 🌟 **MECE Knowledge Structure** - Logical navigation without gaps or overlaps makes users say "now I understand"
 
-🌟 **Living Updates** - Weekly "Newly Discovered" content keeps the handbook feeling alive and current
+🌟 **Living Updates** - Weekly "Newly Discovered" content keeps Cherry feeling alive and current
 
 🌟 **Community Intelligence** - 20+ contributors make collective knowledge compound instead of fade
 
