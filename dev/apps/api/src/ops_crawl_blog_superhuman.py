@@ -5,6 +5,10 @@ import copy
 import traceback
 from operator import itemgetter
 from datetime import datetime
+from typing import Dict, List, Optional
+from abc import ABC, abstractmethod
+
+from pydantic import BaseModel, Field
 
 from notion import NotionAgent
 from llm_agent import (
@@ -18,7 +22,320 @@ from ops_milvus import OperatorMilvus
 from ops_notion import OperatorNotion
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+
+ALL_SECTION_TITLE_PREFIXES = [
+    "PROMPT STATION",
+    "FRIDAY FUN",
+    "IN THE KNOW",
+    "FROM THE FRONTIER",
+    "TODAY IN AI",
+    "PRODUCTIVITY",
+    "PRESENTED BY",
+    "THE AI ACADEMY",
+    "GROW WITH US",
+    "SPONSORED BY",
+]
+TO_PARSE_SECTION_TITLES = [
+    "IN THE KNOW",
+    "FROM THE FRONTIER",
+    "TODAY IN AI",
+    "PRODUCTIVITY",
+    "THE AI ACADEMY",
+]
+
+
+class BlogSubItem(BaseModel):
+    """Model for a sub-item within a section (e.g., numbered items in TODAY IN AI)"""
+
+    index: int = Field(..., description="Index of the sub-item (1, 2, 3, ...)")
+    content: str = Field(..., description="Content of the sub-item")
+
+
+class BlogSection(BaseModel):
+    """Model for a single blog section"""
+
+    section_title: str = Field(
+        ..., description="Title of the section (e.g., 'IN THE KNOW')"
+    )
+    content: str = Field(..., description="Full content of the section")
+    sub_items: List[BlogSubItem] = Field(
+        default_factory=list,
+        description="Optional sub-items (for sections with numbered lists)",
+    )
+
+
+class BlogPost(BaseModel):
+    """Model for a parsed blog post with multiple sections"""
+
+    post_title: str = Field(..., description="Main title of the blog post")
+    post_url: str = Field(..., description="URL of the blog post")
+    published: str = Field(..., description="ISO format publication date")
+    published_key: str = Field(..., description="YYYY-MM-DD format date for grouping")
+    sections: List[BlogSection] = Field(
+        default_factory=list, description="List of sections in the post"
+    )
+
+
+def get_text_with_links(element: Tag, separator: str = "\n") -> str:
+    """
+    Extract text from HTML element, converting links to markdown format
+
+    @param element: BeautifulSoup Tag element
+    @param separator: String to join text segments (default: newline)
+    @return: Text with markdown-formatted links [text](url)
+    """
+    parts = []
+
+    # Process all direct children and their descendants
+    for child in element.children:
+        if isinstance(child, str):
+            # Direct text node
+            text = child.strip()
+            if text:
+                parts.append(text)
+        elif hasattr(child, "name"):
+            # Element node - recursively process
+            part_text = _process_element_for_markdown(child)
+            if part_text:
+                parts.append(part_text)
+
+    return separator.join(parts)
+
+
+def _process_element_for_markdown(element: Tag) -> str:
+    """
+    Recursively process element and convert to markdown
+
+    @param element: BeautifulSoup Tag element
+    @return: Text with markdown-formatted links
+    """
+    # Skip style and script tags
+    if element.name in ["style", "script"]:
+        return ""
+
+    if element.name == "a":
+        # Link element - convert to markdown
+        text = element.get_text(strip=True)
+        href = element.get("href", "")
+        if text and href:
+            return f"[{text}]({href})"
+        else:
+            return text
+    else:
+        # Other element - recursively process children
+        parts = []
+        for child in element.children:
+            if isinstance(child, str):
+                text = child.strip()
+                if text:
+                    parts.append(text)
+            elif hasattr(child, "name"):
+                child_text = _process_element_for_markdown(child)
+                if child_text:
+                    parts.append(child_text)
+        return " ".join(parts)
+
+
+class SectionParser(ABC):
+    """Abstract base class for section-specific parsers"""
+
+    @abstractmethod
+    def parse(
+        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+    ) -> BlogSection:
+        """
+        Parse content divs for a specific section
+
+        @param soup: BeautifulSoup object of the entire page
+        @param section_title: Title of the section
+        @param content_divs: List of content div tags for this section
+        @return: BlogSection with parsed content
+        """
+        pass
+
+
+class DefaultSectionParser(SectionParser):
+    """Default parser for sections without special handling"""
+
+    def parse(
+        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+    ) -> BlogSection:
+        """
+        Parse content using default logic
+
+        Uses get_text_with_links to preserve links as markdown [text](url)
+        """
+        # Use get_text_with_links to preserve links as markdown
+        content = "\n\n".join(
+            [get_text_with_links(div, separator="\n") for div in content_divs]
+        )
+
+        # Remove section title if it appears at the beginning
+        lines = content.split("\n")
+        cleaned_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            # Skip section title line
+            if stripped.upper() == section_title.upper():
+                continue
+            # Skip empty lines at the start
+            if not stripped and not cleaned_lines:
+                continue
+            cleaned_lines.append(stripped)
+
+        cleaned_content = "\n".join(cleaned_lines)
+
+        return BlogSection(
+            section_title=section_title, content=cleaned_content, sub_items=[]
+        )
+
+
+class TodayInAIParser(SectionParser):
+    """Specialized parser for TODAY IN AI section that extracts numbered items"""
+
+    def parse(
+        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+    ) -> BlogSection:
+        """Parse TODAY IN AI section and extract numbered items"""
+        # Get full text from all content divs with markdown links
+        full_text = "\n\n".join(
+            [get_text_with_links(div, separator="\n") for div in content_divs]
+        )
+
+        # Remove image captions (text starting with "Click to see" or "Source:")
+        # These are typically on the first line before numbered items
+        lines = full_text.split("\n")
+        cleaned_lines = []
+
+        for line in lines:
+            line_stripped = line.strip()
+            # Skip image caption lines
+            if (
+                line_stripped.startswith("Click to ")
+                or line_stripped.startswith("Source:")
+                or (len(line_stripped) < 100 and "Source:" in line_stripped)
+            ):
+                continue
+            cleaned_lines.append(line)
+
+        cleaned_text = "\n".join(cleaned_lines)
+
+        # Extract numbered items (1. 2. 3. etc.)
+        numbered_pattern = re.compile(
+            r"^(\d+)\.\s+(.+?)(?=^\d+\.\s+|\Z)", re.MULTILINE | re.DOTALL
+        )
+        matches = numbered_pattern.findall(cleaned_text)
+
+        sub_items = []
+        for index_str, content in matches:
+            index = int(index_str)
+            # Clean up the content (normalize whitespace but preserve markdown links)
+            cleaned_content = re.sub(r"\s+", " ", content.strip())
+            sub_items.append(BlogSubItem(index=index, content=cleaned_content))
+
+        return BlogSection(
+            section_title=section_title, content=cleaned_text, sub_items=sub_items
+        )
+
+
+class ProductivityParser(SectionParser):
+    """Specialized parser for PRODUCTIVITY section that extracts tool entries"""
+
+    def parse(
+        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+    ) -> BlogSection:
+        """
+        Parse PRODUCTIVITY section and extract individual tool entries
+
+        Strategy: Merge multi-line tool entries, then split by colon
+        - Tool entries span multiple lines: emoji line + name line + description line
+        - More robust than emoji-only matching
+        - Stops at PROMPT STATION or other section markers
+        """
+        # Get full text from all content divs with markdown links
+        full_text = "\n\n".join(
+            [get_text_with_links(div, separator="\n") for div in content_divs]
+        )
+
+        lines = full_text.split("\n")
+
+        # First pass: collect relevant lines and merge multi-line entries
+        merged_lines = []
+        current_entry = []
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Skip empty lines
+            if not stripped:
+                continue
+
+            # Skip section title line first (before checking section markers)
+            if stripped.upper() == section_title.upper():
+                continue
+
+            # Stop at other section markers (but not the current section title)
+            if any(
+                stripped.upper().startswith(prefix.upper())
+                for prefix in ALL_SECTION_TITLE_PREFIXES
+            ):
+                print(f"[ProductivityParser] Stopping at section marker: {stripped}")
+                # Save current entry if exists
+                if current_entry:
+                    merged_lines.append(" ".join(current_entry))
+                break
+
+            # Skip header lines like "5 New & Trending AI Tools"
+            if re.match(r"^\d+\s+(New|Trending|AI Tools)", stripped, re.IGNORECASE):
+                continue
+            if re.match(r"^(New & Trending|AI Tools)", stripped, re.IGNORECASE):
+                continue
+
+            # Skip footer lines like "* indicates a promoted tool"
+            if re.match(r"^\*\s*indicates", stripped, re.IGNORECASE):
+                continue
+
+            # Skip emoji-only lines (these are part of tool entries)
+            if re.fullmatch(
+                r"[\U0001F300-\U0001F9FF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF\U00002600-\U000027BF\U0001F900-\U0001F9FF\U0001F1E0-\U0001F1FF\uFE0F\u200D\s]+",
+                stripped,
+            ):
+                continue
+
+            # If line has colon, it's likely the description part
+            if ":" in stripped:
+                # Merge with accumulated parts
+                current_entry.append(stripped)
+                merged_lines.append(" ".join(current_entry))
+                current_entry = []
+            else:
+                # This is likely a tool name, accumulate it
+                current_entry.append(stripped)
+
+        # Extract tool entries from merged lines
+        sub_items = []
+        for index, line in enumerate(merged_lines, start=1):
+            # Split by first colon
+            parts = line.split(":", 1)
+            if len(parts) != 2:
+                continue
+
+            name_part = parts[0].strip()
+            desc_part = parts[1].strip()
+
+            # Create content as "Tool Name: Description"
+            full_content = f"{name_part}: {desc_part}"
+
+            sub_items.append(BlogSubItem(index=index, content=full_content))
+
+        # Create cleaned content (join merged lines)
+        cleaned_text = "\n".join(merged_lines)
+
+        return BlogSection(
+            section_title=section_title, content=cleaned_text, sub_items=sub_items
+        )
 
 
 class OperatorCrawlBlogSuperhuman(OperatorBase):
@@ -33,6 +350,22 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
     - ranking
     - publish
     """
+
+    def __init__(self):
+        super().__init__()
+
+        # Parser registry: maps section titles to their specialized parsers
+        self.section_parsers: Dict[str, SectionParser] = {
+            "TODAY IN AI": TodayInAIParser(),
+            "PRODUCTIVITY": ProductivityParser(),
+        }
+
+        # Default parser for sections without specialized handling
+        self.default_parser = DefaultSectionParser()
+
+    def _get_parser_for_section(self, section_title: str) -> SectionParser:
+        """Get the appropriate parser for a section, or default if not found"""
+        return self.section_parsers.get(section_title, self.default_parser)
 
     def _fetch_html(self, url):
         """
@@ -67,27 +400,39 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             print(f"[ERROR] Failed to fetch URL: {url}, error: {e}")
             return None
 
-    def _extract_section_content(self, soup, section_title):
+    def _extract_section_content_divs(self, soup, section_title) -> Optional[List[Tag]]:
         """
-        Extract content from a specific section (like "IN THE KNOW") using DOM structure
+        Extract content divs from a specific section (like "IN THE KNOW") using DOM structure
 
         @param soup: BeautifulSoup object
         @param section_title: Section title to find (e.g., "IN THE KNOW")
-        @return: Extracted content text or None
+        @return: List of content div tags or None
         """
-        print(f"[extract_section_content] Extracting: {section_title}")
+        print(f"[extract_section_content_divs] Extracting: {section_title}")
 
-        # Find the section by text
-        search_result = soup.find(string=re.compile(section_title, re.IGNORECASE))
+        # Strategy 1: Find h5 tag directly with exact match
+        h5_tag = None
+        all_h5 = soup.find_all("h5")
+        for h5 in all_h5:
+            if h5.get_text(strip=True).upper() == section_title.upper():
+                h5_tag = h5
+                break
 
-        if not search_result:
-            print(f"[extract_section_content] Section '{section_title}' not found")
-            return None
-
-        # Find the h5 parent tag
-        h5_tag = search_result.find_parent("h5")
+        # Strategy 2: Fallback to regex search within h5 tags
         if not h5_tag:
-            print(f"[extract_section_content] No h5 parent found for '{section_title}'")
+            for h5 in all_h5:
+                if re.search(section_title, h5.get_text(strip=True), re.IGNORECASE):
+                    h5_tag = h5
+                    break
+
+        # Strategy 3: Original method - find by string and traverse up
+        if not h5_tag:
+            search_result = soup.find(string=re.compile(section_title, re.IGNORECASE))
+            if search_result:
+                h5_tag = search_result.find_parent("h5")
+
+        if not h5_tag:
+            print(f"[extract_section_content_divs] Section '{section_title}' not found")
             return None
 
         # Navigate to h5.parent.parent (the container for this section's title)
@@ -95,72 +440,100 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
         level2 = level1.parent if level1 else None  # div wrapping that div
 
         if not level2:
-            print(f"[extract_section_content] Cannot reach h5.parent.parent")
+            print(f"[extract_section_content_divs] Cannot reach h5.parent.parent")
             return None
 
         # Get all next siblings - content is in these siblings
         content_divs = []
         current = level2
 
+        # First, check if level2 itself contains content after the h5 (for sections like PRODUCTIVITY)
+        # where content is in the same div as the h5 title
+        level2_text_after_h5 = []
+        found_h5 = False
+        for child in level2.descendants:
+            if child == h5_tag:
+                found_h5 = True
+                continue
+            if found_h5 and isinstance(child, str) and child.strip():
+                level2_text_after_h5.append(child.strip())
+
+        # If there's significant content in level2 after h5, include level2 itself
+        combined_text = " ".join(level2_text_after_h5)
+        if len(combined_text) > 50:  # Threshold for meaningful content
+            print(
+                f"[extract_section_content_divs] Found content in same div as h5 ({len(combined_text)} chars)"
+            )
+            content_divs.append(level2)
+
+        # Then check next siblings
         while current:
             current = current.find_next_sibling()
             if not current or not hasattr(current, "name") or not current.name:
                 break
 
-            text = current.get_text(strip=True)
-
             # Check if this sibling contains the next section (h5 tag)
             # If so, we've reached the end of current section
             next_h5 = current.find("h5")
             if next_h5:
-                # Reached next section
+                # Special case: if current sibling has content before the next h5,
+                # we should still include it (happens when multiple sections share a container)
+                # For now, just stop at next h5
                 break
 
-            # This is content for our section
-            content_divs.append(text)
+            # This is content for our section (store the Tag, not text)
+            content_divs.append(current)
 
             # Usually 1-2 content divs per section
-            if len(content_divs) >= 2:
+            if len(content_divs) >= 3:  # Increased from 2 to 3 to be safe
                 break
 
         if content_divs:
-            content = "\n\n".join(content_divs)
+            total_chars = sum(len(div.get_text(strip=True)) for div in content_divs)
             print(
-                f"[extract_section_content] Extracted {len(content_divs)} content divs, {len(content)} chars"
+                f"[extract_section_content_divs] Extracted {len(content_divs)} content divs, {total_chars} chars"
             )
-            return content
+            return content_divs
 
-        print(f"[extract_section_content] No content found for '{section_title}'")
+        print(f"[extract_section_content_divs] No content found for '{section_title}'")
         return None
 
-    def _parse_blog_post(self, url, sections_to_extract=None):
+    def _parse_blog_post(self, url, sections_to_extract=None) -> Optional[BlogPost]:
         """
-        Parse a blog post and extract content from specified sections
+        Parse a blog post and extract content from specified sections using specialized parsers
 
         @param url: URL of the blog post
-        @param sections_to_extract: List of section titles to extract (default: ["IN THE KNOW", "FROM THE FRONTIER", "TODAY IN AI"])
-        @return: Dictionary of {section_title: content}
+        @param sections_to_extract: List of section titles to extract (default: TO_PARSE_SECTION_TITLES)
+        @return: BlogPost model with sections (including sub-items for applicable sections)
         """
         if sections_to_extract is None:
-            sections_to_extract = ["IN THE KNOW", "FROM THE FRONTIER", "TODAY IN AI"]
+            sections_to_extract = TO_PARSE_SECTION_TITLES
 
         print(f"[parse_blog_post] Parsing: {url}")
 
         soup = self._fetch_html(url)
         if not soup:
-            return {}
+            return None
 
-        extracted_content = {}
-
+        # Extract sections using appropriate parsers
+        sections = []
         for section_title in sections_to_extract:
-            content = self._extract_section_content(soup, section_title)
-            if content:
-                extracted_content[section_title] = content
+            content_divs = self._extract_section_content_divs(soup, section_title)
+            if content_divs:
+                # Get the appropriate parser for this section
+                parser = self._get_parser_for_section(section_title)
 
-        content = ""
-        for key, value in extracted_content.items():
-            content += f"##{key}\n{value}\n\n"
+                # Parse the section using the specialized parser
+                blog_section = parser.parse(soup, section_title, content_divs)
+                sections.append(blog_section)
 
+                # Log if sub-items were found
+                if blog_section.sub_items:
+                    print(
+                        f"[parse_blog_post] Section '{section_title}' has {len(blog_section.sub_items)} sub-items"
+                    )
+
+        # Extract publication date
         created_at = soup.find(
             "span", string=re.compile(r"([A-Z]?[a-z]+)\s\d{2},\s\d{4}")
         ).get_text(strip=True)
@@ -170,16 +543,22 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             "%Y-%m-%d"
         )  # YYYY-MM-DD (same as ops_rss.py published_key)
 
-        return {
-            "title": soup.title.string if soup.title else "No title",
-            "content": content,
-            "published": published,
-            "published_key": published_key,
-        }
+        # Get post title
+        post_title = soup.title.string if soup.title else "No title"
+
+        return BlogPost(
+            post_title=post_title,
+            post_url=url,
+            published=published,
+            published_key=published_key,
+            sections=sections,
+        )
 
     def pull(self):
         """
         Pull Superhuman Blog Posts
+        Each section within a post becomes a separate article
+        Sections with sub-items (e.g., TODAY IN AI) are further split into individual articles per sub-item
 
         @return pages <id, page>
         """
@@ -200,34 +579,86 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             if href:
                 valid_links.append(base_url + href)
 
-        # 3. Get content from latest blog posts
-        articles: list[dict] = []
+        # 3. Get content from latest blog posts and create individual articles
+        articles: List[dict] = []
         post_count = min(3, len(valid_links))
-        for link in valid_links[:post_count]:
-            extracted_content = self._parse_blog_post(link)
-            hash_key = f"Superhuman Blog_{extracted_content['title']}_{link}".encode(
-                "utf-8"
-            )
-            article = {
-                "id": utils.hashcode_md5(hash_key),
-                "source": "Superhuman Blog",
-                "list_name": "Superhuman Blog",
-                "title": extracted_content["title"],
-                "url": link,
-                "created_time": datetime.now().isoformat(),
-                "summary": extracted_content["content"],  # TODO: currently no summary
-                "content": extracted_content["content"],
-                "tags": [],  # TODO: currently no tags
-                "published": extracted_content["published"],
-                "published_key": extracted_content["published_key"],
-            }
-            articles.append(article)
 
-        pages: dict[str, dict] = {}
+        for link in valid_links[:post_count]:
+            blog_post = self._parse_blog_post(
+                url=link, sections_to_extract=TO_PARSE_SECTION_TITLES
+            )
+
+            if not blog_post:
+                print(f"[WARNING] Failed to parse blog post: {link}")
+                continue
+
+            # Process each section
+            for section in blog_post.sections:
+                # If section has sub-items, create individual articles for each sub-item
+                if section.sub_items:
+                    print(
+                        f"[INFO] Section '{section.section_title}' has {len(section.sub_items)} sub-items, creating individual articles"
+                    )
+
+                    for sub_item in section.sub_items:
+                        # Create unique hash key including sub-item index
+                        hash_key = f"Superhuman Blog_{blog_post.post_title}_{section.section_title}_#{sub_item.index}_{link}".encode(
+                            "utf-8"
+                        )
+
+                        # Create title with sub-item index
+                        article_title = f"{blog_post.post_title} - {section.section_title} #{sub_item.index}"
+
+                        article = {
+                            "id": utils.hashcode_md5(hash_key),
+                            "source": "Superhuman Blog",
+                            "list_name": "Superhuman Blog",
+                            "post_title": blog_post.post_title,  # Original post title
+                            "section_title": section.section_title,  # Section title
+                            "sub_item_index": sub_item.index,  # Sub-item index
+                            "title": article_title,  # Combined title with sub-item index
+                            "url": link,
+                            "created_time": datetime.now().isoformat(),
+                            "summary": sub_item.content,  # Sub-item content (will be summarized later)
+                            "content": sub_item.content,  # Sub-item content only
+                            "tags": [],  # TODO: currently no tags
+                            "published": blog_post.published,
+                            "published_key": blog_post.published_key,
+                        }
+                        articles.append(article)
+                        print(f"[INFO] Created sub-item article: {article_title}")
+
+                else:
+                    # No sub-items: create article for the whole section
+                    hash_key = f"Superhuman Blog_{blog_post.post_title}_{section.section_title}_{link}".encode(
+                        "utf-8"
+                    )
+                    article_title = f"{blog_post.post_title} - {section.section_title}"
+
+                    article = {
+                        "id": utils.hashcode_md5(hash_key),
+                        "source": "Superhuman Blog",
+                        "list_name": "Superhuman Blog",
+                        "post_title": blog_post.post_title,  # Original post title
+                        "section_title": section.section_title,  # Section title
+                        "title": article_title,  # Combined title for display
+                        "url": link,
+                        "created_time": datetime.now().isoformat(),
+                        "summary": section.content,  # Section content (will be summarized later)
+                        "content": section.content,  # Section content
+                        "tags": [],  # TODO: currently no tags
+                        "published": blog_post.published,
+                        "published_key": blog_post.published_key,
+                    }
+                    articles.append(article)
+                    print(f"[INFO] Created article: {article_title}")
+
+        pages: Dict[str, dict] = {}
         for article in articles:
             page_id = article["id"]
             pages[page_id] = article
 
+        print(f"[INFO] Total articles created: {len(pages)}")
         return pages
 
     def dedup(self, extractedPages, target="inbox"):
