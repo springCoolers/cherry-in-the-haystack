@@ -912,6 +912,34 @@ CREATE TABLE knowledge_verification_contributors (
 
 CREATE INDEX idx_contributors_active ON knowledge_verification_contributors(active);
 CREATE INDEX idx_contributors_contributions ON knowledge_verification_contributors(contributions_count DESC);
+
+-- 6. 문단 임베딩 테이블 (중복제거 + 시맨틱 검색용)
+
+CREATE TABLE paragraph_embeddings (
+    id BIGSERIAL PRIMARY KEY,
+    chunk_id BIGINT REFERENCES paragraph_chunks(id) ON DELETE CASCADE,
+    book_id BIGINT REFERENCES books(id),
+    
+    -- 벡터 임베딩 (1536차원)
+    embedding vector(1536) NOT NULL,
+    
+    -- 검색 성능용 비정규화
+    body_text TEXT NOT NULL,
+    
+    -- 임베딩 메타데이터
+    model TEXT DEFAULT 'text-embedding-3-small',
+    embedding_cost_cents NUMERIC(10, 4),
+    
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_embeddings_vector ON paragraph_embeddings
+    USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 100);
+
+CREATE INDEX idx_embeddings_chunk ON paragraph_embeddings(chunk_id);
+CREATE INDEX idx_embeddings_book ON paragraph_embeddings(book_id);
+
 ```
 
 ### Concept Layer (Graph Database)
