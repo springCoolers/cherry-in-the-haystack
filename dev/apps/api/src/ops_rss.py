@@ -158,6 +158,10 @@ class OperatorRSS(OperatorBase):
             "name": "Reddit MachineLearning Feed",  # 원하는 이름
             "url": "https://www.reddit.com/r/machinelearningnews/.rss"  # 실제 RSS URL
         },
+        {
+            "name": "AI Newsletter - elvis saravia",
+            "url": "https://nlp.elvissaravia.com/feed"
+        }
         ]
 
         # 3. Fetch articles from rss list
