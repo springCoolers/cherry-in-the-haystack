@@ -827,161 +827,87 @@ CREATE INDEX idx_notion_backup_backup_timestamp ON notion_news_backup(backup_tim
 #### Evidence Layer Tables (Basics/Advanced)
 
 ```sql
--- Document metadata for Basics/Advanced ingestion
-CREATE TABLE documents (
-  id BIGSERIAL PRIMARY KEY,
-  document_type TEXT NOT NULL,  -- 'book', 'blog', 'paper', 'video_transcript'
-  source_identifier TEXT NOT NULL,  -- Book title, blog URL, paper DOI, video ID
-  source_url TEXT,
-  author TEXT,
-  publication_date DATE,
-
-  -- Processing metadata
-  processing_status TEXT CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')) DEFAULT 'pending',
-  total_paragraphs INTEGER,
-  paragraphs_processed INTEGER DEFAULT 0,
-
-  -- Semantic deduplication fields (inspired by auto-news benchmarking)
-  simhash64 BIGINT,  -- Fast approximate duplicate detection
-  cluster_id TEXT,   -- Semantic cluster assignment
-  is_representative BOOLEAN DEFAULT FALSE,  -- Representative doc in cluster
-
-  -- LLM judge scores (for prioritization)
-  judge_originality NUMERIC(3, 2),  -- 1.00 - 5.00
-  judge_depth NUMERIC(3, 2),
-  judge_technical_accuracy NUMERIC(3, 2),
-  judge_weighted_total NUMERIC(3, 2),
-
-  -- Cost tracking
-  llm_tokens_used INTEGER DEFAULT 0,
-  llm_cost_cents NUMERIC(10, 4) DEFAULT 0,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+-- 1. 도큐먼트 정보 테이블
+CREATE TABLE books (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT,
+    source_path TEXT,
+    
+    -- 작업 상태 추적
+    processing_status TEXT 
+        CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')) 
+        DEFAULT 'pending',
+    total_paragraphs INTEGER,
+    paragraphs_processed INTEGER DEFAULT 0,
+    
+    -- LLM 비용 추적
+    llm_tokens_used INTEGER DEFAULT 0,
+    llm_cost_cents NUMERIC(10, 4) DEFAULT 0,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_documents_status ON documents(processing_status);
-CREATE INDEX idx_documents_cluster ON documents(cluster_id);
-CREATE INDEX idx_documents_simhash ON documents(simhash64);
+CREATE INDEX idx_books_status ON books(processing_status);
 
--- Evidence paragraphs extracted from documents
-CREATE TABLE evidence_paragraphs (
-  id BIGSERIAL PRIMARY KEY,
-  document_id BIGINT REFERENCES documents(id) ON DELETE CASCADE,
 
-  -- Paragraph content
-  paragraph_text TEXT NOT NULL,
-  paragraph_index INTEGER NOT NULL,  -- Position in document (0-indexed)
-
-  -- Extracted concept (main idea)
-  extracted_concept TEXT,  -- Noun phrase representing main idea
-  extraction_confidence NUMERIC(3, 2),  -- 0.00 - 1.00
-
-  -- Location metadata
-  page_number INTEGER,
-  section_title TEXT,
-
-  -- Semantic deduplication
-  paragraph_hash TEXT NOT NULL,  -- SHA256 for exact duplicate detection
-  simhash64 BIGINT,  -- Fast similarity detection
-
-  -- Quality scoring
-  importance_score NUMERIC(3, 2),  -- 1.00 - 5.00 (from LLM judge)
-  sampling_weight NUMERIC(3, 2),  -- For soft deduplication sampling
-
-  -- Cost tracking
-  llm_tokens_used INTEGER DEFAULT 0,
-  llm_cost_cents NUMERIC(10, 4) DEFAULT 0,
-  llm_provider TEXT,
-
-  created_at TIMESTAMPTZ DEFAULT NOW()
+-- 2. 문단(청크) 테이블
+CREATE TABLE paragraph_chunks (
+    id BIGSERIAL PRIMARY KEY,
+    book_id BIGINT REFERENCES books(id),
+    page_number INT,
+    paragraph_index INT,
+    body_text TEXT NOT NULL,
+    
+    -- 중복 제거용
+    paragraph_hash TEXT,
+    simhash64 BIGINT,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_evidence_document ON evidence_paragraphs(document_id);
-CREATE INDEX idx_evidence_concept ON evidence_paragraphs(extracted_concept);
-CREATE INDEX idx_evidence_hash ON evidence_paragraphs(paragraph_hash);
-CREATE INDEX idx_evidence_simhash ON evidence_paragraphs(simhash64);
-CREATE INDEX idx_evidence_importance ON evidence_paragraphs(importance_score DESC);
+CREATE INDEX idx_paragraph_book ON paragraph_chunks(book_id);
+CREATE INDEX idx_paragraph_hash ON paragraph_chunks(paragraph_hash);
+CREATE INDEX idx_paragraph_simhash ON paragraph_chunks(simhash64);
 
--- Evidence metadata (additional context)
-CREATE TABLE evidence_metadata (
-  id BIGSERIAL PRIMARY KEY,
-  evidence_id BIGINT REFERENCES evidence_paragraphs(id) ON DELETE CASCADE,
 
-  -- Extraction details
-  extract_type TEXT,  -- 'core_summary', 'supporting_detail', 'counterpoint', 'example'
-  keywords TEXT[],
-  entities JSONB,  -- Named entities extracted (person, organization, concept)
-
-  -- Relations to handbook structure
-  handbook_topic TEXT,  -- 'rag', 'prompting', 'fine-tuning', etc.
-  handbook_subtopic TEXT,
-
-  created_at TIMESTAMPTZ DEFAULT NOW()
+-- 3. 아이디어 묶음 (중복 제거용)
+CREATE TABLE idea_groups (
+    id BIGSERIAL PRIMARY KEY,
+    canonical_idea_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_metadata_evidence ON evidence_metadata(evidence_id);
-CREATE INDEX idx_metadata_topic ON evidence_metadata(handbook_topic);
 
--- Pipeline run tracking
-CREATE TABLE pipeline_runs (
-  id BIGSERIAL PRIMARY KEY,
-  pipeline_name TEXT NOT NULL,  -- 'notion_backup', 'evidence_ingestion', 'writer_agent'
-  run_status TEXT CHECK (run_status IN ('running', 'success', 'failed')) DEFAULT 'running',
-
-  items_processed INTEGER DEFAULT 0,
-  items_failed INTEGER DEFAULT 0,
-
-  started_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
-
-  -- Cost tracking
-  total_llm_tokens INTEGER DEFAULT 0,
-  total_cost_cents NUMERIC(10, 4) DEFAULT 0,
-
-  error_message TEXT
+-- 4. 문단에서 뽑은 핵심 아이디어 테이블
+CREATE TABLE key_ideas (
+    id BIGSERIAL PRIMARY KEY,
+    chunk_id BIGINT REFERENCES paragraph_chunks(id),
+    book_id BIGINT REFERENCES books(id),
+    core_idea_text TEXT NOT NULL,
+    idea_group_id BIGINT REFERENCES idea_groups(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_pipeline_runs_name ON pipeline_runs(pipeline_name);
-CREATE INDEX idx_pipeline_runs_started ON pipeline_runs(started_at DESC);
+CREATE INDEX idx_keyideas_chunk ON key_ideas(chunk_id);
+CREATE INDEX idx_keyideas_book ON key_ideas(book_id);
+CREATE INDEX idx_keyideas_group ON key_ideas(idea_group_id);
 
--- Failed items (dead-letter queue)
-CREATE TABLE failed_items (
-  id BIGSERIAL PRIMARY KEY,
-  pipeline_run_id BIGINT REFERENCES pipeline_runs(id) ON DELETE SET NULL,
 
-  item_type TEXT NOT NULL,  -- 'document', 'paragraph', 'notion_page'
-  item_id TEXT NOT NULL,
-
-  stage TEXT NOT NULL,  -- 'chunking', 'extraction', 'concept_matching', 'graph_update'
-  failure_reason TEXT,
-  error_details JSONB,
-
-  attempt_count INTEGER DEFAULT 1,
-  last_attempted TIMESTAMPTZ DEFAULT NOW(),
-  resolved BOOLEAN DEFAULT FALSE,
-
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_failed_items_resolved ON failed_items(resolved, created_at DESC);
-CREATE INDEX idx_failed_items_stage ON failed_items(stage);
-
--- Knowledge verification contributors (community work)
+-- 5. 지식 검증 기여자 테이블
 CREATE TABLE knowledge_verification_contributors (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  active BOOLEAN DEFAULT TRUE,
-
-  -- Additional metadata
-  email TEXT,
-  github_username TEXT,
-  contributions_count INTEGER DEFAULT 0,
-  joined_at TIMESTAMPTZ DEFAULT NOW(),
-  last_contribution_at TIMESTAMPTZ,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    active BOOLEAN DEFAULT TRUE,
+    
+    email TEXT,
+    github_username TEXT,
+    contributions_count INTEGER DEFAULT 0,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    last_contribution_at TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_contributors_active ON knowledge_verification_contributors(active);
