@@ -1223,7 +1223,7 @@ Notion serves as the primary workspace for Newly Discovered content. Auto-News w
       "type": "title",
       "title": [{"text": {"content": "GPT-4.5 Released with 50% Cost Reduction"}}]
     },
-    "Summary": {
+    "AI summary": {
       "type": "rich_text",
       "rich_text": [{"text": {"content": "OpenAI announced GPT-4.5..."}}]
     },
@@ -1232,14 +1232,14 @@ Notion serves as the primary workspace for Newly Discovered content. Auto-News w
       "select": {"name": "5"}
     },
     "Category": {
-      "type": "select",
-      "select": {"name": "Model Updates"}
+      "type": "multi_select",
+      "multi_select": [{"name": "Model Updates"}]
     },
-    "Source": {
+    "source": {
       "type": "select",
       "select": {"name": "RSS"}
     },
-    "Source URL": {
+    "URL": {
       "type": "url",
       "url": "https://openai.com/blog/gpt-4.5"
     },
@@ -1251,7 +1251,7 @@ Notion serves as the primary workspace for Newly Discovered content. Auto-News w
         {"name": "Cost Optimization"}
       ]
     },
-    "Review Status": {
+    "Status": {
       "type": "status",
       "status": {"name": "Pending"}
     },
@@ -1259,13 +1259,36 @@ Notion serves as the primary workspace for Newly Discovered content. Auto-News w
       "type": "people",
       "people": []
     },
-    "Created At": {
+    "Created time": {
       "type": "created_time",
       "created_time": "2025-11-08T12:00:00.000Z"
     },
-    "Last Edited": {
-      "type": "last_edited_time",
-      "last_edited_time": "2025-11-08T15:30:00.000Z"
+    "Why it matters": {
+      "type": "rich_text",
+      "rich_text": [{"text": {"content": "Explains the significance of this content..."}}]
+    },
+    "Description": {
+      "type": "rich_text",
+      "rich_text": [{"text": {"content": "Detailed description of the content..."}}]
+    },
+    "List_Name": {
+      "type": "multi_select",
+      "multi_select": [{"name": "List 1"}]
+    },
+    "Rating": {
+      "type": "number",
+      "number": 4.5
+    },
+    "Relevant Score": {
+      "type": "number",
+      "number": 8.7
+    },
+    "Topic": {
+      "type": "multi_select",
+      "multi_select": [
+        {"name": "LLM"},
+        {"name": "API"}
+      ]
     }
   },
   "page_content": {
