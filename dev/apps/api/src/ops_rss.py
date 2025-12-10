@@ -106,65 +106,19 @@ class OperatorRSS(OperatorBase):
         print("#####################################################")
         print("# Pulling RSS")
         print("#####################################################")
-        # 1. prepare notion agent and db connection
-        # notion_api_key = os.getenv("NOTION_TOKEN")
-        # notion_agent = NotionAgent(notion_api_key)
-        # op_notion = OperatorNotion()
-
-        # # 2. get inbox database indexes
-        # # db_index_id = os.getenv("NOTION_DATABASE_ID_INDEX_INBOX")
-        # db_index_id = op_notion.get_index_inbox_dbid()
-
-        # db_pages = utils.get_notion_database_pages_inbox(
-        #     notion_agent, db_index_id, "RSS")
-        # print(f"The database pages founded: {db_pages}")
-
-        # # 2. get latest two databases and collect rss list
-        # db_pages = db_pages[:2]
-        # print(f"The latest 2 databases: {db_pages}")
-
-        # rss_list = []
-
-        # for db_page in db_pages:
-        #     database_id = db_page["database_id"]
-        #     print(f"Pulling from database_id: {database_id}...")
-
-        #     # The api will return the pages and sort by "created time" asc
-        #     # format dict(<page_id, page>)
-        #     rss = notion_agent.queryDatabase_RSSList(database_id)
-
-        #     rss_list.extend(rss)
-
-        # # 3. Fetch articles from rss list
-        # pages = {}
-
-        # for rss in rss_list:
-        #     name = rss["name"]
-        #     url = rss["url"]
-        #     print(f"Fetching RSS: {name}, url: {url}")
-
-        #     articles = self._fetch_articles(name, url, count=3)
-        #     print(f"articles: {articles}")
-
-        #     for article in articles:
-        #         page_id = article["id"]
-
-        #         pages[page_id] = article
-
-        # return pages
         
         rss_list = [
-        {
-            "name": "Reddit MachineLearning Feed",  # 원하는 이름
-            "url": "https://www.reddit.com/r/machinelearningnews/.rss"  # 실제 RSS URL
-        },
-        {
-            "name": "AI Newsletter - elvis saravia",
-            "url": "https://nlp.elvissaravia.com/feed"
-        }
+            {
+                "name": "Reddit MachineLearning Feed",  # 원하는 이름
+                "url": "https://www.reddit.com/r/machinelearningnews/.rss"  # 실제 RSS URL
+            },
+            {
+                "name": "AI Newsletter - elvis saravia",
+                "url": "https://nlp.elvissaravia.com/feed"
+            }
         ]
 
-        # 3. Fetch articles from rss list
+        # Fetch articles from rss list
         pages = {}
 
         for rss in rss_list:
