@@ -137,8 +137,15 @@ def urlGet(url, timeout=3):
     if not url:
         return False, {}
 
+    # Add headers to avoid being blocked by sites like Reddit
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
     try:
-        resp = requests.get(url, timeout=timeout)
+        resp = requests.get(url, headers=headers, timeout=timeout)
         return True, resp
     except Exception as e:
         print(f"[ERROR] urlGet failed: {e}")
@@ -149,8 +156,15 @@ def urlHead(url, timeout=3, allow_redirects=True):
     if not url:
         return False, {}
 
+    # Add headers to avoid being blocked by sites like Reddit
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
     try:
-        resp = requests.head(url, timeout=timeout, allow_redirects=allow_redirects)
+        resp = requests.head(url, headers=headers, timeout=timeout, allow_redirects=allow_redirects)
         return True, resp
     except Exception as e:
         print(f"[ERROR] urlHead failed: {e}")
