@@ -1187,12 +1187,29 @@ class NotionAgent:
         blocks = []
 
         for i in range(len(arr)):
-            new_size = cur_size + len(arr[i])
+            piece = arr[i]
 
-            if new_size <= chunk_size:
-                cur_size += len(arr[i])
-                cur_text.append(arr[i])
-            else:
+            # If a single piece exceeds chunk_size, force split it
+            while len(piece) > chunk_size:
+                # Flush current accumulated text first
+                if cur_text:
+                    blocks.append({
+                        "object": "block",
+                        "type": type,
+                        type: {
+                            "rich_text": [
+                                {
+                                    "text": {
+                                        "content": ". ".join(cur_text)
+                                    },
+                                }
+                            ]
+                        }
+                    })
+                    cur_text = []
+                    cur_size = 0
+
+                # Add the oversized piece as its own block (truncated)
                 blocks.append({
                     "object": "block",
                     "type": type,
@@ -1200,31 +1217,57 @@ class NotionAgent:
                         "rich_text": [
                             {
                                 "text": {
-                                    "content": ". ".join(cur_text)
+                                    "content": piece[:chunk_size]
                                 },
                             }
                         ]
                     }
                 })
+                piece = piece[chunk_size:]
 
-                # reset to arr[i]
-                cur_text = [arr[i]]
-                cur_size = len(arr[i])
+            # Handle the remaining piece (or normal-sized piece)
+            if piece:
+                new_size = cur_size + len(piece)
+
+                if new_size <= chunk_size:
+                    cur_size += len(piece)
+                    cur_text.append(piece)
+                else:
+                    # Flush current block
+                    if cur_text:
+                        blocks.append({
+                            "object": "block",
+                            "type": type,
+                            type: {
+                                "rich_text": [
+                                    {
+                                        "text": {
+                                            "content": ". ".join(cur_text)
+                                        },
+                                    }
+                                ]
+                            }
+                        })
+
+                    # reset to current piece
+                    cur_text = [piece]
+                    cur_size = len(piece)
 
         # append last
-        blocks.append({
-            "object": "block",
-            "type": type,
-            type: {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": ". ".join(cur_text)
-                        },
-                    }
-                ]
-            }
-        })
+        if cur_text:
+            blocks.append({
+                "object": "block",
+                "type": type,
+                type: {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": ". ".join(cur_text)
+                            },
+                        }
+                    ]
+                }
+            })
 
         if len(blocks) > 1:
             print(f"[notion._createBlock_RichText]: chunked rich text content into {len(blocks)} chunks")
@@ -1458,6 +1501,7 @@ class NotionAgent:
         - Properties: AI summary, URL
         - Blocks: ## {title}\n{summary}\n{link}
         """
+        content = page.get("content") or ""
         summary = page.get("__summary") or ""
         title = page["title"]
         url = page["url"]
@@ -1511,49 +1555,10 @@ class NotionAgent:
             }
         })
 
-        # Summary paragraphs (split by newline, handle 2000 char limit)
-        summary_lines = summary.split('\n')
-        current_block = ""
-
-        for line in summary_lines:
-            if len(current_block) + len(line) + 1 > 2000:
-                # Flush current block
-                if current_block:
-                    blocks.append({
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [
-                                {
-                                    "text": {
-                                        "content": current_block
-                                    }
-                                }
-                            ]
-                        }
-                    })
-                current_block = line
-            else:
-                if current_block:
-                    current_block += "\n" + line
-                else:
-                    current_block = line
-
-        # Flush remaining
-        if current_block:
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [
-                        {
-                            "text": {
-                                "content": current_block
-                            }
-                        }
-                    ]
-                }
-            })
+        # Summary paragraphs (use existing helper to handle 2000 char limit)
+        if content:
+            content_blocks = self._createBlock_RichText("paragraph", content)
+            blocks.extend(content_blocks)
 
         # Link
         blocks.append({
