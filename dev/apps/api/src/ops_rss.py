@@ -300,7 +300,6 @@ class OperatorRSS(OperatorBase):
                             print("[ERROR] Both web load and RSS summary failed, skip it")
                             continue
 
-                content = content[:SUMMARY_MAX_LENGTH]
                 summary = llm_agent.run(content)
 
                 print(f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}, summary: {summary}")
@@ -314,6 +313,7 @@ class OperatorRSS(OperatorBase):
 
             # assemble summary into page
             summarized_page = copy.deepcopy(page)
+            summarized_page["content"] = content
             summarized_page["__summary"] = summary
 
             print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, summary: {summary}")
