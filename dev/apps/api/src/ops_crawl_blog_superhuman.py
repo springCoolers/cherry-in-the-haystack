@@ -692,7 +692,9 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                     hash_key = f"Superhuman Blog_{blog_post.post_title}_{section.section_title}_{link}".encode(
                         "utf-8"
                     )
-                    article_title = f"{blog_post.post_title} - {section.section_title}"
+                    article_title = (
+                        f"{section.section_title} - {section.section_subtitle}"
+                    )
 
                     article = {
                         "id": utils.hashcode_md5(hash_key),
