@@ -677,7 +677,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                             "sub_item_index": sub_item.index,  # Sub-item index
                             "title": article_title,  # Combined title with sub-item index
                             "url": link,
-                            "created_time": datetime.now().isoformat(),
+                            "created_time": blog_post.published,
                             "summary": sub_item.content,  # Sub-item content (will be summarized later)
                             "content": sub_item.content,  # Sub-item content only
                             "tags": [],  # TODO: currently no tags
@@ -702,7 +702,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                         "section_title": section.section_title,  # Section title
                         "title": article_title,  # Combined title for display
                         "url": link,
-                        "created_time": datetime.now().isoformat(),
+                        "created_time": blog_post.published,
                         "summary": section.content,  # Section content (will be summarized later)
                         "content": section.content,  # Section content
                         "tags": [],  # TODO: currently no tags
