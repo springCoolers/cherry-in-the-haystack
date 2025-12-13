@@ -827,7 +827,18 @@ CREATE INDEX idx_notion_backup_backup_timestamp ON notion_news_backup(backup_tim
 #### Evidence Layer Tables (Basics/Advanced)
 
 ```sql
--- 1. 도큐먼트 정보 테이블
+-- ============================================
+-- Cherry DB - Full Schema (현재 DB 기준)
+-- ============================================
+
+-- pgvector 확장 활성화
+CREATE EXTENSION IF NOT EXISTS vector;
+
+
+-- ============================================
+-- 1. 책 정보 테이블
+-- ============================================
+
 CREATE TABLE books (
     id BIGSERIAL PRIMARY KEY,
     title TEXT NOT NULL,
@@ -843,7 +854,7 @@ CREATE TABLE books (
     
     -- LLM 비용 추적
     llm_tokens_used INTEGER DEFAULT 0,
-    llm_cost_cents NUMERIC(10, 4) DEFAULT 0,
+    llm_cost_cents NUMERIC(10,4) DEFAULT 0,
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -851,15 +862,61 @@ CREATE TABLE books (
 CREATE INDEX idx_books_status ON books(processing_status);
 
 
--- 2. 문단(청크) 테이블
+-- ============================================
+-- 2. 챕터 테이블
+-- ============================================
+
+CREATE TABLE chapters (
+    id BIGSERIAL PRIMARY KEY,
+    book_id BIGINT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    chapter_number INTEGER,
+    title TEXT,
+    start_page INTEGER,
+    end_page INTEGER,
+    level INTEGER DEFAULT 1,
+    parent_chapter_id BIGINT REFERENCES chapters(id),
+    detection_method VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_chapters_book ON chapters(book_id);
+
+
+-- ============================================
+-- 3. 섹션 테이블
+-- ============================================
+
+CREATE TABLE sections (
+    id BIGSERIAL PRIMARY KEY,
+    chapter_id BIGINT NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    book_id BIGINT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    section_number INTEGER,
+    title TEXT NOT NULL,
+    level INTEGER DEFAULT 1,
+    parent_section_id BIGINT REFERENCES sections(id),
+    detection_method VARCHAR(50) DEFAULT 'llm',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_sections_chapter ON sections(chapter_id);
+CREATE INDEX idx_sections_book ON sections(book_id);
+
+
+-- ============================================
+-- 4. 문단(청크) 테이블
+-- ============================================
+
 CREATE TABLE paragraph_chunks (
     id BIGSERIAL PRIMARY KEY,
     book_id BIGINT REFERENCES books(id),
-    page_number INT,
-    paragraph_index INT,
+    chapter_id BIGINT REFERENCES chapters(id),
+    section_id BIGINT REFERENCES sections(id),
+    page_number INTEGER,
+    paragraph_index INTEGER,
+    chapter_paragraph_index INTEGER,
     body_text TEXT NOT NULL,
     
-    -- 중복 제거용
+    -- 중복 제거용 (해시 기반)
     paragraph_hash TEXT,
     simhash64 BIGINT,
     
@@ -867,11 +924,16 @@ CREATE TABLE paragraph_chunks (
 );
 
 CREATE INDEX idx_paragraph_book ON paragraph_chunks(book_id);
+CREATE INDEX idx_paragraph_chunks_chapter ON paragraph_chunks(chapter_id);
+CREATE INDEX idx_paragraph_chunks_section ON paragraph_chunks(section_id);
 CREATE INDEX idx_paragraph_hash ON paragraph_chunks(paragraph_hash);
 CREATE INDEX idx_paragraph_simhash ON paragraph_chunks(simhash64);
 
 
--- 3. 아이디어 묶음 (중복 제거용)
+-- ============================================
+-- 5. 아이디어 묶음 테이블
+-- ============================================
+
 CREATE TABLE idea_groups (
     id BIGSERIAL PRIMARY KEY,
     canonical_idea_text TEXT NOT NULL,
@@ -879,7 +941,10 @@ CREATE TABLE idea_groups (
 );
 
 
--- 4. 문단에서 뽑은 핵심 아이디어 테이블
+-- ============================================
+-- 6. 핵심 아이디어 테이블
+-- ============================================
+
 CREATE TABLE key_ideas (
     id BIGSERIAL PRIMARY KEY,
     chunk_id BIGINT REFERENCES paragraph_chunks(id),
@@ -894,18 +959,45 @@ CREATE INDEX idx_keyideas_book ON key_ideas(book_id);
 CREATE INDEX idx_keyideas_group ON key_ideas(idea_group_id);
 
 
--- 5. 지식 검증 기여자 테이블
+-- ============================================
+-- 7. 처리 진행 상황 테이블
+-- ============================================
+
+CREATE TABLE processing_progress (
+    id SERIAL PRIMARY KEY,
+    book_id INTEGER REFERENCES books(id),
+    chapter_id BIGINT REFERENCES chapters(id),
+    page_number INTEGER,
+    processing_unit VARCHAR(50) DEFAULT 'page',
+    status VARCHAR(50),
+    
+    -- 에러 추적 & 재시도
+    error_message TEXT,
+    attempt_count INTEGER,
+    last_attempt_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_progress_book ON processing_progress(book_id);
+CREATE INDEX idx_progress_chapter ON processing_progress(chapter_id);
+
+
+-- ============================================
+-- 8. 지식 검증 기여자 테이블
+-- ============================================
+
 CREATE TABLE knowledge_verification_contributors (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     active BOOLEAN DEFAULT TRUE,
-    
     email TEXT,
     github_username TEXT,
     contributions_count INTEGER DEFAULT 0,
     joined_at TIMESTAMPTZ DEFAULT NOW(),
     last_contribution_at TIMESTAMPTZ,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -913,7 +1005,10 @@ CREATE TABLE knowledge_verification_contributors (
 CREATE INDEX idx_contributors_active ON knowledge_verification_contributors(active);
 CREATE INDEX idx_contributors_contributions ON knowledge_verification_contributors(contributions_count DESC);
 
--- 6. 문단 임베딩 테이블 (중복제거 + 시맨틱 검색용)
+
+-- ============================================
+-- 9. 문단 임베딩 테이블 (벡터 DB)
+-- ============================================
 
 CREATE TABLE paragraph_embeddings (
     id BIGSERIAL PRIMARY KEY,
@@ -928,7 +1023,7 @@ CREATE TABLE paragraph_embeddings (
     
     -- 임베딩 메타데이터
     model TEXT DEFAULT 'text-embedding-3-small',
-    embedding_cost_cents NUMERIC(10, 4),
+    embedding_cost_cents NUMERIC(10,4),
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -939,28 +1034,6 @@ CREATE INDEX idx_embeddings_vector ON paragraph_embeddings
 
 CREATE INDEX idx_embeddings_chunk ON paragraph_embeddings(chunk_id);
 CREATE INDEX idx_embeddings_book ON paragraph_embeddings(book_id);
-
--- sections 테이블 생성(청킹 메타데이터 저장)
-CREATE TABLE sections (
-    id SERIAL PRIMARY KEY,
-    chapter_id INTEGER NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
-    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    section_number INTEGER,
-    title TEXT NOT NULL,
-    level INTEGER DEFAULT 1,
-    parent_section_id INTEGER REFERENCES sections(id),
-    detection_method VARCHAR(50) DEFAULT 'llm',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- paragraph_chunks에 section_id 컬럼 추가
-ALTER TABLE paragraph_chunks ADD COLUMN section_id INTEGER REFERENCES sections(id);
-
--- 인덱스 추가
-CREATE INDEX idx_sections_chapter ON sections(chapter_id);
-CREATE INDEX idx_sections_book ON sections(book_id);
-CREATE INDEX idx_paragraph_chunks_section ON paragraph_chunks(section_id);
-
 ```
 
 ### Concept Layer (Graph Database)
