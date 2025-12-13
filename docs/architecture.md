@@ -940,6 +940,27 @@ CREATE INDEX idx_embeddings_vector ON paragraph_embeddings
 CREATE INDEX idx_embeddings_chunk ON paragraph_embeddings(chunk_id);
 CREATE INDEX idx_embeddings_book ON paragraph_embeddings(book_id);
 
+-- sections 테이블 생성(청킹 메타데이터 저장)
+CREATE TABLE sections (
+    id SERIAL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    section_number INTEGER,
+    title TEXT NOT NULL,
+    level INTEGER DEFAULT 1,
+    parent_section_id INTEGER REFERENCES sections(id),
+    detection_method VARCHAR(50) DEFAULT 'llm',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- paragraph_chunks에 section_id 컬럼 추가
+ALTER TABLE paragraph_chunks ADD COLUMN section_id INTEGER REFERENCES sections(id);
+
+-- 인덱스 추가
+CREATE INDEX idx_sections_chapter ON sections(chapter_id);
+CREATE INDEX idx_sections_book ON sections(book_id);
+CREATE INDEX idx_paragraph_chunks_section ON paragraph_chunks(section_id);
+
 ```
 
 ### Concept Layer (Graph Database)
