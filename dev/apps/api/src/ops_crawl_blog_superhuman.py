@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from notion import NotionAgent
 from llm_agent import (
@@ -52,12 +52,22 @@ class BlogSubItem(BaseModel):
     content: str = Field(..., description="Content of the sub-item")
 
 
+class BlogSectionInfo(BaseModel):
+    """Model for a section info"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    tags: List[Tag] = Field(..., description="Tags of the section")
+    section_subtitle: str = Field(..., description="Subtitle of the section")
+
+
 class BlogSection(BaseModel):
     """Model for a single blog section"""
 
     section_title: str = Field(
         ..., description="Title of the section (e.g., 'IN THE KNOW')"
     )
+    section_subtitle: str = Field(..., description="Subtitle of the section")
     content: str = Field(..., description="Full content of the section")
     sub_items: List[BlogSubItem] = Field(
         default_factory=list,
@@ -142,7 +152,11 @@ class SectionParser(ABC):
 
     @abstractmethod
     def parse(
-        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+        self,
+        soup: BeautifulSoup,
+        section_title: str,
+        section_subtitle: str,
+        content_divs: List[Tag],
     ) -> BlogSection:
         """
         Parse content divs for a specific section
@@ -159,7 +173,11 @@ class DefaultSectionParser(SectionParser):
     """Default parser for sections without special handling"""
 
     def parse(
-        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+        self,
+        soup: BeautifulSoup,
+        section_title: str,
+        section_subtitle: str,
+        content_divs: List[Tag],
     ) -> BlogSection:
         """
         Parse content using default logic
@@ -188,7 +206,10 @@ class DefaultSectionParser(SectionParser):
         cleaned_content = "\n".join(cleaned_lines)
 
         return BlogSection(
-            section_title=section_title, content=cleaned_content, sub_items=[]
+            section_title=section_title,
+            section_subtitle=section_subtitle,
+            content=cleaned_content,
+            sub_items=[],
         )
 
 
@@ -196,7 +217,11 @@ class TodayInAIParser(SectionParser):
     """Specialized parser for TODAY IN AI section that extracts numbered items"""
 
     def parse(
-        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+        self,
+        soup: BeautifulSoup,
+        section_title: str,
+        section_subtitle: str,
+        content_divs: List[Tag],
     ) -> BlogSection:
         """Parse TODAY IN AI section and extract numbered items"""
         # Get full text from all content divs with markdown links
@@ -236,7 +261,10 @@ class TodayInAIParser(SectionParser):
             sub_items.append(BlogSubItem(index=index, content=cleaned_content))
 
         return BlogSection(
-            section_title=section_title, content=cleaned_text, sub_items=sub_items
+            section_title=section_title,
+            section_subtitle=section_subtitle,
+            content=cleaned_text,
+            sub_items=sub_items,
         )
 
 
@@ -244,7 +272,11 @@ class ProductivityParser(SectionParser):
     """Specialized parser for PRODUCTIVITY section that extracts tool entries"""
 
     def parse(
-        self, soup: BeautifulSoup, section_title: str, content_divs: List[Tag]
+        self,
+        soup: BeautifulSoup,
+        section_title: str,
+        section_subtitle: str,
+        content_divs: List[Tag],
     ) -> BlogSection:
         """
         Parse PRODUCTIVITY section and extract individual tool entries
@@ -334,7 +366,10 @@ class ProductivityParser(SectionParser):
         cleaned_text = "\n".join(merged_lines)
 
         return BlogSection(
-            section_title=section_title, content=cleaned_text, sub_items=sub_items
+            section_title=section_title,
+            section_subtitle=section_subtitle,
+            content=cleaned_text,
+            sub_items=sub_items,
         )
 
 
@@ -400,7 +435,9 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             print(f"[ERROR] Failed to fetch URL: {url}, error: {e}")
             return None
 
-    def _extract_section_content_divs(self, soup, section_title) -> Optional[List[Tag]]:
+    def _extract_section_content_divs(
+        self, soup, section_title
+    ) -> Optional[BlogSectionInfo]:
         """
         Extract content divs from a specific section (like "IN THE KNOW") using DOM structure
 
@@ -450,13 +487,28 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
         # First, check if level2 itself contains content after the h5 (for sections like PRODUCTIVITY)
         # where content is in the same div as the h5 title
         level2_text_after_h5 = []
+        level2_h2_subtitles = []  # h2 태그 소제목 저장
         found_h5 = False
         for child in level2.descendants:
             if child == h5_tag:
                 found_h5 = True
                 continue
-            if found_h5 and isinstance(child, str) and child.strip():
-                level2_text_after_h5.append(child.strip())
+            if found_h5:
+                # Find h2 subtitles
+                if hasattr(child, "name") and child.name == "h2":
+                    h2_text = child.get_text(strip=True)
+                    if h2_text:
+                        level2_h2_subtitles.append(h2_text)
+                # Collect text nodes
+                elif isinstance(child, str) and child.strip():
+                    level2_text_after_h5.append(child.strip())
+
+        print(
+            f"[extract_section_content_divs] Found h2 subtitles: {level2_h2_subtitles}"
+        )
+        section_subtitle = (
+            level2_h2_subtitles[0] if level2_h2_subtitles else "Superhuman Blog"
+        )
 
         # If there's significant content in level2 after h5, include level2 itself
         combined_text = " ".join(level2_text_after_h5)
@@ -493,7 +545,10 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
             print(
                 f"[extract_section_content_divs] Extracted {len(content_divs)} content divs, {total_chars} chars"
             )
-            return content_divs
+            return BlogSectionInfo(
+                tags=content_divs,
+                section_subtitle=section_subtitle,
+            )
 
         print(f"[extract_section_content_divs] No content found for '{section_title}'")
         return None
@@ -518,13 +573,17 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
         # Extract sections using appropriate parsers
         sections = []
         for section_title in sections_to_extract:
-            content_divs = self._extract_section_content_divs(soup, section_title)
+            section_info = self._extract_section_content_divs(soup, section_title)
+            content_divs = section_info.tags
+            section_subtitle = section_info.section_subtitle
             if content_divs:
                 # Get the appropriate parser for this section
                 parser = self._get_parser_for_section(section_title)
 
                 # Parse the section using the specialized parser
-                blog_section = parser.parse(soup, section_title, content_divs)
+                blog_section = parser.parse(
+                    soup, section_title, section_subtitle, content_divs
+                )
                 sections.append(blog_section)
 
                 # Log if sub-items were found
@@ -597,7 +656,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                 # If section has sub-items, create individual articles for each sub-item
                 if section.sub_items:
                     print(
-                        f"[INFO] Section '{section.section_title}' has {len(section.sub_items)} sub-items, creating individual articles"
+                        f"[INFO] Section '{section.section_title}' (subtitle: {section.section_subtitle}) has {len(section.sub_items)} sub-items, creating individual articles"
                     )
 
                     for sub_item in section.sub_items:
@@ -607,7 +666,7 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                         )
 
                         # Create title with sub-item index
-                        article_title = f"{blog_post.post_title} - {section.section_title} #{sub_item.index}"
+                        article_title = f"{section.section_title} - {section.section_subtitle} #{sub_item.index}"
 
                         article = {
                             "id": utils.hashcode_md5(hash_key),
