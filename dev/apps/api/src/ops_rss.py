@@ -18,6 +18,7 @@ from ops_milvus import OperatorMilvus
 from ops_notion import OperatorNotion
 
 import feedparser
+import requests
 
 
 class OperatorRSS(OperatorBase):
@@ -38,8 +39,28 @@ class OperatorRSS(OperatorBase):
         """
         print(f"[fetch_articles] list_name: {list_name}, feed_url: {feed_url}, count: {count}")
 
-        # Parse the RSS feed
-        feed = feedparser.parse(feed_url)
+        # Fetch RSS feed with proper headers to avoid being blocked by Reddit
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        try:
+            response = requests.get(feed_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            feed = feedparser.parse(response.content)
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch RSS feed: {e}")
+            feed = feedparser.parse('')  # Empty feed to avoid errors
+
+        # Debug information
+        print(f"[DEBUG] feed.bozo: {feed.bozo}, entries count: {len(feed.entries)}")
+        if feed.bozo:
+            print(f"[DEBUG] feed.bozo_exception: {feed.bozo_exception}")
+        if hasattr(feed, 'status'):
+            print(f"[DEBUG] HTTP status: {feed.status}")
+
         pulled_cnt = 0
 
         articles = []
@@ -263,26 +284,22 @@ class OperatorRSS(OperatorBase):
                 # the source url. For RSS, we will load content
                 # from this entrypoint
                 if not content:
-                    # First, try to use RSS summary field if available
-                    rss_summary = page.get("summary", "")
-                    if rss_summary:
-                        print("page content is empty, using RSS summary field")
-                        content = rss_summary
-                    else:
-                        print("page content is empty, fallback to load web page via WebBaseLoader")
+                    # Try to load web content first, fallback to RSS summary if failed
+                    try:
+                        content = utils.load_web(source_url)
+                        print(f"Page content ({len(content)} chars)")
+                    except Exception as e:
+                        print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
 
-                        try:
-                            content = utils.load_web(source_url)
-                            print(f"Page content ({len(content)} chars)")
-
-                        except Exception as e:
-                            print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
-
-                        if not content:
-                            print("[ERROR] Empty Web page loaded via WebBaseLoader, skip it")
+                    if not content:
+                        print("Web load failed, using RSS summary field as fallback")
+                        rss_summary = page.get("summary", "")
+                        if rss_summary:
+                            content = rss_summary
+                        else:
+                            print("[ERROR] Both web load and RSS summary failed, skip it")
                             continue
 
-                content = content[:SUMMARY_MAX_LENGTH]
                 summary = llm_agent.run(content)
 
                 print(f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}, summary: {summary}")
@@ -296,6 +313,7 @@ class OperatorRSS(OperatorBase):
 
             # assemble summary into page
             summarized_page = copy.deepcopy(page)
+            summarized_page["content"] = content
             summarized_page["__summary"] = summary
 
             print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, summary: {summary}")
