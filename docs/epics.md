@@ -1,7 +1,7 @@
 # cherry-in-the-haystack - Epic Breakdown
 
 **Author:** HK
-**Date:** 2025-11-08
+**Date:** 2025-12-06
 **Project Level:** Medium
 **Target Scale:** 50,000 monthly users within 6 months
 
@@ -13,26 +13,25 @@ This document provides the complete epic and story breakdown for cherry-in-the-h
 
 ### Epic Summary
 
-This project delivers **The LLM Engineering Handbook** through 6 sequential and parallel epics:
+This project delivers **Cherry for AI Engineers** through 5 sequential epics implementing a two-layer knowledge architecture:
 
 **Phase 1: Core MVP (Sequential - Epics 1-4)**
-- **Epic 1: Foundation & Core Infrastructure** - Establish technical foundation and transform Auto-News codebase
-- **Epic 2: Intelligent Content Ingestion Pipeline** - Automated multi-source aggregation with AI-powered quality scoring
-- **Epic 3: AI-Powered Knowledge Synthesis** - MECE taxonomy and intelligent content synthesis
-- **Epic 4: Automated Publication System** - Postgres → GitHub → Jupyter Book pipeline with weekly updates
+- **Epic 1: Foundation & Core Infrastructure** - Establish two-layer architecture (Evidence + Concept layers) and adapt Auto-News
+- **Epic 2: Newly Discovered Pipeline** - Auto-News → Notion (primary) → Postgres backup → GitHub weekly publication
+- **Epic 3: Evidence Ingestion & Knowledge Graph** - Document → Evidence Layer (Postgres) → Concept Layer (GraphDB) with normalized concepts
+- **Epic 4: Writer Agent & Publication** - Knowledge graph → Writer Agent synthesis → Patchnote aggregation → GitHub → Jupyter Book
 
-**Phase 2: Community & Quality (Parallel - Epics 5-6)**
-- **Epic 5: Community Contribution Framework** - Enable collective intelligence through GitHub PR workflow
-- **Epic 6: Content Quality & Lifecycle Management** - Maintain trust through quality controls and freshness
+**Phase 2: Growth & Quality (Parallel - Epic 5)**
+- **Epic 5: Community & Quality Operations** - GitHub PR workflow, monitoring, link validation, two-layer backup
 
 **Delivery Strategy:**
 - Epics 1-4 must complete sequentially to deliver working MVP
-- Epics 5-6 enhance the MVP and can run in parallel
+- Epic 5 enhances the MVP and can run in parallel to Epic 4 completion
 - Each story is vertically sliced for single-session dev agent completion
 - Stories use BDD acceptance criteria for clarity and testability
 
 **Product Magic Delivered:**
-- 🌟 **Clarity** - MECE structure helps users say "now I understand"
+- 🌟 **Clarity** - Two-layer knowledge graph enables intelligent synthesis
 - 🌟 **Confidence** - Quality curation users can trust
 - 🌟 **Speed** - Weekly updates keep handbook feeling alive
 - 🌟 **Community Intelligence** - Knowledge that compounds instead of fades
@@ -41,1001 +40,1284 @@ This project delivers **The LLM Engineering Handbook** through 6 sequential and 
 
 ## Epic 1: Foundation & Core Infrastructure
 
-**Goal:** Establish a solid technical foundation that transforms the existing Auto-News infrastructure into a handbook-ready platform, enabling all subsequent development work.
+**Goal:** Establish technical foundation with two-layer knowledge architecture (Evidence Layer in PostgreSQL + Concept Layer in GraphDB), adapt Auto-News infrastructure, and set up Jupyter Book publication system.
 
-**Value:** This epic creates the foundation that allows the team to build, test, and deploy the handbook efficiently. Without this infrastructure, no content pipeline or publication can function.
+**Value:** This epic creates the foundational two-layer architecture that enables intelligent knowledge synthesis. Without this infrastructure, no content pipeline or Writer Agent synthesis can function.
 
 ---
 
-### Story 1.1: Project Initialization and Repository Setup
+### Story 1.1: Handbook Foundation Setup
 
 As a **developer**,
-I want **a clean, well-organized project repository with proper structure and documentation**,
-So that **the team can collaborate effectively and follow consistent development practices**.
+I want **handbook project initialized with modern Python tooling and Jupyter Book structure**,
+So that **the team can build on proven foundations with clear separation from Auto-News codebase**.
 
 **Acceptance Criteria:**
 
-**Given** the existing Auto-News codebase exists
-**When** I initialize the handbook project repository
-**Then** the repository includes:
-- Clear directory structure separating handbook code from Auto-News dependencies
-- README.md with project overview, setup instructions, and architecture summary
-- .gitignore configured for Python, Node.js, and environment files
-- requirements.txt or pyproject.toml for Python dependencies
-- package.json for any Node.js/frontend dependencies
-- LICENSE file (appropriate open-source license)
-- CONTRIBUTING.md with contribution guidelines
-- Development environment setup guide
+**Given** the existing Auto-News codebase exists in the repository
+**When** I initialize the handbook foundation
+**Then** the project structure includes:
+- Poetry dependency management with `pyproject.toml` configured
+- Ruff linting/formatting configuration (replaces flake8, black, isort)
+- Loguru structured logging setup in `handbook/config/logging_config.py`
+- Jupyter Book initialized in `handbook-content/` with `_config.yml` and `_toc.yml`
+- Modern Python 3.10+ with type hints throughout
+- Separation: `/auto-news-engine/` (existing) + `/handbook/` (new pipeline code)
 
-**And** the repository has proper branch protection rules on main branch
+**And** I can successfully run:
+- `poetry install` (installs dependencies)
+- `ruff check handbook/` (linting passes)
+- `jupyter-book build handbook-content` (builds without errors)
 
-**And** GitHub repository settings configured (description, topics, website URL)
+**And** README.md documents:
+- Architecture overview (two-layer knowledge system)
+- Setup instructions for new developers
+- Link to architecture.md for detailed technical decisions
 
 **Prerequisites:** None (this is the first story)
 
 **Technical Notes:**
-- Keep Auto-News codebase in separate directory (e.g., `/auto-news-engine/`)
-- Handbook-specific code in `/handbook/` or root level
-- Use poetry or pip-tools for dependency management
-- Consider monorepo structure if Auto-News and handbook share significant code
+- Follow architecture.md Project Initialization section (lines 13-56)
+- Use Poetry 1.8+ for dependency management
+- Ruff configuration in `pyproject.toml` (replaces multiple tools)
+- Jupyter Book 1.0.4 with PyData Sphinx Theme
+- Keep Auto-News operational during transition (separate concerns)
+- Docker Compose for local development (Postgres + pgvector setup)
 
 ---
 
-### Story 1.2: Database Infrastructure Setup
+### Story 1.2: Evidence Layer Database Setup (PostgreSQL)
 
 As a **backend engineer**,
-I want **Postgres database configured with proper schemas for content storage**,
-So that **we can store ingested content, review status, and processed items reliably**.
+I want **Amazon RDS PostgreSQL 16 configured with Evidence Layer schema**,
+So that **we can store document paragraphs, extracted concepts, and Notion backup data**.
 
 **Acceptance Criteria:**
 
-**Given** the project repository is initialized
-**When** I set up the database infrastructure
-**Then** Postgres database is provisioned with:
-- Database schema for raw ingested content (source, URL, date, category, raw_text)
-- Database schema for scored content (content_id, score, reviewer_id, approval_status)
-- Database schema for approved content (approved_date, category, processed_markdown)
-- Proper indexes on frequently queried fields (date, category, approval_status)
-- Migration scripts using Alembic or similar tool
+**Given** the handbook foundation is initialized
+**When** I set up the Evidence Layer
+**Then** the PostgreSQL database includes:
+- **Raw HTML Archive table** (for Auto-News ingestion - stores HTML before parsing)
+- **Notion News Backup table** (daily backup of Notion Newly Discovered DB)
+- **Documents table** (metadata for Basics/Advanced source documents)
+- **Evidence Paragraphs table** (paragraph text, extracted_concept field, metadata)
+- **Evidence Metadata table** (additional context, keywords, entities)
+- **Pipeline Runs table** (tracking execution and costs)
+- **Failed Items table** (dead-letter queue for retries)
 
-**And** database connection configuration uses environment variables (not hardcoded)
+**And** database connection module `handbook/db_connection/postgres.py` implements:
+- Connection pooling (psycopg3 with max 20 connections)
+- Environment variable configuration (DATABASE_URL)
+- Context manager for transactions
+- Idempotent UPSERT operations
 
-**And** basic CRUD operations tested with sample data
+**And** migration scripts in `scripts/setup_evidence_layer.sql` are executable and documented
 
-**Prerequisites:** Story 1.1 (repository setup)
+**And** I can successfully insert and query sample evidence paragraphs
+
+**Prerequisites:** Story 1.1 (project initialization)
 
 **Technical Notes:**
-- Consider PostgreSQL hosted options: Supabase, Railway, Neon, or self-hosted
-- Schema design should support idempotent inserts (prevent duplicates)
-- Include created_at, updated_at timestamps for audit trail
-- Design for future scaling (proper normalization)
-- Keep vector embeddings separate from relational data initially
+- Follow architecture.md Evidence Layer schema (lines 758-989)
+- Amazon RDS PostgreSQL 16, db.t3.small instance (~$25/month)
+- Use psycopg3 (modern PostgreSQL adapter with type hints)
+- Include indexes: content_hash, extracted_concept, paragraph_hash, simhash64
+- Schema supports semantic deduplication (simhash64 field from auto-news benchmarking)
+- Cost tracking fields: llm_tokens_used, llm_cost_cents, llm_provider
+- Notion backup table links to raw_html_archive via raw_html_id foreign key
 
 ---
 
-### Story 1.3: Vector Database Foundation
+### Story 1.3: Concept Layer Database Setup (GraphDB)
+
+As a **backend engineer**,
+I want **GraphDB RDF graph database initialized with Concept Layer schema**,
+So that **we can store normalized concepts with typed relations for Writer Agent synthesis**.
+
+**Acceptance Criteria:**
+
+**Given** the Evidence Layer is set up
+**When** I initialize the Concept Layer
+**Then** the GraphDB includes:
+- **Concept nodes** with properties: concept_id (UUID), concept_name (normalized noun phrase), summary, definition, contributors, confidence_score, evidence_count
+- **Relationship types defined:**
+  - PREREQUISITE (strength, contributor, created_at)
+  - RELATED (relation_type: comparison/alternative/complementary, strength)
+  - SUBTOPIC (handbook_path, order_index)
+  - EXTENDS (extension_type: advanced_technique/variant/optimization)
+  - CONTRADICTS (explanation, source)
+
+**And** database connection module `handbook/db_connection/graph_db.py` implements:
+- GraphDB connection with environment variable configuration
+- Query methods: load_concept(), find_similar_concepts(), create_concept(), add_relation()
+- Support for Cypher-like queries (or SPARQL for RDF)
+- Connection pooling for concurrent Writer Agent queries
+
+**And** initialization script `scripts/setup_graph_db.py` creates schema and sample concepts
+
+**And** I can successfully create a concept, add relations, and query the graph
+
+**Prerequisites:** Story 1.2 (Evidence Layer setup)
+
+**Technical Notes:**
+- Follow architecture.md Concept Layer schema (lines 991-1114)
+- Use GraphDB (open-source RDF graph database) - free, self-hosted
+- Concept nodes store ONLY metadata - NO evidence text (evidence stored in Postgres)
+- Evidence-concept linkage via `extracted_concept` field in Evidence Layer
+- Query pattern: Load concept from GraphDB → Query Postgres by extracted_concept field
+- Relations are dynamic and extensible (can add new relation types)
+- Target performance: Sub-500ms queries for Writer Agent
+- Alternative: Neo4j if GraphDB has limitations (track as ADR)
+
+---
+
+### Story 1.4: Vector Database Setup (pgvector)
 
 As a **ML engineer**,
-I want **vector database initialized for semantic deduplication and similarity search**,
-So that **we can efficiently detect duplicate content and enable future semantic search**.
+I want **pgvector extension enabled for document embeddings in PostgreSQL**,
+So that **we can perform semantic search on Basics/Advanced documents**.
 
 **Acceptance Criteria:**
 
-**Given** the project has database infrastructure
+**Given** the Evidence Layer PostgreSQL is running
 **When** I set up the vector database
-**Then** vector database is configured with:
-- Selected provider (ChromaDB, Milvus, or Pinecone) integrated
-- Collection/index for content embeddings
-- Embedding model selected (e.g., OpenAI text-embedding-3-small, sentence-transformers)
-- Basic insert and similarity search operations working
-- Configuration for cosine similarity threshold (e.g., 0.85 for duplicates)
+**Then** the system includes:
+- pgvector extension installed and enabled (`CREATE EXTENSION vector;`)
+- **document_embeddings table** with:
+  - vector(1536) column for OpenAI text-embedding-3-small
+  - References to evidence_paragraph_id
+  - Metadata: document_id, paragraph_text (denormalized), handbook_topic
+- IVFFlat index created (lists=100 for ~100K vectors)
+- Search function `search_similar_paragraphs()` implemented
 
-**And** vector database connection uses environment variables
+**And** database connection module `handbook/db_connection/vector_db.py` implements:
+- Embedding storage and retrieval
+- Cosine similarity search (<100ms for top-10 queries)
+- Batch insertion for efficiency
 
-**And** sample embeddings stored and queried successfully
+**And** I can successfully:
+- Store embeddings for sample paragraphs
+- Query similar paragraphs using cosine similarity
+- Filter by handbook_topic during search
 
-**Prerequisites:** Story 1.2 (database setup)
+**Prerequisites:** Story 1.2 (Evidence Layer setup)
 
 **Technical Notes:**
-- Start with ChromaDB for simplicity (local or cloud)
-- Embedding dimension should match model (e.g., 1536 for OpenAI, 384 for MiniLM)
-- Store metadata alongside vectors (content_id, category, date)
-- Plan for migration path between providers
-- Consider cost: ChromaDB (free/self-hosted) vs Pinecone (paid)
+- Follow architecture.md Vector Database schema (lines 1116-1209)
+- pgvector is a PostgreSQL extension (no separate database needed)
+- Embeddings ONLY for Basics/Advanced documents (NOT Newly Discovered news)
+- OpenAI text-embedding-3-small: 1536 dimensions, $0.02/1M tokens
+- IVFFlat index: `lists = sqrt(row_count)` → 100 for 100K vectors
+- Use `vector_cosine_ops` for cosine similarity (1 - distance)
+- Store paragraph_text denormalized for faster retrieval in search results
+- Cost tracking: embedding_cost_cents field
 
 ---
 
-### Story 1.4: Auto-News Engine Adaptation
+### Story 1.5: Auto-News Engine Adaptation
 
 As a **backend engineer**,
-I want **existing Auto-News DAGs adapted for handbook-specific content sources**,
-So that **we can reuse proven ingestion logic while targeting LLM-focused sources**.
+I want **existing Auto-News Airflow DAGs adapted for handbook Newly Discovered pipeline**,
+So that **we can reuse proven ingestion/deduplication/scoring logic with Notion as primary output**.
 
 **Acceptance Criteria:**
 
-**Given** Auto-News codebase is available in the repository
-**When** I adapt the engine for handbook use case
+**Given** the Auto-News codebase exists in `/auto-news-engine/`
+**When** I adapt the engine for handbook use
 **Then** the adapted system:
-- Identifies and documents which Auto-News operators are reusable
-- Configures source list for LLM-focused channels (Twitter accounts, Discord servers, GitHub repos, RSS feeds)
-- Updates categorization logic for handbook categories (Basics, Advanced, Newly Discovered subcategories)
-- Ensures deduplication logic runs before scoring (cost optimization)
-- Outputs to handbook Postgres schema (not original Notion structure)
+- Identifies reusable operators: ingestion, deduplication, categorization, scoring
+- Configures LLM-focused sources (Twitter, Discord, GitHub, RSS, papers)
+- Updates categorization for handbook taxonomy (Model Updates, Framework Updates, Productivity Tools, Business Cases, How People Use AI)
+- Modifies output: Auto-News writes directly to **Notion DB** (NOT Postgres first)
+- Ensures deduplication runs before AI scoring (cost optimization)
+- Preserves existing Auto-News functionality (brownfield constraint)
 
-**And** Airflow DAGs are runnable in development environment
+**And** Airflow DAGs are runnable in development environment with test mode
 
-**And** test run successfully ingests from at least 3 sources
+**And** configuration file documents:
+- Which operators are reused vs new
+- Source list with poll frequencies
+- Notion database ID for handbook review workspace
 
-**Prerequisites:** Story 1.2 (database setup)
+**And** test run successfully ingests from at least 3 sources and writes to Notion
+
+**Prerequisites:** Story 1.2 (Evidence Layer for backup)
 
 **Technical Notes:**
-- Reference: `bmad/docs/reference/auto-news-upstream/autonews-README.md`
-- May need to update operator interfaces for new database schema
-- Keep Auto-News operational for any existing users during transition
-- Consider extracting core logic into shared library
+- Follow architecture.md Novel Pattern 2: Notion as Primary (lines 480-528)
+- Auto-News writes to Notion DB (primary workspace for Knowledge Team)
+- Daily backup DAG: Notion → Postgres (one-way, NOT bidirectional sync)
+- Keep existing Auto-News operators modular for reuse
+- Reference PRD section on Auto-News upstream (line 1168)
+- Notion API v2 with rate limit handling (3 requests/second)
+- Consider extracting core logic into shared library (`auto-news-engine/operators/`)
 
 ---
 
-### Story 1.5: GitHub Actions CI/CD Pipeline
+### Story 1.6: GitHub Actions CI/CD Pipeline
 
 As a **DevOps engineer**,
-I want **automated CI/CD pipeline for testing and deployment**,
-So that **code changes are validated automatically and deployments are reliable**.
+I want **automated CI/CD pipeline for linting, testing, and Jupyter Book deployment**,
+So that **code quality is enforced and handbook updates deploy automatically**.
 
 **Acceptance Criteria:**
 
-**Given** the repository has code and tests
+**Given** the handbook repository has code and tests
 **When** I configure GitHub Actions workflows
-**Then** the CI/CD pipeline includes:
-- **Continuous Integration workflow** that runs on PRs:
-  - Linting (flake8, black, or ruff)
-  - Unit tests with pytest
-  - Type checking (mypy) if using type hints
-  - Dependency security scanning (e.g., safety, pip-audit)
-- **Deployment workflow** that runs on main branch push:
-  - Builds Jupyter Book from markdown files
-  - Deploys to GitHub Pages (gh-pages branch)
-  - Reports deployment status
-- Workflow status badges in README.md
+**Then** the CI pipeline includes:
+- **`.github/workflows/ci.yml`** (runs on PRs):
+  - Ruff linting (`ruff check handbook/`)
+  - pytest unit tests with coverage report
+  - Type checking with mypy
+  - markdown-lint for content files
+  - Link validation (optional on PR, required weekly)
+- **`.github/workflows/deploy.yml`** (runs on main branch push):
+  - Install Jupyter Book dependencies (cached)
+  - Build handbook (`jupyter-book build handbook-content/`)
+  - Deploy to GitHub Pages (gh-pages branch)
+  - Build timeout: 10 minutes max
+  - Deployment status badge in README
 
 **And** workflows complete in under 10 minutes
 
-**And** failed workflows send notifications (GitHub notifications or Slack)
+**And** failed workflows send notifications (GitHub notifications initially)
 
-**Prerequisites:** Story 1.1 (repository setup)
+**And** deployment is zero-downtime (previous version stays live until new build succeeds)
+
+**Prerequisites:** Story 1.1 (project initialization)
 
 **Technical Notes:**
-- Use GitHub Actions cache to speed up dependency installation
-- Separate CI (fast feedback) from deployment (slower, only on main)
-- Consider matrix testing for multiple Python versions if needed
-- GitHub Pages deployment uses `peaceiris/actions-gh-pages` or similar
+- Follow architecture.md CI/CD patterns (lines 750-753)
+- Use peaceiris/actions-gh-pages for deployment
+- Cache pip dependencies for faster builds (30s vs 2min)
+- Separate fast CI (linting, tests) from slower deployment
+- Deployment only on main branch (not PRs)
+- Future: Add staging environment for pre-production testing
 
 ---
 
-### Story 1.6: Jupyter Book Configuration
-
-As a **frontend developer**,
-I want **Jupyter Book configured with basic theme and structure**,
-So that **we have a professional documentation site ready for content**.
-
-**Acceptance Criteria:**
-
-**Given** the repository has handbook content structure
-**When** I configure Jupyter Book
-**Then** the configuration includes:
-- `_config.yml` with project metadata (title, author, logo)
-- `_toc.yml` defining 3-section structure (Basics, Advanced, Newly Discovered)
-- Theme customization (colors, fonts matching brand)
-- Required extensions installed:
-  - sphinx-design (card layouts)
-  - sphinx-togglebutton (collapsible sections)
-  - sphinxext-opengraph (social previews)
-- Sample placeholder content in each section
-- Local build script for development (`jupyter-book build`)
-
-**And** Jupyter Book builds successfully without errors
-
-**And** built HTML is viewable locally in browser
-
-**Prerequisites:** Story 1.1 (repository setup)
-
-**Technical Notes:**
-- Create placeholder files: `basics/index.md`, `advanced/index.md`, `newly-discovered/index.md`
-- Custom CSS for branding in `_static/custom.css`
-- Maximum 2-level TOC depth enforced
-- Consider using Jupyter Book's built-in search (no additional setup)
-
----
-
-### Story 1.7: Development Environment and Testing Infrastructure
+### Story 1.7: Local Development Environment Setup
 
 As a **developer**,
-I want **documented development environment setup and testing framework**,
-So that **new contributors can start quickly and code quality is maintained**.
+I want **Docker Compose environment with all databases for local development**,
+So that **new contributors can set up the full stack in under 30 minutes**.
 
 **Acceptance Criteria:**
 
-**Given** the project has core infrastructure
-**When** I set up development tooling
+**Given** the project has database schemas defined
+**When** I run local setup
 **Then** the development environment includes:
-- Virtual environment setup instructions (venv or poetry)
-- Local environment variables template (`.env.example`)
-- Docker Compose file for local Postgres and vector DB (optional but recommended)
-- Pre-commit hooks configured (linting, formatting)
-- Test fixtures and sample data for development
-- Testing documentation (how to run tests, write new tests, test data location)
+- **`docker-compose.yml`** with services:
+  - PostgreSQL 16 with pgvector extension
+  - GraphDB (or Neo4j for local testing)
+  - Optional: Airflow for local DAG testing
+- **`.env.example`** template with required variables:
+  - DATABASE_URL, GRAPH_DB_URL
+  - OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY
+  - NOTION_API_TOKEN, GITHUB_PAT
+- **Setup script** `scripts/setup_local.sh`:
+  - Starts Docker Compose
+  - Runs database migrations
+  - Seeds sample data
+  - Validates connections
 
-**And** `pytest` test framework configured with:
-- Unit tests directory structure (`tests/unit/`)
-- Integration tests directory (`tests/integration/`)
-- Test coverage reporting (pytest-cov)
-- Minimum coverage threshold set (e.g., 70%)
+**And** documentation in `docs/local-setup.md`:
+- Prerequisites (Docker, Poetry, Python 3.10+)
+- Step-by-step setup guide
+- How to run tests locally
+- How to build Jupyter Book locally
+- Troubleshooting common issues
 
-**And** a new developer can set up environment in under 30 minutes following README
+**And** a new developer can complete setup in under 30 minutes
 
-**Prerequisites:** Stories 1.1, 1.2, 1.3 (repository, database, vector DB)
+**Prerequisites:** Stories 1.2, 1.3, 1.4 (all database schemas)
 
 **Technical Notes:**
-- Use `python-dotenv` for environment variable management
-- Docker Compose makes onboarding much faster (include Postgres, ChromaDB)
-- Pre-commit config: `pre-commit install` in setup instructions
-- Include sample API keys or mock credentials for testing
-- Document external dependencies (Notion API, OpenAI API, etc.)
+- Docker Compose simplifies onboarding significantly
+- Mount volumes for persistence during development
+- Use healthchecks for service dependencies
+- Include sample .env with mock/test API keys where possible
+- Document local Airflow setup separately (complex, optional)
+- Pre-commit hooks configuration: `pre-commit install`
 
 ---
 
-## Epic 2: Intelligent Content Ingestion Pipeline
+## Epic 2: Newly Discovered Pipeline
 
-**Goal:** Build an automated content ingestion system that discovers, deduplicates, and scores LLM-related content from multiple sources, surfacing only the highest-quality material for human review.
+**Goal:** Build automated weekly publication pipeline where Auto-News ingests content → writes to Notion (primary) → daily backup to Postgres → weekly GitHub publication with category/source-specific formatting.
 
-**Value:** This epic delivers the core "signal from noise" capability - automatically filtering the 80% noise so users only see valuable insights. This is the engine that enables weekly updates and comprehensive coverage without overwhelming reviewers.
+**Value:** This epic delivers the "Speed" promise - weekly fresh content that keeps the handbook feeling "alive". Leverages existing Auto-News engine while treating Notion as the primary workspace for human review.
 
 ---
 
-### Story 2.1: Multi-Source Content Aggregation
+### Story 2.1: Notion Database as Primary Workspace
 
 As a **content curator**,
-I want **Auto-News to pull from 10+ LLM-focused sources automatically**,
-So that **we capture comprehensive coverage of the LLM ecosystem without manual monitoring**.
+I want **Auto-News to write scored content directly to Notion database**,
+So that **Knowledge Team can review and edit in familiar interface without backend complexity**.
 
 **Acceptance Criteria:**
 
-**Given** the Auto-News engine is adapted for handbook use
-**When** I configure content sources
-**Then** the system successfully pulls from:
-- At least 5 Twitter accounts (e.g., @AnthropicAI, @OpenAI, key researchers)
-- At least 2 Discord servers (with proper bot permissions)
-- At least 3 GitHub organizations/repositories (releases, discussions)
-- At least 3 RSS feeds (blogs, newsletters)
-- Papers from arXiv (LLM-related categories)
+**Given** Auto-News engine is adapted for handbook sources
+**When** scored content (score 5) is ready for review
+**Then** Auto-News writes to Notion database with:
+- Page properties: Title, Summary, Score, Category, Source, Source URL, Tags, Review Status, Reviewer
+- Page content blocks with full article summary and notes
+- Notion API v2 integration with rate limit handling (3 req/sec)
+- Auto-assignment to Knowledge Team members (round-robin or by category)
 
-**And** each source includes metadata: source_type, source_name, URL, poll_frequency
+**And** Notion database structure follows PRD specification:
+- Database ID configured in environment variables
+- Properties schema matches architecture.md (lines 1212-1283)
+- Review workflow: Pending → In Review → Approved/Rejected
 
-**And** source health monitoring tracks last successful pull and error rate
+**And** configuration module `handbook/integrations/notion_client.py` implements:
+- Create/update page methods
+- Query database with filters
+- Pagination for large result sets
+- Error handling with retry logic
 
-**And** content is stored in raw_content table with source attribution
+**And** test run successfully creates pages in Notion for sample content
 
-**Prerequisites:** Story 1.4 (Auto-News engine adaptation)
+**Prerequisites:** Story 1.5 (Auto-News adaptation)
 
 **Technical Notes:**
-- Use existing Auto-News operators where possible
-- Twitter: May need official API or scraping (consider rate limits)
-- Discord: Requires bot with MESSAGE_READ permissions
-- GitHub: Use GitHub API for releases, discussions, issues
-- Implement exponential backoff for failed pulls
-- Consider source priority levels (high/medium/low)
+- Follow architecture.md Novel Pattern 2: Notion as Primary (lines 480-528)
+- Notion is PRIMARY - Postgres is backup only (one-way sync)
+- Notion API v2 with official SDK: `notion-client` package
+- Store Notion database ID and API token in environment variables
+- Handle Notion API rate limits gracefully (exponential backoff)
+- Knowledge Team works entirely in Notion - no custom backend UI needed
+- Weekly review cycle: Wednesday meetings documented in PRD
 
 ---
 
-### Story 2.2: Content-Level Deduplication
+### Story 2.2: Daily Notion to Postgres Backup
 
-As a **backend engineer**,
-I want **duplicate content identified and filtered before AI scoring**,
-So that **we reduce API costs and don't show users the same news repeated multiple times**.
+As a **data engineer**,
+I want **daily automated backup from Notion to Postgres Evidence Layer**,
+So that **we maintain data ownership and enable analytics without Notion API dependency**.
 
 **Acceptance Criteria:**
 
-**Given** raw content is ingested from multiple sources
-**When** the deduplication process runs
-**Then** the system:
-- Generates embeddings for each content item (title + first 500 chars)
-- Queries vector database for similar content (cosine similarity > 0.85)
-- Marks duplicate items with reference to original
-- Only processes unique content for scoring
-- Preserves all source URLs for duplicate cluster
+**Given** Notion database contains reviewed content
+**When** daily backup DAG runs (00:00 UTC)
+**Then** the backup process:
+- Queries all pages from Notion Newly Discovered database
+- Stores in `notion_news_backup` table with full metadata
+- Links to `raw_html_archive` via `raw_html_id` if HTML exists
+- Uses UPSERT based on `notion_page_id` (idempotent)
+- Tracks backup timestamp and status
 
-**And** deduplication completes within 100ms per item
+**And** Airflow DAG `handbook/dags/notion_backup_dag.py` implements:
+- Scheduled execution: Daily at 00:00 UTC
+- Pagination handling for large datasets
+- Error handling with retry logic
+- Metrics logging (items backed up, duration, errors)
 
-**And** 95%+ accuracy in identifying true duplicates (test with known duplicates)
+**And** backup is ONE-WAY ONLY:
+- Notion → Postgres (data flows this direction)
+- NO reverse sync (Postgres changes don't update Notion)
+- Notion is always source of truth
 
-**And** duplicate detection results logged for quality monitoring
+**And** backup completes within 10 minutes for 1000+ items
 
-**Prerequisites:** Story 1.3 (vector database), Story 2.1 (content aggregation)
+**Prerequisites:** Story 1.2 (Evidence Layer), Story 2.1 (Notion integration)
 
 **Technical Notes:**
-- Embedding model: OpenAI text-embedding-3-small or sentence-transformers
-- Store embeddings in vector DB with metadata (content_id, source, date)
-- Consider URL normalization (same article, different UTM parameters)
-- Keep first-seen original, mark later ones as duplicates
-- Weekly review of false positives/negatives
+- Follow architecture.md data flow (lines 1356-1361)
+- Notion API pagination: `start_cursor` for large databases
+- UPSERT prevents duplicates on re-runs
+- Store `notion_created_at` and `notion_last_edited_at` for tracking
+- Pipeline run tracked in `pipeline_runs` table
+- Alert if backup fails (email/Slack)
+- Historical tracking enables analytics and rollback if needed
 
 ---
 
-### Story 2.3: AI-Powered Quality Scoring
-
-As a **ML engineer**,
-I want **AI agent to automatically score content quality on 1-5 scale**,
-So that **only top-tier content (score 5) reaches human reviewers**.
-
-**Acceptance Criteria:**
-
-**Given** unique content items are identified
-**When** the AI scoring agent runs
-**Then** each item receives a score (1-5) based on:
-- **Relevance:** Direct impact on LLM engineering practices
-- **Depth:** Substantial insight vs surface-level announcement
-- **Novelty:** New information vs rehashed content
-- **Practicality:** Actionable for practitioners
-
-**And** scoring prompt includes:
-- Clear rubric for each score level
-- Examples of score-5 content
-- Context about handbook goals (clarity, confidence, speed)
-
-**And** scoring completes within 5 minutes for batches of 100 items
-
-**And** only score-5 items are queued for human review
-
-**And** scores are stored with reasoning/justification for auditability
-
-**Prerequisites:** Story 2.2 (deduplication)
-
-**Technical Notes:**
-- Use structured output (JSON) for score + reasoning
-- Consider multi-LLM provider support (OpenAI, Anthropic, Ollama fallback)
-- Implement retry logic with exponential backoff
-- Track API costs per scoring run
-- Scoring prompt should be version-controlled and improvable
-- Pattern learning: Track human override rate to improve scoring
-
----
-
-### Story 2.4: Notion Review Workflow Integration
-
-As a **content reviewer**,
-I want **score-5 items automatically sent to Notion for weekly human review**,
-So that **I can efficiently approve or reject high-quality content in one place**.
-
-**Acceptance Criteria:**
-
-**Given** content items scored as 5 by AI
-**When** the Notion sync process runs
-**Then** each score-5 item creates a Notion database entry with:
-- Title, source URL, publication date, category
-- AI score reasoning
-- Full content preview
-- Review status field (Pending, Approved, Rejected)
-- Reviewer assignment field
-- Tags for easy filtering
-
-**And** Notion API rate limits are respected (3 requests/second)
-
-**And** bidirectional sync: approvals in Notion update Postgres status
-
-**And** weekly batch review workflow documented for reviewers
-
-**And** automated reminder sent to reviewers on review day
-
-**Prerequisites:** Story 2.3 (AI scoring)
-
-**Technical Notes:**
-- Use Notion API v2
-- Create dedicated Notion database for handbook review
-- Notion webhook or polling for status changes
-- Handle Notion API errors gracefully (retry, fallback to manual)
-- Consider Notion export capability if migration needed
-- Document Notion workspace setup for new reviewers
-
----
-
-### Story 2.5: Approval Queue and Status Tracking
-
-As a **content manager**,
-I want **clear visibility into content pipeline status from ingestion to approval**,
-So that **I can monitor health, identify bottlenecks, and ensure weekly publish cadence**.
-
-**Acceptance Criteria:**
-
-**Given** content flows through the pipeline stages
-**When** I check pipeline status
-**Then** I can see:
-- Content items by status: Ingested, Deduplicated, Scored, In Review, Approved, Rejected, Published
-- Weekly metrics: total ingested, unique items, score-5 count, approval rate
-- Bottleneck alerts: items stuck in review > 7 days
-- Source performance: items per source, approval rate by source
-
-**And** status dashboard includes:
-- Daily/weekly ingestion volume charts
-- Score distribution (1-5 across all content)
-- Review velocity (time from score-5 to approval)
-- Top performing sources
-
-**And** alerts sent for critical issues:
-- No approvals in current week (Thursday check)
-- Source failures (3+ consecutive failures)
-- AI scoring errors > 10% rate
-
-**Prerequisites:** Stories 2.1, 2.2, 2.3, 2.4 (full pipeline)
-
-**Technical Notes:**
-- Use Airflow UI for DAG monitoring (existing capability)
-- Build custom dashboard with Streamlit or Grafana
-- Store metrics in Postgres (time-series optimized)
-- Email/Slack alerts for critical issues
-- Weekly summary report generation
-
----
-
-### Story 2.6: Category Classification and Tagging
+### Story 2.3: Category and Topic Matching
 
 As a **content curator**,
-I want **content automatically categorized into handbook sections and tagged**,
+I want **news items automatically matched to handbook topics and categories**,
 So that **approved content flows to the correct handbook section without manual sorting**.
 
 **Acceptance Criteria:**
 
-**Given** content item is scored and queued for review
-**When** the classification process runs
-**Then** each item is assigned:
-- **Primary section:** Basics, Advanced, or Newly Discovered
-- **Secondary category** (for Newly Discovered):
+**Given** Notion contains reviewed news items
+**When** category matching runs
+**Then** each item is classified into:
+- **Primary category** (one of 5 Newly Discovered categories):
   - Model Updates
   - Framework/Library/Tools Updates
   - Productivity Tools
   - Business Cases & Case Studies
   - How People Use AI
-- **Tags:** relevant keywords (e.g., "RAG", "fine-tuning", "GPT-4", "LangChain")
+- **Handbook topic tags** (if applicable): RAG, prompting, fine-tuning, agents, embeddings, evaluation
+- **Keywords** extracted for searchability
 
-**And** classification uses AI with clear rules:
-- Basics: Foundational concepts from established resources
-- Advanced: Deep technical content requiring expertise
-- Newly Discovered: Fresh, time-sensitive updates
+**And** matching module `handbook/pipeline/newly_discovered/category_matcher.py` implements:
+- LLM-based classification with structured output
+- Confidence scores for each classification
+- Fallback to "General" category if uncertain
+- Human override capability in Notion (reviewer can change category)
 
-**And** classification accuracy validated by human reviewers
+**And** matching accuracy tracked:
+- Log AI classifications with confidence
+- Track human override rate
+- Improve prompt based on patterns
 
-**And** reviewers can override AI classification in Notion
+**And** matched categories stored in Postgres backup and used for GitHub organization
 
-**Prerequisites:** Story 2.4 (Notion workflow)
+**Prerequisites:** Story 2.2 (Notion backup)
 
 **Technical Notes:**
-- Use LLM with structured output for classification
-- Provide classification rubric in prompt
-- Track classification accuracy (human override rate)
-- Support evolving taxonomy (new categories, deprecated tags)
-- Consider hierarchical tags (parent: RAG, child: multi-hop, hybrid)
+- Use Claude or GPT-4 with structured JSON output
+- Classification prompt includes category definitions from PRD
+- Store confidence scores for quality monitoring
+- Human overrides in Notion take precedence
+- Consider caching classifications to reduce API costs
+- Topic tags enable cross-linking to Basics/Advanced sections (future)
 
 ---
 
-## Epic 3: AI-Powered Knowledge Synthesis
+### Story 2.4: Category-Specific and Source-Specific Formatting
 
-**Goal:** Transform raw approved content into structured, synthesized knowledge organized in a MECE taxonomy that helps users gain clarity and understanding.
-
-**Value:** This epic delivers the "Clarity" promise - the structured knowledge map that helps users say "now I understand". It takes scattered content and creates cohesive, well-organized explanations.
-
----
-
-### Story 3.1: MECE Taxonomy Design and Implementation
-
-As a **knowledge architect**,
-I want **a clear, logical taxonomy that is Mutually Exclusive and Collectively Exhaustive**,
-So that **users can navigate handbook without confusion, gaps, or overlaps**.
+As a **content publisher**,
+I want **markdown generation with formatting that varies by category and source type**,
+So that **different content types display optimally for their purpose**.
 
 **Acceptance Criteria:**
 
-**Given** we understand the LLM engineering landscape
-**When** I design the taxonomy
-**Then** the structure includes:
-- **3 main sections:** Basics, Advanced, Newly Discovered
-- **Parent-child hierarchy** (maximum 2 levels):
-  - Basics: 6 parent topics (Prompting, RAG, Fine-tuning, Agents, Embeddings, Evaluation)
-  - Advanced: Same 6 domains with advanced sub-topics
-  - Newly Discovered: 5 categories (Model Updates, Framework Updates, Productivity Tools, Business Cases, How People Use AI)
-- **Navigation structure** encoded in `_toc.yml` for Jupyter Book
+**Given** approved news items with assigned categories
+**When** markdown generation runs
+**Then** the format dispatcher applies category-specific templates:
+- **Model Updates:** Title, release date, key changes, API updates, pricing, external link
+- **Framework Updates:** Tool name, version, change summary, migration notes, link to release
+- **Productivity Tools:** Tool description, use case, features, pricing tier, installation
+- **Business Cases:** Company, product launch, architecture insights, results/metrics, link
+- **How People Use AI:** Brief summary, domain/industry, workflow description, link
 
-**And** taxonomy documented with:
-- Clear definitions for each section
-- Decision criteria for content placement
-- Examples of content that fits each category
+**And** source-specific formatting:
+- Twitter threads: Preserve thread structure, author attribution
+- GitHub releases: Version number prominent, changelog format
+- Blog posts: Author, publication, key takeaways
+- Papers: Authors, abstract, key findings, arXiv link
 
-**And** taxonomy supports evolution (new topics can be added without restructure)
+**And** formatting module `handbook/pipeline/newly_discovered/format_dispatcher.py` implements:
+- Template system for each category
+- Jinja2 templates for markdown generation
+- Frontmatter with metadata (date, category, source_url, tags)
+- Consistent style across same-category items
 
-**Prerequisites:** None (design work)
+**And** generated markdown follows MyST syntax for Jupyter Book compatibility
 
-**Technical Notes:**
-- Document taxonomy in `taxonomy.md` for consistency
-- Create placeholder index pages for each parent topic
-- Build taxonomy validation script (checks content fits rules)
-- Plan for "uncategorized" items that don't fit cleanly
-
----
-
-### Story 3.2: Chunk-Level Deduplication for Synthesis
-
-As a **ML engineer**,
-I want **paragraph-level deduplication for Basics/Advanced content**,
-So that **synthesized pages don't contain redundant information from multiple sources**.
-
-**Acceptance Criteria:**
-
-**Given** curated text sources (PDFs, books, blog posts) for Basics/Advanced sections
-**When** the chunk-level deduplication runs
-**Then** the system:
-- Splits documents into paragraphs/chunks (semantic boundaries, not just newlines)
-- Generates embeddings for each chunk
-- Identifies similar chunks across sources (cosine similarity > 0.90)
-- Marks unique vs duplicate chunks
-- Preserves source attribution for each unique chunk
-
-**And** deduplication works incrementally (new content compared to existing)
-
-**And** similar concepts from different perspectives are preserved (not over-deduplicated)
-
-**Prerequisites:** Story 1.3 (vector database), Story 3.1 (taxonomy)
+**Prerequisites:** Story 2.3 (category matching)
 
 **Technical Notes:**
-- Use semantic chunking (not fixed-size) - respect sentence/paragraph boundaries
-- Higher similarity threshold than content-level (0.90 vs 0.85) - more conservative
-- Store chunk embeddings with metadata (source, page, parent_topic)
-- Handle multi-perspective content (same concept, different explanations)
-- Consider LangChain or LlamaIndex for chunking
+- Follow architecture.md Novel Pattern 2 integration (lines 480-528)
+- Templates in `handbook/pipeline/publication/templates/`
+- Frontmatter format specified in architecture.md (lines 664-674)
+- Handle special characters in titles (sanitize for filenames)
+- Image URLs embedded as markdown (no local download in MVP)
+- Consider using existing `weekly_update.py` script from auto-news
 
 ---
 
-### Story 3.3: AI Synthesis Engine for Basics Section
-
-As a **content creator**,
-I want **AI to synthesize curated sources into cohesive Basics topic pages**,
-So that **users get distilled, well-structured introductions to foundational concepts**.
-
-**Acceptance Criteria:**
-
-**Given** unique chunks from curated sources for a Basics topic
-**When** the synthesis engine runs
-**Then** it generates:
-- **Overview:** Clear introduction explaining the concept
-- **Core Concepts:** Key ideas broken down with examples
-- **Practical Examples:** Real-world use cases and code snippets
-- **Trade-offs:** When to use vs not use
-- **Further Reading:** Links to original sources
-
-**And** synthesized content:
-- Cites original sources inline
-- Maintains accuracy (no hallucinations)
-- Uses clear, accessible language
-- Includes diagrams/visualizations where helpful (placeholder for human creation)
-- Follows consistent format across all Basics pages
-
-**And** synthesis quality validated by human reviewer before publication
-
-**Prerequisites:** Story 3.2 (chunk deduplication)
-
-**Technical Notes:**
-- Multi-stage synthesis: extract key points → organize → generate prose → cite sources
-- Use structured output for consistency
-- Long context LLM beneficial (Claude with 200k context, GPT-4 Turbo)
-- Store synthesis prompts in version control
-- Human-in-the-loop for final review
-
----
-
-### Story 3.4: AI Synthesis Engine for Advanced Section
-
-As a **technical writer**,
-I want **AI to synthesize deep technical content for Advanced topics**,
-So that **experienced practitioners find substantial, detailed information**.
-
-**Acceptance Criteria:**
-
-**Given** unique chunks from curated sources for an Advanced topic
-**When** the synthesis engine runs
-**Then** it generates:
-- **Deep Dive:** Comprehensive technical explanation
-- **Implementation Details:** Architecture patterns, algorithms, code examples
-- **Performance Considerations:** Benchmarks, optimization techniques
-- **Edge Cases:** Common pitfalls and how to handle them
-- **Research Context:** Recent papers, state-of-the-art approaches
-
-**And** synthesized content:
-- Assumes reader has basics knowledge (links to Basics sections)
-- Includes mathematical notation where appropriate
-- Provides production-ready code examples
-- Cites academic papers and technical blogs
-- Highlights conflicting information with analysis
-
-**And** Advanced content reviewed by domain experts before publication
-
-**Prerequisites:** Story 3.3 (Basics synthesis), Story 3.2 (chunk deduplication)
-
-**Technical Notes:**
-- Similar process to Basics synthesis but different prompt/tone
-- Longer, more detailed pages acceptable for Advanced
-- May need multiple LLM calls for complex topics
-- Technical accuracy is critical - prioritize expert review
-- Include "last updated" dates (research moves fast)
-
----
-
-### Story 3.5: Parent-Child Content Hierarchy
-
-As a **handbook user**,
-I want **clear navigation from parent concepts to child implementations**,
-So that **I can start broad and drill down into specific techniques**.
-
-**Acceptance Criteria:**
-
-**Given** synthesized content for parent and child topics
-**When** I navigate the handbook
-**Then** each parent page:
-- Provides high-level overview of the domain
-- Links to all child pages with brief descriptions
-- Shows "what you'll learn" for each child topic
-- Indicates difficulty level or prerequisites
-
-**And** each child page:
-- References parent page for context
-- Provides focused, specific content
-- Links to related child pages (e.g., "Naive RAG" → "Advanced RAG")
-- Shows breadcrumb navigation (Parent → Child)
-
-**And** maximum 2-level depth enforced (no grandchildren)
-
-**And** Jupyter Book TOC reflects this structure clearly
-
-**Prerequisites:** Stories 3.3, 3.4 (synthesized content)
-
-**Technical Notes:**
-- Enforce hierarchy in `_toc.yml` configuration
-- Use Jupyter Book sections and chapters
-- Breadcrumbs via Jupyter Book theme
-- Cross-references use MyST-NB link syntax
-- Consider "you might also like" recommendations
-
----
-
-### Story 3.6: Content Freshness and Update Triggers
-
-As a **content maintainer**,
-I want **automated detection of stale content requiring updates**,
-So that **handbook remains accurate as the LLM field evolves**.
-
-**Acceptance Criteria:**
-
-**Given** Basics/Advanced content has been published
-**When** the staleness detection runs (weekly)
-**Then** it flags content needing review if:
-- Major version release of mentioned framework (e.g., LangChain 0.2 → 0.3)
-- New research contradicts established techniques
-- Content older than 6 months without recent validation
-- High user feedback indicating outdated information
-
-**And** flagged content creates GitHub issue with:
-- Page link, staleness reason, suggested update source
-- Priority level (critical, high, medium, low)
-- Assigned to content team member
-
-**And** "last reviewed" date shown on each page
-
-**And** update workflow documented for contributors
-
-**Prerequisites:** Story 3.4 (Advanced synthesis)
-
-**Technical Notes:**
-- Track framework versions mentioned in content
-- Use GitHub API to monitor releases for tracked projects
-- Store "last_reviewed_date" in page frontmatter
-- Manual validation still required (automation suggests, humans decide)
-- Consider using AI to draft update proposals
-
----
-
-### Story 3.7: Evolving Taxonomy Management
-
-As a **product manager**,
-I want **ability to add new categories and migrate content as field evolves**,
-So that **handbook taxonomy stays relevant without major rewrites**.
-
-**Acceptance Criteria:**
-
-**Given** a new important LLM topic emerges (e.g., "Multimodal AI")
-**When** I add it to taxonomy
-**Then** the process includes:
-- Create new parent topic page with definition
-- Update `_toc.yml` to include new section
-- Migrate relevant content from "Newly Discovered" if applicable
-- Update taxonomy documentation
-- Notify contributors of new category
-
-**And** deprecated categories can be:
-- Merged into other categories (with redirects)
-- Archived with explanation
-- Content preserved in git history
-
-**And** taxonomy changes don't break existing links (redirects maintained)
-
-**And** taxonomy review happens quarterly
-
-**Prerequisites:** Story 3.1 (initial taxonomy)
-
-**Technical Notes:**
-- Document taxonomy change process in `CONTRIBUTING.md`
-- Use Jupyter Book redirects for moved/deprecated pages
-- Git tags for taxonomy versions (v1.0, v1.1, etc.)
-- Announce taxonomy changes to contributors
-- Gradual migration preferred over big-bang changes
-
----
-
-## Epic 4: Automated Publication System
-
-**Goal:** Build end-to-end automation that takes approved content from Postgres, commits to GitHub, builds Jupyter Book, and deploys to public site - delivering fresh content to users within hours.
-
-**Value:** This epic delivers the "Speed" promise - weekly updates that keep the handbook feeling "alive". It completes the automation chain from human approval to public site.
-
----
-
-### Story 4.1: Postgres to GitHub Markdown Pipeline
+### Story 2.5: Weekly GitHub Publication Workflow
 
 As a **automation engineer**,
-I want **approved content automatically converted to markdown and committed to GitHub**,
-So that **weekly batch publications happen without manual intervention**.
+I want **approved content automatically committed to GitHub repository weekly**,
+So that **handbook updates go live without manual file operations**.
 
 **Acceptance Criteria:**
 
-**Given** content items approved in Notion and synced to Postgres
-**When** the weekly batch job runs (or manual trigger)
-**Then** the pipeline:
-- Queries Postgres for approved items since last publish
-- Converts each item to markdown with proper frontmatter (title, date, category, tags, source URL)
-- Organizes files by category folder structure (`newly-discovered/model-updates/2025-11-08-gpt45-release.md`)
-- Creates git commit with descriptive message (e.g., "Weekly publish: 15 items (2025-11-08)")
-- Pushes directly to main branch (automated committer)
+**Given** Notion contains approved items for the week
+**When** weekly publication DAG runs (Sunday 00:00 UTC or manual trigger)
+**Then** the publication process:
+- Queries Notion for all items with status="Approved" since last publish
+- Generates markdown files using category-specific formatting
+- Organizes files: `newly-discovered/{category}/YYYY-MM-DD-{slug}.md`
+- Creates single git commit with all files
+- Commit message: "Weekly publish: {count} items ({date})"
+- Pushes to main branch using bot account
 
-**And** idempotent: re-running doesn't create duplicates
+**And** Airflow DAG `handbook/dags/weekly_publish_dag.py` implements:
+- Scheduled execution: Weekly Sunday 00:00 UTC
+- Dry-run mode for testing
+- Rollback capability if errors detected
+- Post-publish: Update items in Notion with "published_date"
 
-**And** commit includes all metadata changes (updates, not just new items)
+**And** GitHub committer module `handbook/pipeline/publication/github_committer.py` uses:
+- Bot account with Personal Access Token (repo write permission)
+- GitHub API for file creation/updates
+- Atomic commits (all files in one commit)
+- Clear attribution in commit message
 
-**And** pipeline logs all actions for audit trail
+**And** published items marked in Notion to prevent duplicates
 
-**And** rollback capability if batch contains errors
-
-**Prerequisites:** Story 2.5 (approval queue), Story 1.5 (GitHub Actions)
+**Prerequisites:** Story 2.4 (formatting)
 
 **Technical Notes:**
-- Use GitHub API or git CLI for commits
-- Automated committer: dedicated service account or bot
-- Markdown template with consistent frontmatter format
-- Handle special characters in filenames (sanitize titles)
-- Consider using conventional commits format
-- Dry-run mode for testing
+- Follow architecture.md deployment architecture (lines 1527-1537)
+- Bot account: `handbook-bot` with PAT stored in environment variables
+- Use PyGithub or GitHub API directly
+- Idempotent: Re-running doesn't create duplicates (check existing files)
+- Trigger GitHub Actions deployment automatically on push
+- Manual trigger workflow for ad-hoc publications
+- Log all publication actions for audit trail
 
 ---
 
-### Story 4.2: Jupyter Book Theme Customization
+### Story 2.6: Weekly Publication Monitoring and Alerts
+
+As a **operations manager**,
+I want **visibility into weekly publication health and immediate alerts for failures**,
+So that **content updates are reliable and issues are caught early**.
+
+**Acceptance Criteria:**
+
+**Given** weekly publication workflow is operational
+**When** I check publication health
+**Then** monitoring shows:
+- Last successful publish date and item count
+- Publication history (weekly trend: items published over time)
+- Approval velocity (time from Auto-News score → Notion approval → GitHub)
+- Source performance (which sources contribute approved items)
+- Error rates (failed publications, reasons)
+
+**And** alerts sent for:
+- Publication failure (GitHub commit failed, Notion query failed)
+- No approvals in current week (Thursday check - reminds team)
+- Low approval rate (<20% of score-5 items approved)
+- Unusual item count (spike or drought)
+
+**And** alerting channels:
+- Email for weekly summary reports
+- Slack webhook for moderate issues
+- PagerDuty/on-call for critical failures (optional, future)
+
+**And** dashboard accessible via:
+- Airflow UI (built-in DAG monitoring)
+- Custom dashboard (Streamlit or Grafana - optional)
+- Weekly email report to stakeholders
+
+**Prerequisites:** Story 2.5 (publication workflow)
+
+**Technical Notes:**
+- Store metrics in `pipeline_runs` table
+- Airflow built-in monitoring + alerting
+- Email alerts via SMTP configuration
+- Slack webhook for real-time notifications
+- Track metrics: approval_rate, time_to_publish, source_health
+- Weekly report generation automated (Python script)
+- Consider CloudWatch integration for AWS infrastructure monitoring
+
+---
+
+## Epic 3: Evidence Ingestion & Knowledge Graph
+
+**Goal:** Implement the two-layer knowledge architecture pattern: Document → Evidence Layer (Postgres paragraphs) → Concept Layer (GraphDB normalized concepts) with intelligent concept matching and vectorization.
+
+**Value:** This epic delivers the "Clarity" foundation - the two-layer architecture that enables Writer Agent to synthesize coherent handbook pages from structured knowledge with full traceability.
+
+---
+
+### Story 3.1: Document Chunking Pipeline
+
+As a **ML engineer**,
+I want **documents split into semantically meaningful paragraphs for evidence storage**,
+So that **each paragraph can be analyzed, concept-extracted, and cited independently**.
+
+**Acceptance Criteria:**
+
+**Given** Basics/Advanced source documents (PDFs, HTML, markdown)
+**When** document chunking pipeline runs
+**Then** the system:
+- Extracts text from multiple formats (PDF, HTML, markdown, plain text)
+- Splits into paragraphs respecting semantic boundaries (not fixed-size chunks)
+- Preserves metadata: document_id, page_number, paragraph_index, section_title
+- Generates paragraph_hash (SHA256) for exact duplicate detection
+- Generates simhash64 for approximate similarity detection
+- Stores in `evidence_paragraphs` table
+
+**And** chunking module `handbook/pipeline/evidence_ingestion/document_chunker.py` implements:
+- Format handlers for PDF (PyPDF2/pdfplumber), HTML (BeautifulSoup), markdown
+- Semantic chunking (respect sentence/paragraph boundaries, not byte limits)
+- Metadata extraction (page numbers from PDFs, headings from HTML/markdown)
+- Batch processing for multiple documents
+
+**And** chunking quality validated:
+- Average paragraph length: 100-500 words
+- Semantic coherence (not splitting mid-sentence)
+- Metadata accuracy
+
+**Prerequisites:** Story 1.2 (Evidence Layer)
+
+**Technical Notes:**
+- Follow architecture.md Evidence Layer schema (lines 828-905)
+- Use LangChain RecursiveCharacterTextSplitter or custom semantic chunker
+- simhash64 field inspired by auto-news benchmarking for deduplication
+- Store raw paragraph text without modification
+- Track processing status in `documents` table
+- Handle edge cases: tables, code blocks, equations (preserve formatting)
+
+---
+
+### Story 3.2: Concept Extraction with Claude
+
+As a **ML engineer**,
+I want **main idea concepts extracted from each paragraph using Claude Sonnet**,
+So that **paragraphs can be linked to normalized concepts in the knowledge graph**.
+
+**Acceptance Criteria:**
+
+**Given** paragraphs stored in Evidence Layer
+**When** concept extraction runs
+**Then** for each paragraph, Claude extracts:
+- **Extracted concept:** Single normalized noun phrase representing main idea
+- **Extraction confidence:** 0.00 - 1.00 score
+- **Importance score:** 1.00 - 5.00 (relevance to LLM engineering)
+- **Sampling weight:** For soft deduplication (similar paragraphs get lower weight)
+
+**And** extraction module `handbook/pipeline/evidence_ingestion/concept_extractor.py` implements:
+- Claude 3.5 Sonnet API integration with structured output
+- Prompt engineering for consistent noun-phrase extraction
+- Batch processing (multiple paragraphs per API call for cost efficiency)
+- Cost tracking (tokens used, cost in cents)
+- Retry logic with exponential backoff
+
+**And** concept extraction follows rules:
+- Concepts are noun phrases (not sentences): "Retrieval-Augmented Generation", "Prompt Caching", "Fine-Tuning with LoRA"
+- Concepts are normalized (consistent naming across sources)
+- Generic concepts rejected ("Introduction", "Overview", "Conclusion")
+- Multi-concept paragraphs use primary concept only
+
+**And** extraction quality metrics tracked:
+- Confidence distribution
+- Concept diversity (unique concepts / total paragraphs)
+- LLM cost per paragraph
+
+**Prerequisites:** Story 3.1 (document chunking)
+
+**Technical Notes:**
+- Follow architecture.md Novel Pattern 1: Two-Layer Architecture (lines 435-477)
+- Claude 3.5 Sonnet: 200K context, superior concept extraction, $3-15/1M tokens
+- Structured output: JSON with concept_name, confidence, importance, reasoning
+- Prompt includes examples of good/bad concept extractions
+- Store in `extracted_concept` field of `evidence_paragraphs` table
+- Fallback to Gemini Flash if Claude unavailable ($0.075-0.30/1M tokens)
+
+---
+
+### Story 3.3: Concept Matching and Normalization
+
+As a **knowledge engineer**,
+I want **extracted concepts matched against existing GraphDB concepts**,
+So that **the same concept from different sources maps to one normalized node**.
+
+**Acceptance Criteria:**
+
+**Given** paragraphs with extracted concepts
+**When** concept matching runs
+**Then** for each extracted concept:
+- Query GraphDB for similar existing concepts (semantic similarity)
+- If match found (similarity > 0.90): Use existing concept_name, update paragraph's extracted_concept field
+- If no match: Create new concept node in GraphDB with initial properties
+- Store match confidence and decision reasoning
+
+**And** matching module `handbook/pipeline/evidence_ingestion/concept_matcher.py` implements:
+- Semantic similarity search in GraphDB (embedding-based or LLM-based)
+- Configurable similarity threshold (default 0.90)
+- Human-in-the-loop for ambiguous matches (0.80-0.90 range)
+- Batch processing for efficiency
+- Match history tracking (merge decisions, new concept creation)
+
+**And** GraphDB updater `handbook/pipeline/evidence_ingestion/graph_updater.py`:
+- Creates concept nodes with metadata (name, aliases, summary, contributors)
+- Updates evidence_count when paragraphs linked
+- Adds initial relations if detected (e.g., "RAG" RELATES_TO "Embeddings")
+- Tracks concept creation timestamp and contributor
+
+**And** matching quality validated:
+- False positive rate (different concepts incorrectly merged)
+- False negative rate (same concept not matched)
+- Manual review workflow for ambiguous cases
+
+**Prerequisites:** Story 1.3 (Concept Layer), Story 3.2 (concept extraction)
+
+**Technical Notes:**
+- Follow architecture.md Concept Matching section (lines 397-407)
+- Semantic matching via embeddings + cosine similarity OR LLM judge
+- Consider using Claude for match decisions (context-aware, handles nuance)
+- Store match decisions in `evidence_metadata` table for audit
+- Concept normalization prevents graph fragmentation
+- Monthly review: Knowledge Team validates concept merges
+
+---
+
+### Story 3.4: Document Vectorization with pgvector
+
+As a **ML engineer**,
+I want **paragraph embeddings stored in pgvector for semantic search**,
+So that **users can search Basics/Advanced content semantically (future feature)**.
+
+**Acceptance Criteria:**
+
+**Given** paragraphs stored in Evidence Layer with extracted concepts
+**When** vectorization runs
+**Then** for each paragraph:
+- Generate embedding using OpenAI text-embedding-3-small (1536 dims)
+- Store in `document_embeddings` table with metadata
+- Link to evidence_paragraph_id
+- Denormalize paragraph_text for faster search retrieval
+- Track embedding cost
+
+**And** vectorization module `handbook/db_connection/vector_db.py` implements:
+- OpenAI embedding API integration
+- Batch processing (2048 texts per request for 50% discount)
+- IVFFlat index maintenance (rebuild when row count doubles)
+- Cosine similarity search function
+- Cost optimization (cache embeddings, avoid re-vectorizing)
+
+**And** vector search tested:
+- Query: "How does retrieval-augmented generation work?"
+- Returns: Top 10 relevant paragraphs with similarity scores
+- Filter by handbook_topic (optional)
+- Sub-100ms query latency
+
+**And** ONLY Basics/Advanced documents vectorized (NOT Newly Discovered news)
+
+**Prerequisites:** Story 1.4 (pgvector setup), Story 3.1 (paragraphs available)
+
+**Technical Notes:**
+- Follow architecture.md Vector Database schema (lines 1116-1209)
+- OpenAI text-embedding-3-small: $0.02/1M tokens, 1536 dimensions
+- Batch API for cost savings: 2048 texts/request
+- IVFFlat index: `lists = sqrt(row_count)` → start with 100
+- Store handbook_topic (extracted from document metadata or concept)
+- Vector search is supplementary (Graph DB is primary knowledge store)
+- Use `vector_cosine_ops` for cosine similarity
+
+---
+
+### Story 3.5: Evidence Metadata Enrichment
+
+As a **content curator**,
+I want **paragraphs enriched with metadata beyond extracted concepts**,
+So that **Writer Agent has rich context for synthesis and citation**.
+
+**Acceptance Criteria:**
+
+**Given** paragraphs with extracted concepts
+**When** metadata enrichment runs
+**Then** each paragraph's `evidence_metadata` table includes:
+- **Extract type:** core_summary, supporting_detail, counterpoint, example
+- **Keywords:** Key terms and phrases (5-10 per paragraph)
+- **Entities:** Named entities (people, organizations, concepts) as JSONB
+- **Handbook topic:** Primary topic area (rag, prompting, fine-tuning, etc.)
+- **Handbook subtopic:** More specific categorization
+
+**And** enrichment module extracts:
+- Named entities using spaCy or Claude
+- Keywords using TF-IDF or Claude
+- Extract type classification using LLM
+- Topic assignment based on concept matching
+
+**And** metadata enables:
+- Writer Agent filtering (e.g., "core summaries only for overview section")
+- Evidence type diversity in synthesis (mix summaries, examples, counterpoints)
+- Cross-linking between handbook sections
+- Quality filtering (importance_score prioritization)
+
+**And** enrichment is incremental (new paragraphs enriched, existing preserved)
+
+**Prerequisites:** Story 3.3 (concept matching)
+
+**Technical Notes:**
+- Follow architecture.md Evidence Metadata table (lines 906-924)
+- spaCy for fast NER, Claude for nuanced extraction
+- Store entities as JSONB for flexibility
+- Keywords useful for future full-text search
+- Handbook topic inference: Use concept to topic mapping
+- Extract type helps Writer Agent structure pages logically
+- Balance enrichment cost vs value (prioritize high-importance paragraphs)
+
+---
+
+### Story 3.6: Evidence Ingestion Airflow DAG
+
+As a **data engineer**,
+I want **end-to-end Airflow DAG orchestrating document → evidence → concept → graph pipeline**,
+So that **ingestion is automated, monitored, and recoverable**.
+
+**Acceptance Criteria:**
+
+**Given** source documents are available (S3, local filesystem, URLs)
+**When** evidence ingestion DAG runs
+**Then** the pipeline executes sequentially:
+1. **Document intake:** Register document in `documents` table
+2. **Chunking:** Split into paragraphs, store in `evidence_paragraphs`
+3. **Concept extraction:** Claude extracts concepts, stores in `extracted_concept` field
+4. **Concept matching:** Match/merge with GraphDB, update `extracted_concept`
+5. **Vectorization:** Generate embeddings, store in `document_embeddings`
+6. **Metadata enrichment:** Enrich `evidence_metadata` table
+7. **Completion:** Mark document as processed, track metrics
+
+**And** Airflow DAG `handbook/dags/evidence_ingestion_dag.py` implements:
+- Task dependencies with proper error handling
+- Idempotent tasks (re-running doesn't duplicate data)
+- Checkpoint/resume capability (restart from failed task)
+- Cost tracking per task (LLM tokens, API costs)
+- Metrics logging (paragraphs processed, concepts created, duration)
+
+**And** DAG supports:
+- Manual trigger for ad-hoc document ingestion
+- Batch processing (multiple documents in one run)
+- Dry-run mode for testing
+- Failed item tracking in `failed_items` table
+
+**And** monitoring dashboard shows:
+- Pipeline status (running, succeeded, failed)
+- Current document being processed
+- Cost accumulation (real-time)
+- Estimated completion time
+
+**Prerequisites:** Stories 3.1-3.5 (all ingestion components)
+
+**Technical Notes:**
+- Follow architecture.md pipeline structure (lines 161-176)
+- Use Airflow XCom for small data passing (<1MB)
+- Use Postgres for large data (pass IDs via XCom)
+- Implement retry logic (3 attempts with exponential backoff)
+- Dead-letter queue for permanent failures
+- Alert if DAG fails or costs exceed threshold
+- Manual review for ambiguous concept matches (human-in-the-loop task)
+
+---
+
+### Story 3.7: Evidence Deduplication and Quality Scoring
+
+As a **ML engineer**,
+I want **semantically similar paragraphs identified and quality-scored**,
+So that **Writer Agent uses diverse, high-quality evidence without redundancy**.
+
+**Acceptance Criteria:**
+
+**Given** paragraphs stored in Evidence Layer with embeddings
+**When** deduplication and scoring runs
+**Then** the system:
+- Uses simhash64 for fast approximate duplicate detection
+- Uses vector cosine similarity for semantic duplicate detection (threshold 0.92)
+- Clusters similar paragraphs (same concept, similar content)
+- Identifies representative paragraph per cluster (highest importance_score)
+- Assigns sampling_weight (higher for unique, lower for redundant)
+- Uses LLM judge to score paragraph quality (originality, depth, accuracy)
+
+**And** deduplication module identifies:
+- Exact duplicates (same paragraph from different sources)
+- Near-duplicates (paraphrased content)
+- Semantic clusters (related but distinct paragraphs)
+
+**And** quality scoring evaluates:
+- **Originality:** Novel insight vs common knowledge (1.00-5.00)
+- **Depth:** Superficial vs detailed explanation (1.00-5.00)
+- **Technical accuracy:** Correctness of claims (1.00-5.00)
+- **Weighted total:** Combined score for prioritization
+
+**And** deduplication results stored:
+- cluster_id in `evidence_paragraphs` table
+- is_representative flag for cluster representatives
+- sampling_weight for probabilistic sampling
+
+**And** Writer Agent uses deduplication data to ensure evidence diversity
+
+**Prerequisites:** Story 3.4 (vectorization), Story 3.5 (metadata)
+
+**Technical Notes:**
+- Follow architecture.md semantic deduplication fields (lines 844-857, 884-890)
+- simhash64 for O(1) approximate matching (fast)
+- Vector similarity for precise semantic matching (slower but accurate)
+- LLM judge scores stored: judge_originality, judge_depth, judge_technical_accuracy
+- Inspired by auto-news benchmarking (reference in architecture.md)
+- Soft deduplication: Don't delete, just down-weight (preserve for context)
+- Monthly re-scoring as knowledge graph evolves
+
+---
+
+## Epic 4: Writer Agent & Publication
+
+**Goal:** Build Writer Agent that queries knowledge graph → synthesizes handbook pages → generates diagrams → aggregates patchnotes → publishes to GitHub → deploys via Jupyter Book.
+
+**Value:** This epic delivers the synthesis magic - transforming structured knowledge into coherent, traceable handbook pages with automated diagram generation and change tracking.
+
+---
+
+### Story 4.1: Knowledge Graph Query Engine
+
+As a **backend engineer**,
+I want **Writer Agent to efficiently query concepts, relations, and evidence from knowledge graph**,
+So that **synthesis has complete context for generating high-quality pages**.
+
+**Acceptance Criteria:**
+
+**Given** concepts and evidence stored in two-layer architecture
+**When** Writer Agent queries for a concept (e.g., "RAG")
+**Then** the query engine returns:
+- **Concept metadata:** concept_id, concept_name, summary, definition, contributors, confidence_score
+- **Relations by type:**
+  - Prerequisites: Concepts that must be understood first
+  - Related: Comparison/alternative/complementary concepts
+  - Subtopics: Narrower concepts under this one
+  - Extends: Advanced versions of this concept
+  - Contradicts: Opposing viewpoints
+- **Evidence paragraphs:** Query Postgres by `extracted_concept = 'RAG'`, ordered by importance_score
+- **Evidence metadata:** Extract type, keywords, entities, handbook topic
+
+**And** query module `handbook/pipeline/writer_agent/graph_query.py` implements:
+- GraphDB Cypher/SPARQL queries for concept + relations
+- Postgres queries for evidence paragraphs (via extracted_concept field)
+- Join operations (concept → relations → evidence)
+- Caching for frequently queried concepts
+- Sub-500ms query latency for typical concept
+
+**And** query result format:
+```python
+{
+  "concept": {...},
+  "prerequisites": [{concept, relation_metadata, evidence_previews}],
+  "related": [{concept, relation_type, evidence_previews}],
+  "subtopics": [{concept, handbook_path, evidence_previews}],
+  "extends": [{concept, extension_type, evidence_previews}],
+  "contradicts": [{concept, explanation, evidence_previews}],
+  "evidence": [{paragraph_text, source, page, importance_score, extract_type}]
+}
+```
+
+**Prerequisites:** Story 1.3 (Concept Layer), Story 3.3 (concept matching)
+
+**Technical Notes:**
+- Follow architecture.md Novel Pattern 3: Writer Agent Query (lines 530-579)
+- Two-step query: (1) GraphDB for concept + relations, (2) Postgres for evidence
+- Evidence linkage via `extracted_concept` field in Evidence Layer
+- Example queries in architecture.md (lines 1082-1114)
+- Batch queries for efficiency when generating multiple pages
+- Consider query result caching (Redis) for performance
+
+---
+
+### Story 4.2: Page Synthesis with Claude Writer Agent
+
+As a **content creator**,
+I want **Claude to synthesize handbook pages from graph query results**,
+So that **users get coherent, well-cited explanations with full source traceability**.
+
+**Acceptance Criteria:**
+
+**Given** knowledge graph query results for a concept
+**When** Writer Agent synthesizes a page
+**Then** the generated page follows Concept Page Structure (PRD lines 440-490):
+- **Title:** Concept name
+- **Summary:** 1-2 sentence definition
+- **Dynamic relation blocks** (only non-empty sections):
+  - Prerequisites: With "why" explanations and evidence previews
+  - Related: With relation type and evidence previews
+  - Subtopics: With handbook paths
+  - Extends: With extension types
+  - Contradicts: With explanations
+- **Sources & Commentary:** Reading order suggestions, context for each source
+- **Contributors:** Knowledge Team members who curated this concept
+
+**And** synthesis module `handbook/pipeline/writer_agent/page_synthesizer.py` implements:
+- Claude 3.5 Sonnet integration (200K context for comprehensive synthesis)
+- Synthesis prompts in `handbook/pipeline/writer_agent/synthesis_prompts.py`
+- Structured output matching Concept Page format
+- Evidence preview format: `"[excerpt]" — [source] [paraphrase/direct/figure]`
+- Citation style consistent across all pages
+- Cost tracking per page synthesis
+
+**And** synthesis quality requirements:
+- No hallucinations (all claims backed by evidence)
+- Proper attribution (every fact cited to source)
+- Clear "why" explanations for each relation
+- Evidence diversity (mix core_summary, examples, counterpoints)
+- Appropriate depth for section (Basics vs Advanced)
+
+**And** output is MyST Markdown compatible with Jupyter Book
+
+**Prerequisites:** Story 4.1 (graph query engine)
+
+**Technical Notes:**
+- Follow architecture.md Novel Pattern 3: Writer Agent (lines 530-579)
+- Claude 3.5 Sonnet: 200K context, superior prose quality, $3-15/1M tokens
+- Prompt engineering: Include graph structure, evidence, and output format examples
+- Handle conflicting evidence (surface disagreements, don't hide)
+- Generate frontmatter: title, date, last_updated, handbook_topic, contributors
+- Fallback to Gemini Flash if Claude unavailable
+- Human review recommended before first publication (quality gate)
+
+---
+
+### Story 4.3: Image Generation Agent with MCP Server
+
+As a **content creator**,
+I want **automated diagram and chart generation for handbook pages**,
+So that **visual explanations enhance understanding without manual design work**.
+
+**Acceptance Criteria:**
+
+**Given** a handbook concept needs visual explanation
+**When** Image Generation Agent is invoked
+**Then** the agent:
+- Receives diagram specification (type, content, style)
+- Calls Custom MCP Server for image generation
+- Receives image file path from MCP Server
+- Inserts image reference into markdown file
+- Stores image in `handbook-content/_static/images/`
+- Updates markdown with proper MyST image syntax
+
+**And** image generation module `handbook/pipeline/image_generation/image_agent.py` implements:
+- Custom Agent logic for diagram planning
+- MCP client `handbook/pipeline/image_generation/mcp_client.py` for server communication
+- Markdown inserter `handbook/pipeline/image_generation/markdown_inserter.py`
+- Support for diagram types: flowcharts, architecture diagrams, concept maps, graphs
+
+**And** MCP Server capabilities:
+- Generates diagrams from structured specifications
+- Returns image files (PNG, SVG formats)
+- Configurable via environment variables (MCP_SERVER_URL)
+
+**And** Airflow DAG `handbook/dags/image_generation_dag.py` orchestrates:
+- Time-to-time generation (manual trigger or scheduled)
+- Batch processing for multiple diagrams
+- Image optimization (compression, format conversion)
+- Git commit of generated images
+
+**And** images follow naming convention: `{concept-slug}-{diagram-type}.{ext}`
+
+**Prerequisites:** Story 4.2 (page synthesis)
+
+**Technical Notes:**
+- Follow architecture.md Novel Pattern for Image Generation (lines 426-433)
+- Custom Agent + MCP Server architecture (decoupled design)
+- MCP SDK for server communication
+- Image types: Mermaid diagrams, D3.js charts, custom illustrations
+- Alt text generation for accessibility
+- Consider diagram versioning (update when content changes)
+- Future: Auto-detect when diagrams needed based on content
+
+---
+
+### Story 4.4: Patchnote Aggregation System
+
+As a **content maintainer**,
+I want **centralized tracking of all Basics/Advanced page changes**,
+So that **users can see what's new without checking individual pages**.
+
+**Acceptance Criteria:**
+
+**Given** Writer Agent generates or updates a Basics/Advanced page
+**When** the page is committed to GitHub
+**Then** patchnote aggregator:
+- Prepends entry to `handbook-content/patchnote.md`
+- Format: `- [YYYY-MM-DD] Updated [Concept Name]: [summary of changes]`
+- Summary generated by comparing old vs new content (if update) or listing key sections (if new)
+- Chronological order (newest first)
+- Categories changes: New page, Major update, Minor update, Corrections
+
+**And** aggregation module `handbook/pipeline/writer_agent/patchnote_aggregator.py` implements:
+- Diff detection (git diff for existing pages)
+- Change summarization (LLM-generated summary of what changed)
+- Patchnote formatting and prepending
+- Deduplication (don't duplicate if re-generating same page)
+
+**And** patchnote.md structure:
+```markdown
+# Handbook Updates
+
+## 2025-12-06
+- [New] Added concept: "Retrieval-Augmented Generation" - Core RAG patterns and implementations
+- [Major] Updated "Prompt Caching" - Added Claude prompt caching details and cost analysis
+
+## 2025-11-29
+- [Minor] Updated "Fine-Tuning" - Fixed typo in LoRA explanation
+```
+
+**And** patchnote updates are atomic (included in same commit as page changes)
+
+**Prerequisites:** Story 4.2 (page synthesis)
+
+**Technical Notes:**
+- Follow architecture.md Patchnote Aggregator (lines 559-562)
+- Use git diff to detect changes (compare HEAD vs new content)
+- LLM summarization for change descriptions (Claude or GPT-4)
+- Prepend to file (don't append) for reverse chronological order
+- Track in Evidence Layer: concept_name, change_type, change_date
+- Monthly review: Archive old patchnotes (keep last 6 months visible)
+
+---
+
+### Story 4.5: Writer Agent Airflow DAG
+
+As a **automation engineer**,
+I want **end-to-end DAG orchestrating graph query → synthesis → image generation → patchnote → GitHub commit**,
+So that **handbook page generation is automated and monitored**.
+
+**Acceptance Criteria:**
+
+**Given** concepts exist in knowledge graph with sufficient evidence
+**When** Writer Agent DAG runs (monthly trigger after concept review)
+**Then** the pipeline executes:
+1. **Concept selection:** Identify concepts ready for page generation (new or updated)
+2. **Graph query:** Load concept + relations + evidence for each
+3. **Page synthesis:** Claude generates markdown following Concept Page structure
+4. **Image generation:** Generate diagrams if specified (optional task)
+5. **Patchnote update:** Aggregate changes to patchnote.md
+6. **GitHub commit:** Commit generated pages + images + patchnote
+7. **Metrics tracking:** Log pages generated, tokens used, costs, duration
+
+**And** Airflow DAG `handbook/dags/writer_agent_dag.py` implements:
+- Monthly scheduled execution (2nd Saturday after Knowledge Team concept review)
+- Manual trigger for ad-hoc generation
+- Parallel processing (generate multiple pages concurrently)
+- Error handling with retry logic
+- Human review gate (optional - approve before commit)
+- Cost monitoring and alerts
+
+**And** DAG supports:
+- Dry-run mode (generate locally, don't commit)
+- Single-concept mode (test one page generation)
+- Batch mode (generate all pending concepts)
+- Rollback capability (revert bad generations)
+
+**And** monitoring shows:
+- Pages generated this run
+- Total cost (LLM tokens + API calls)
+- Generation quality scores
+- Failed concepts (for manual review)
+
+**Prerequisites:** Stories 4.1-4.4 (all Writer Agent components)
+
+**Technical Notes:**
+- Follow architecture.md Writer Agent DAG structure (lines 206-208)
+- Parallel task execution for scalability (Airflow parallelism)
+- Use Airflow XCom for concept IDs, Postgres for large data
+- Implement checkpoint/resume for long-running batches
+- Alert if costs exceed budget or quality issues detected
+- Integration with GitHub committer (story 4.6)
+
+---
+
+### Story 4.6: Jupyter Book Theme and Layout Customization
 
 As a **UI/UX designer**,
-I want **Jupyter Book styled with custom branding and visual design**,
-So that **handbook has professional, distinct visual identity**.
+I want **Jupyter Book styled with custom branding and handbook-specific layouts**,
+So that **the handbook has professional, distinct visual identity**.
 
 **Acceptance Criteria:**
 
 **Given** basic Jupyter Book is configured
 **When** I apply custom styling
 **Then** the handbook includes:
-- **Brand colors:** Primary, secondary, accent colors applied throughout
-- **Logo:** Project logo in header/nav
-- **Typography:** Clear, readable fonts (headers, body, code)
-- **Custom CSS:** Additional styling in `_static/custom.css`
-- **Favicon:** Custom icon for browser tabs
-- **Footer:** Copyright, license, contribution link
+- **Brand identity:**
+  - Custom logo in `_static/logo.svg`
+  - Brand colors (primary, secondary, accent) in `_config.yml`
+  - Custom fonts (headers, body, code)
+  - Favicon in `_static/favicon.ico`
+- **Layout enhancements:**
+  - Card layouts for Newly Discovered section (sphinx-design)
+  - Collapsible sections for archived news (sphinx-togglebutton)
+  - Code syntax highlighting with appropriate theme
+  - Responsive design (mobile, tablet, desktop)
+- **Custom CSS:** `_static/custom.css` for additional styling
+- **Footer:** Copyright, license, contribution link, "Last updated" timestamp
 
-**And** styling is mobile-responsive
+**And** styling follows accessibility standards:
+- WCAG 2.1 AA color contrast ratios
+- Keyboard navigation support
+- Screen reader compatibility
+- Semantic HTML structure
 
-**And** maintains accessibility (sufficient contrast, readable font sizes)
+**And** theme configuration in `_config.yml`:
+```yaml
+html:
+  use_edit_page_button: true
+  use_repository_button: true
+  use_issues_button: true
+sphinx:
+  config:
+    html_theme_options:
+      logo: "_static/logo.svg"
+      primary_color: "#your-brand-color"
+```
 
-**And** style guide documented for contributors
+**And** style guide documented in `STYLE_GUIDE.md`
 
-**Prerequisites:** Story 1.6 (Jupyter Book configuration)
+**Prerequisites:** Story 1.1 (Jupyter Book initialization)
 
 **Technical Notes:**
-- Override Jupyter Book theme variables in `_config.yml`
-- Custom CSS for elements not configurable via config
-- Test on multiple browsers and screen sizes
+- Follow architecture.md theme customization (lines 849-855)
+- PyData Sphinx Theme (Jupyter Book default) is highly customizable
+- sphinx-design for card grids (Newly Discovered section)
+- sphinx-togglebutton for collapsible content
+- Test on Chrome, Firefox, Safari, Edge (last 2 major versions)
+- Mobile-first responsive design
 - Consider dark mode support (future enhancement)
-- Logo assets in SVG format (scalable)
 
 ---
 
-### Story 4.3: Card Layouts for "Newly Discovered" Section
-
-As a **handbook user**,
-I want **visually distinct card-based presentation for recent updates**,
-So that **I can quickly scan latest developments at a glance**.
-
-**Acceptance Criteria:**
-
-**Given** "Newly Discovered" content is published
-**When** I view the section
-**Then** each item displays as a card with:
-- **Title:** Clear, clickable headline
-- **Summary:** 1-2 line description
-- **Date:** Publication date badge
-- **Category:** Visual badge (Model Updates, Framework Updates, etc.)
-- **External link:** Icon/button to original source
-- **Card hover effect:** Visual feedback
-
-**And** cards are grouped by category with category headers
-
-**And** layout is responsive grid (4 columns desktop, 2 tablet, 1 mobile)
-
-**And** "Last 30 days" and "Archive" collapsible sections
-
-**Prerequisites:** Story 4.2 (theme customization)
-
-**Technical Notes:**
-- Use sphinx-design extension for card/grid components
-- MyST-NB syntax for cards: `{card}` directive
-- CSS Grid or Flexbox for responsive layout
-- Category badges with distinct colors
-- sphinx-togglebutton for collapsible archive sections
-
----
-
-### Story 4.4: SEO and Social Sharing Optimization
-
-As a **growth marketer**,
-I want **handbook pages optimized for search engines and social sharing**,
-So that **content reaches wider audience through organic discovery**.
-
-**Acceptance Criteria:**
-
-**Given** handbook pages are published
-**When** pages are crawled or shared
-**Then** each page includes:
-- **SEO meta tags:** title, description, keywords
-- **Open Graph tags:** for Facebook, LinkedIn sharing
-- **Twitter Card tags:** for Twitter previews
-- **Structured data:** schema.org markup (Article, TechArticle)
-- **Sitemap:** Auto-generated XML sitemap
-- **Robots.txt:** Proper crawling directives
-
-**And** URLs are descriptive (e.g., `/basics/rag/naive-rag` not `/page123`)
-
-**And** images have alt text for accessibility and SEO
-
-**And** pages load fast (optimized images, minimal JS)
-
-**And** mobile-friendly (passes Google Mobile-Friendly Test)
-
-**Prerequisites:** Story 4.2 (theme customization)
-
-**Technical Notes:**
-- Use sphinxext-opengraph extension for OG tags
-- Frontmatter includes meta description for each page
-- Jupyter Book auto-generates sitemap
-- Test with Google Rich Results Test
-- Optimize images: WebP format, responsive sizes
-- CDN via GitHub Pages for fast delivery
-
----
-
-### Story 4.5: GitHub Actions Deployment Automation
+### Story 4.7: Automated GitHub Pages Deployment
 
 As a **DevOps engineer**,
-I want **Jupyter Book automatically built and deployed on every main branch push**,
-So that **content goes live immediately after GitHub commit**.
+I want **Jupyter Book automatically built and deployed on every content commit**,
+So that **handbook updates go live immediately without manual intervention**.
 
 **Acceptance Criteria:**
 
-**Given** markdown content is committed to main branch
-**When** GitHub Actions workflow triggers
+**Given** content is committed to main branch (Newly Discovered weekly OR Basics/Advanced monthly)
+**When** GitHub Actions deployment workflow triggers
 **Then** the deployment process:
-- Installs Jupyter Book dependencies (cached for speed)
-- Runs `jupyter-book build` on content directory
-- Validates build (no errors, all links valid)
-- Deploys HTML to `gh-pages` branch
-- Invalidates any caches if needed
-- Updates deployment status
+1. Checks out repository
+2. Installs Jupyter Book dependencies (with caching)
+3. Builds handbook (`jupyter-book build handbook-content/`)
+4. Validates build (no errors, HTML generated)
+5. Deploys to gh-pages branch (GitHub Pages)
+6. Deployment completes within 10 minutes
 
-**And** full build completes in under 5 minutes
+**And** `.github/workflows/deploy.yml` implements:
+- Trigger on push to main branch (any content changes)
+- Dependency caching (pip cache for 30s installs vs 2min)
+- Build validation (exit on error, don't deploy broken builds)
+- Deployment using `peaceiris/actions-gh-pages` action
+- Deployment status badge in README.md
 
-**And** zero-downtime deployment (old version live until new ready)
+**And** deployment is zero-downtime:
+- Previous version stays live until new build succeeds
+- Failed builds don't update gh-pages branch
+- Rollback via git revert on main branch
 
-**And** deployment failures don't take down live site
+**And** post-deployment actions:
+- Slack notification with deployment status
+- Update deployment timestamp in Notion (optional)
+- Clear CDN cache if needed (GitHub Pages CDN automatic)
 
-**And** deployment status visible in GitHub UI and README badge
-
-**Prerequisites:** Story 1.5 (CI/CD pipeline), Story 4.1 (Postgres→GitHub pipeline)
+**Prerequisites:** Story 1.6 (CI/CD pipeline), Story 4.5 (Writer Agent commits)
 
 **Technical Notes:**
-- Use peaceiris/actions-gh-pages action
-- Dependency caching: pip cache, Jupyter Book cache
-- Incremental builds if supported (future optimization)
-- Deployment notifications to Slack/Discord
-- Manual deployment workflow for hotfixes
+- Follow architecture.md Deployment Architecture (lines 1486-1537)
+- GitHub Pages serves from gh-pages branch
+- peaceiris/actions-gh-pages handles branch management
+- Cache strategy: `actions/cache` for pip dependencies
+- Build timeout: 10 minutes max (fail fast)
+- Incremental builds not supported in Jupyter Book 1.0.4 (full rebuild)
+- Future optimization: Investigate Jupyter Book caching mechanisms
 
 ---
 
-### Story 4.6: Content Metadata and Timestamps
+## Epic 5: Community & Quality Operations
 
-As a **handbook user**,
-I want **clear indicators of when content was published and last updated**,
-So that **I can trust content currency and relevance**.
+**Goal:** Enable community contributions via GitHub PR workflow while maintaining operational excellence through monitoring, link validation, error correction, and two-layer database backup.
 
-**Acceptance Criteria:**
-
-**Given** published handbook pages
-**When** I view any page
-**Then** I see:
-- **Publication date:** When content first published
-- **Last updated date:** Most recent content modification
-- **Source link:** Original source URL for "Newly Discovered" items
-- **Version indicator:** For framework-specific content (e.g., "LangChain 0.3")
-
-**And** dates are in readable format (e.g., "November 8, 2025")
-
-**And** "last updated" auto-updates from git history or frontmatter
-
-**And** very old content (>6 months) shows staleness warning
-
-**Prerequisites:** Story 4.2 (theme customization)
-
-**Technical Notes:**
-- Frontmatter: `date`, `last_updated`, `version` fields
-- Custom Jupyter Book extension to display dates
-- Git hooks can auto-update last_modified date
-- Consider "freshness indicator" visual (green/yellow/red)
-- Timezone handling (UTC or local)
-
----
-
-### Story 4.7: Rollback and Deployment Safety
-
-As a **site administrator**,
-I want **ability to quickly rollback bad deployments**,
-So that **site quality is protected and issues can be fixed fast**.
-
-**Acceptance Criteria:**
-
-**Given** a deployment introduces errors (broken links, formatting issues, bad content)
-**When** I need to rollback
-**Then** I can:
-- Revert git commit (standard `git revert`)
-- Trigger manual re-deployment of previous version
-- Keep problematic content in separate branch for fixing
-- Deployment automatically rolls back on build failure
-
-**And** previous version remains live during failed build
-
-**And** rollback process documented and tested
-
-**And** post-rollback checklist (fix issue, test, re-deploy)
-
-**Prerequisites:** Story 4.5 (deployment automation)
-
-**Technical Notes:**
-- GitHub Pages serves from gh-pages branch (previous version stays until new succeeds)
-- Git history allows easy revert
-- Failed builds don't update gh-pages
-- Monitoring alerts for broken links, 404s
-- Staging environment for pre-production testing (future enhancement)
-
----
-
-## Epic 5: Community Contribution Framework
-
-**Goal:** Enable community members to contribute handbook content, submit sources, and collaborate effectively - turning the handbook into collective intelligence that compounds.
-
-**Value:** This epic delivers the "Community Intelligence" magic - where contributions make knowledge compound instead of fade. It scales content creation beyond the core team.
+**Value:** This epic delivers sustained "Confidence" - users trust the handbook through community contributions, quality controls, and operational reliability.
 
 ---
 
@@ -1043,7 +1325,7 @@ So that **site quality is protected and issues can be fixed fast**.
 
 As a **community contributor**,
 I want **clear process to submit handbook content via GitHub pull requests**,
-So that **I can share my knowledge while maintaining quality standards**.
+So that **I can share knowledge while maintainers ensure quality standards**.
 
 **Acceptance Criteria:**
 
@@ -1054,39 +1336,43 @@ So that **I can share my knowledge while maintaining quality standards**.
 - Create feature branch for my contribution
 - Edit or create markdown files following templates
 - Submit pull request with description
-- See automated checks run (linting, link validation)
+- See automated checks run (linting, link validation, frontmatter validation)
 - Receive feedback from maintainers
 - Iterate on changes until approved
 
-**And** CONTRIBUTING.md document includes:
-- Step-by-step PR workflow
-- Content guidelines and quality standards
-- Markdown formatting examples
-- How to run local preview (Jupyter Book build)
+**And** `.github/pull_request_template.md` includes:
+- PR checklist (frontmatter complete, links valid, follows style guide)
+- Contribution type (new page, update, correction, image)
+- Testing notes (how contributor verified changes)
 
-**And** PR template auto-populates with checklist
+**And** automated checks in CI workflow validate:
+- Markdown syntax correct (markdown-lint)
+- Links are valid (no 404s) - optional on PR, required weekly
+- Frontmatter complete (title, date, category, tags present)
+- File naming conventions followed (lowercase, hyphens, no spaces)
+- Jupyter Book builds successfully
 
-**And** automated checks validate:
-- Markdown syntax correct
-- Links are valid (no 404s)
-- Frontmatter complete
-- File naming conventions followed
+**And** `.github/ISSUE_TEMPLATE/` includes:
+- `report-error.md` - Report content errors
+- `submit-source.md` - Submit URLs for Auto-News monitoring
 
-**Prerequisites:** Story 1.1 (repository setup), Story 1.5 (CI/CD)
+**Prerequisites:** Story 1.6 (CI/CD pipeline)
 
 **Technical Notes:**
-- Use GitHub PR templates (`.github/pull_request_template.md`)
-- Automated checks: markdown-lint, linkchecker
-- PR review requires maintainer approval
+- Follow architecture.md community contribution patterns
+- Use markdown-lint in CI for style enforcement
+- linkchecker or custom script for link validation
+- CODEOWNERS file for auto-assignment by section (e.g., `basics/**` → @basics-team)
+- PR review requires 1 maintainer approval minimum
+- Clear merge policy: Squash commits for cleaner history
 - Consider "good first issue" labels for new contributors
-- Clear merge policy (squash vs merge commits)
 
 ---
 
 ### Story 5.2: Content Templates and Style Guide
 
 As a **new contributor**,
-I want **clear templates and examples for different content types**,
+I want **clear templates and style guidance for different content types**,
 So that **my contributions match handbook standards without guesswork**.
 
 **Acceptance Criteria:**
@@ -1094,258 +1380,95 @@ So that **my contributions match handbook standards without guesswork**.
 **Given** I'm creating new content
 **When** I reference contribution documentation
 **Then** I find templates for:
-- **Basics topic page** (overview, concepts, examples, trade-offs, further reading)
-- **Advanced topic page** (deep dive, implementation, performance, edge cases)
-- **Newly Discovered item** (title, summary, category, source link)
-- **Frontmatter requirements** (title, date, category, tags, description)
+- **Basics/Advanced concept page** (generated by Writer Agent, but editable)
+- **Newly Discovered item** (category-specific templates from Story 2.4)
+- **Frontmatter requirements:**
+  ```yaml
+  ---
+  title: "Concept Name"
+  date: 2025-12-06
+  last_updated: 2025-12-06
+  category: basics|advanced|newly-discovered
+  tags: [rag, prompting, llm]
+  contributors: [github_username]
+  ---
+  ```
 
-**And** style guide covers:
-- Voice and tone (clear, practical, professional)
-- Code example formatting
-- Citation format for sources
-- Image guidelines (alt text, sizing, placement)
-- When to link to other sections
+**And** `STYLE_GUIDE.md` documents:
+- **Voice and tone:** Clear, practical, professional (avoid hype, be objective)
+- **Writing style:** Use examples, explain trade-offs, cite sources
+- **Code examples:** Properly formatted with syntax highlighting and comments
+- **Citations:** How to cite sources (inline links, evidence preview format)
+- **Images:** Alt text requirements, file naming, placement
+- **Cross-linking:** When and how to link to other handbook sections
 
-**And** examples of "good" vs "needs improvement" content
+**And** `CONTRIBUTING.md` includes:
+- Step-by-step PR workflow
+- How to run local Jupyter Book build for preview
+- How to report errors or suggest improvements
+- Expectations for PR response time (48 hours first response)
 
-**Prerequisites:** Story 3.1 (taxonomy documentation)
-
-**Technical Notes:**
-- Templates in `/templates/` directory
-- Style guide in `STYLE_GUIDE.md`
-- Include before/after examples
-- Link to external resources (technical writing guides)
-- Consider automated style checking (vale, write-good)
-
----
-
-### Story 5.3: URL Submission Mechanism
-
-As a **community member**,
-I want **easy way to submit URLs for Auto-News to monitor**,
-So that **I can help expand content coverage when I discover great sources**.
-
-**Acceptance Criteria:**
-
-**Given** I discover a valuable LLM content source
-**When** I submit it
-**Then** submission mechanism:
-- Simple web form or GitHub issue template
-- Fields: URL, source type (Twitter, Discord, RSS, blog), category, reason for inclusion
-- URL validation (format check, reachability)
-- Confirmation message with "under review" status
-
-**And** submitted URLs queued in GitHub issues with label "source-submission"
-
-**And** maintainers review and decide (approve/reject with reason)
-
-**And** approved sources added to Auto-News configuration
-
-**And** submitter receives notification of decision
-
-**Prerequisites:** Story 2.1 (multi-source aggregation)
-
-**Technical Notes:**
-- GitHub issue form template (YAML-based forms)
-- Alternative: Simple web form hosted on GitHub Pages
-- URL validation: regex check, HTTP HEAD request
-- Maintainer workflow: review, test source, add to config
-- Track source performance post-approval
-
----
-
-### Story 5.4: Contributor Recognition and Profiles
-
-As a **contributor**,
-I want **my contributions recognized publicly**,
-So that **I feel valued and motivated to continue contributing**.
-
-**Acceptance Criteria:**
-
-**Given** I've made contributions to the handbook
-**When** I check the contributors page
-**Then** I see:
-- **Contributors page** listing all contributors
-- GitHub avatar and username
-- Number of merged PRs
-- Types of contributions (content, sources, code, reviews)
-- Optional: contributor bio/links (if provided)
-
-**And** contribution stats automatically updated (from git history)
-
-**And** "Top contributors this month" highlight section
-
-**And** optional contributor badges: "Founding Contributor", "Subject Matter Expert", "Code Contributor"
+**And** templates in `/templates/` directory:
+- `basics-template.md`
+- `advanced-template.md`
+- `newly-discovered-template.md`
 
 **Prerequisites:** Story 5.1 (PR workflow)
 
 **Technical Notes:**
-- Use git log to extract contributor data
-- GitHub API for user profiles and avatars
-- Generate contributors page automatically (script or CI)
-- Consider all-contributors bot for automation
-- Optional: contributor tiers based on impact
+- Style guide should reference PRD's concept page structure (lines 440-490)
+- Examples of "good" vs "needs improvement" content
+- Link to external resources (Chicago Manual of Style, technical writing guides)
+- Consider automated style checking (vale, write-good) in future
+- Keep templates in sync with Writer Agent output format
 
 ---
 
-### Story 5.5: Content Review Process for Community PRs
-
-As a **maintainer**,
-I want **efficient process to review and approve community contributions**,
-So that **quality is maintained without creating bottleneck**.
-
-**Acceptance Criteria:**
-
-**Given** community member submits content PR
-**When** maintainers review
-**Then** review process includes:
-- **Automated checks** run first (linting, links, frontmatter)
-- **Reviewer assignment** based on content category
-- **Review checklist:**
-  - Content accuracy
-  - Matches style guide
-  - Citations present and valid
-  - Appropriate difficulty level (Basics vs Advanced)
-  - No promotional content
-- **Feedback mechanism:** inline comments, suggested changes
-- **Approval workflow:** 1 maintainer approval minimum
-
-**And** review turnaround target: 48 hours for simple fixes, 7 days for new pages
-
-**And** clear acceptance/rejection criteria documented
-
-**And** rejected PRs include constructive feedback and improvement suggestions
-
-**Prerequisites:** Story 5.1 (PR workflow), Story 5.2 (templates)
-
-**Technical Notes:**
-- Use GitHub review features (request changes, approve)
-- CODEOWNERS file for auto-assignment by category
-- Review checklist in PR template
-- Consider requiring passing CI before human review
-- Documentation for new reviewers
-
----
-
-### Story 5.6: Contributor Onboarding and Support
-
-As a **new contributor**,
-I want **welcoming onboarding experience and support when stuck**,
-So that **I can contribute successfully even without deep technical expertise**.
-
-**Acceptance Criteria:**
-
-**Given** I'm a new contributor
-**When** I engage with the project
-**Then** I experience:
-- **Welcome message** on first PR (GitHub Actions bot)
-- **Getting Started guide** (setup dev environment in under 30 min)
-- **First contribution guide** (easy, low-risk tasks)
-- **Community channels:** Discord/Slack for questions
-- **FAQ** for common contributor questions
-
-**And** "good first issue" labels identify beginner-friendly tasks
-
-**And** maintainers respond to questions within 24 hours
-
-**And** video walkthrough available (optional): "Your first handbook contribution"
-
-**Prerequisites:** Story 5.1 (PR workflow)
-
-**Technical Notes:**
-- Use first-interaction GitHub Action for welcome message
-- Create "good first issue" labels and tag appropriate issues
-- Maintain FAQ in wiki or docs
-- Consider monthly contributor office hours
-- Track contributor retention metrics
-
----
-
-## Epic 6: Content Quality & Lifecycle Management
-
-**Goal:** Maintain handbook quality, freshness, and reliability through systematic quality controls, monitoring, and operational excellence.
-
-**Value:** This epic delivers the "Confidence" promise - users trust the handbook as consistently high-quality, accurate, and up-to-date. It's the operational backbone that keeps the handbook healthy long-term.
-
----
-
-### Story 6.1: Multi-Stage Content Approval Gates
-
-As a **quality manager**,
-I want **systematic quality gates at each pipeline stage**,
-So that **only high-quality, accurate content reaches users**.
-
-**Acceptance Criteria:**
-
-**Given** content flows through the pipeline
-**When** each stage processes content
-**Then** approval gates enforce:
-- **Stage 1 (AI Scoring):** Only score-5 items proceed
-- **Stage 2 (Human Review):** Reviewer explicitly approves/rejects with reason
-- **Stage 3 (Pre-Publish Validation):** Automated checks (markdown lint, link validation, frontmatter complete)
-- **Stage 4 (PR Review for contributions):** Maintainer approval required
-- **Stage 5 (Post-Deploy Monitoring):** Smoke tests after deployment
-
-**And** rejection at any stage includes:
-- Clear reason for rejection
-- Actionable feedback for improvement
-- Path to resubmission
-
-**And** approval metrics tracked:
-- Approval rate by stage
-- Common rejection reasons
-- Time spent in each stage
-
-**Prerequisites:** Story 2.4 (Notion review), Story 5.5 (PR review)
-
-**Technical Notes:**
-- Document approval criteria for each stage
-- Track metrics in Postgres (stage, timestamp, decision, reason)
-- Dashboard showing approval funnel
-- Alert on unusual patterns (e.g., spike in rejections)
-- Periodic review of rejection reasons to improve upstream quality
-
----
-
-### Story 6.2: Automated Link Validation and Health Monitoring
+### Story 5.3: Automated Link Validation and Monitoring
 
 As a **handbook maintainer**,
 I want **automated detection of broken links and content issues**,
-So that **users don't encounter errors and content stays reliable**.
+So that **users don't encounter errors and handbook stays reliable**.
 
 **Acceptance Criteria:**
 
 **Given** handbook is published with external links
-**When** link validation runs (weekly)
+**When** link validation runs (weekly via GitHub Actions)
 **Then** the system:
-- Checks all external URLs (HTTP status codes)
+- Checks all external URLs (HTTP status codes, timeout handling)
 - Identifies broken links (404, 500, timeout)
-- Creates GitHub issues for broken links with priority labels
 - Checks internal cross-references (handbook page → handbook page)
 - Validates image URLs and accessibility
+- Creates GitHub issues for broken links with "broken-link" label
 
-**And** validation runs:
-- Pre-publish (CI check on PRs)
-- Post-publish (weekly scheduled job)
-- On-demand (manual trigger)
+**And** `.github/workflows/link-check.yml` implements:
+- Weekly scheduled run (Sunday night after weekly publication)
+- On-demand manual trigger
+- Uses linkchecker or custom script
+- Respects robots.txt and rate limits
+- Retry logic for temporary failures
 
-**And** issues include:
-- Page containing broken link
-- Link URL and error type
-- Suggested action (update, remove, archive)
+**And** issues created include:
+- Page containing broken link (file path and line number)
+- Link URL and error type (404, 500, timeout, SSL error)
+- Suggested action (update link, use archive.org, remove, mark deprecated)
+- Priority label (critical for core content, low for archived news)
 
-**Prerequisites:** Story 4.5 (deployment automation)
+**And** validation whitelist for known-flaky domains
+
+**Prerequisites:** Story 4.7 (deployment)
 
 **Technical Notes:**
-- Use linkchecker or custom script
-- Respect robots.txt and rate limits
-- Handle temporary failures (retry logic)
-- Whitelist known-flaky domains
-- Consider using link archival service (archive.org) for critical sources
+- linkchecker tool or custom Python script with requests library
+- Handle temporary failures (retry 3 times with backoff)
+- Whitelist: domains known to block crawlers but work in browsers
+- Consider using Internet Archive Wayback Machine for dead links
+- Pre-publish validation in PR checks (subset of links only for speed)
+- Weekly full validation post-publish
 
 ---
 
-### Story 6.3: Content Error Correction Workflow
+### Story 5.4: Error Correction Workflow
 
 As a **handbook user or contributor**,
 I want **easy way to report errors and see them corrected quickly**,
@@ -1354,190 +1477,161 @@ So that **handbook stays accurate and I can trust the content**.
 **Acceptance Criteria:**
 
 **Given** I discover an error in handbook content
-**When** I report it
+**When** I report it via GitHub issue
 **Then** I can:
-- Create GitHub issue using "Report Error" template
-- Describe error: location, what's wrong, suggested fix
-- See issue triaged by maintainers (priority label)
+- Create issue using "Report Error" template (`.github/ISSUE_TEMPLATE/report-error.md`)
+- Describe error: page location, what's wrong, suggested fix (optional)
+- See issue triaged by maintainers with priority label
 - Track status and resolution
+- Receive notification when fixed
 
 **And** error correction workflow:
-- **Critical errors** (factual inaccuracies): fixed within 24 hours
-- **High priority** (outdated content): fixed within 7 days
-- **Medium priority** (clarity improvements): fixed within 30 days
-- **Low priority** (style/formatting): batched with other updates
+- **Critical errors** (factual inaccuracies, security issues): Fixed within 24 hours
+- **High priority** (outdated content, major typos): Fixed within 7 days
+- **Medium priority** (clarity improvements, formatting): Fixed within 30 days
+- **Low priority** (style tweaks, minor formatting): Batched with other updates
 
-**And** fix notification sent to reporter
+**And** issue template includes:
+- Page URL or file path
+- Error description
+- Suggested correction (optional)
+- Error type (factual, outdated, typo, formatting, other)
 
-**And** "last reviewed" date updates after correction
+**And** fix process:
+- Create fix branch from main
+- Make correction with proper commit message referencing issue
+- Update `last_updated` date in frontmatter
+- Submit PR (fast-track for critical errors)
+- Close issue when deployed
 
-**Prerequisites:** Story 4.6 (content metadata)
+**And** thank reporters in PR description (community engagement)
+
+**Prerequisites:** Story 5.1 (PR workflow)
 
 **Technical Notes:**
-- GitHub issue template: `.github/ISSUE_TEMPLATE/report-error.md`
 - Issue labels: error-critical, error-high, error-medium, error-low
-- Fast-track process for critical errors (direct commit, skip PR)
-- Document error types and triage criteria
-- Thank reporters (community engagement)
+- CODEOWNERS handles auto-assignment by section
+- Fast-track process for critical: Direct commit to main (skip PR review)
+- Document triage criteria in CONTRIBUTING.md
+- Track error rates (errors reported / pages published) as quality metric
+- Monthly review of common error patterns to improve processes
 
 ---
 
-### Story 6.4: Source Health Monitoring and Management
-
-As a **content operations manager**,
-I want **visibility into Auto-News source performance and health**,
-So that **I can maintain high-quality input sources and remove failing ones**.
-
-**Acceptance Criteria:**
-
-**Given** Auto-News monitors multiple sources
-**When** I check source health dashboard
-**Then** I see for each source:
-- **Health status:** Active, Degraded, Failing, Inactive
-- **Metrics:** Total items pulled, successful pulls, failure rate, last successful pull
-- **Content quality:** Approval rate for items from this source
-- **Trend data:** Performance over time (7 days, 30 days)
-
-**And** alerts sent for:
-- 3+ consecutive failures (source investigation needed)
-- Approval rate < 20% (low-quality source)
-- No new content in 14 days (stale source)
-
-**And** source management actions:
-- Pause failing source temporarily
-- Remove consistently low-quality sources
-- Adjust poll frequency based on value
-
-**Prerequisites:** Story 2.1 (multi-source aggregation), Story 2.5 (status tracking)
-
-**Technical Notes:**
-- Store source health metrics in Postgres
-- Dashboard: Streamlit, Grafana, or custom web page
-- Define health thresholds (degraded vs failing)
-- Automated pause after 5 consecutive failures
-- Manual re-enable after investigation
-- Document source removal criteria
-
----
-
-### Story 6.5: Content Staleness Detection and Refresh System
-
-As a **content curator**,
-I want **automated identification of outdated content requiring updates**,
-So that **handbook stays current without manual tracking of every page**.
-
-**Acceptance Criteria:**
-
-**Given** handbook content has been published
-**When** staleness detection runs (weekly)
-**Then** content is flagged as stale if:
-- Mentioned framework has major version release
-- Referenced research has been superseded
-- No human review in past 6 months
-- User reports indicate outdated information
-- Breaking changes in mentioned tools/APIs
-
-**And** stale content workflow:
-- GitHub issue created with "content-stale" label
-- Issue includes: page, staleness reason, suggested sources for update
-- Assigned to subject matter expert or content team
-- Includes priority (critical/high/medium/low)
-
-**And** very stale content (12+ months) shows warning banner to users
-
-**And** refresh process documented (research, update, review, publish)
-
-**Prerequisites:** Story 3.6 (update triggers), Story 6.2 (monitoring)
-
-**Technical Notes:**
-- Track framework versions mentioned in content (frontmatter or auto-detect)
-- Monitor GitHub releases for tracked projects
-- Parse frontmatter `last_reviewed_date`
-- AI can suggest whether content needs update (compare to recent sources)
-- Balance staleness warnings vs alert fatigue
-
----
-
-### Story 6.6: Operational Monitoring and Alerting
+### Story 5.5: Two-Layer Database Backup Strategy
 
 As a **operations engineer**,
-I want **comprehensive monitoring of all pipeline components**,
-So that **issues are detected and resolved before users are impacted**.
+I want **automated backup of both Evidence and Concept layers with retention policies**,
+So that **knowledge graph data is protected and recoverable from disasters**.
+
+**Acceptance Criteria:**
+
+**Given** the two-layer architecture is operational
+**When** backup process runs (daily for Postgres, weekly for GraphDB)
+**Then** backups include:
+- **Evidence Layer (Postgres RDS):**
+  - Automated RDS snapshots (daily, 30-day retention)
+  - Manual snapshots before major schema changes
+  - Point-in-time recovery enabled (7-day window)
+- **Concept Layer (GraphDB):**
+  - Weekly export to JSON/RDF format
+  - Stored in S3 with versioning enabled
+  - 60-day retention (8 weekly snapshots + monthly archives)
+- **Vector DB (pgvector):** Included in Postgres RDS backups
+
+**And** backup script `scripts/backup_databases.py` implements:
+- GraphDB export via API or CLI
+- S3 upload with encryption at rest
+- Verification: Test restore on staging environment monthly
+- Backup metadata logged (timestamp, size, status)
+
+**And** restore procedures documented:
+- Postgres: RDS snapshot restore (documented in runbook)
+- GraphDB: Import from S3 backup file
+- Test restore annually (disaster recovery drill)
+
+**And** backup monitoring:
+- Alert if backup fails (email + Slack)
+- Weekly backup health report
+- Storage cost tracking (S3 costs)
+
+**Prerequisites:** Stories 1.2 (Evidence Layer), 1.3 (Concept Layer)
+
+**Technical Notes:**
+- Follow architecture.md backup strategy references
+- RDS automated backups: Enable in AWS console, free within retention window
+- GraphDB backup: Use native export functionality or pg_dump equivalent
+- S3 lifecycle policies for cost optimization (transition to Glacier after 60 days)
+- Encryption: Server-side encryption (SSE-S3) for S3 buckets
+- IAM roles for backup script (least privilege access)
+- Document RPO (Recovery Point Objective): 24 hours, RTO (Recovery Time Objective): 4 hours
+
+---
+
+### Story 5.6: Operational Monitoring and Alerting
+
+As a **operations engineer**,
+I want **comprehensive monitoring of all pipeline components with actionable alerts**,
+So that **issues are detected early and resolved before users are impacted**.
 
 **Acceptance Criteria:**
 
 **Given** the handbook platform is operational
 **When** monitoring systems run
 **Then** they track:
-- **Pipeline health:** Airflow DAG success rate, task duration, failures
-- **Database health:** Query performance, connection pool, storage usage
-- **Vector DB health:** Query latency, index size, availability
-- **Deployment health:** Build success rate, deployment duration, site uptime
-- **API health:** LLM provider response times, rate limits, costs
+- **Pipeline health:**
+  - Airflow DAG success rate (all 4 DAGs: notion_backup, evidence_ingestion, writer_agent, weekly_publish)
+  - Task duration and failures
+  - Dead-letter queue size (failed_items table)
+- **Database health:**
+  - Postgres: Connection pool usage, query latency, storage usage
+  - GraphDB: Query latency, node count, relationship count
+  - pgvector: Index performance, embedding storage
+- **Deployment health:**
+  - GitHub Actions workflow success rate
+  - Jupyter Book build duration
+  - GitHub Pages uptime
+- **API health:**
+  - LLM provider response times (Claude, OpenAI, Gemini)
+  - Rate limit proximity (% of limit used)
+  - API costs (daily and monthly tracking)
 
-**And** alerts sent for:
-- Pipeline failures (Airflow DAG failures)
-- Database issues (connection failures, high latency)
-- Deployment failures (build errors, deployment timeouts)
-- API issues (rate limit approaching, unusual costs)
-- Site downtime (GitHub Pages unavailable)
+**And** alerting rules:
+- **Critical (immediate):**
+  - Pipeline failure (Airflow DAG failed)
+  - Database connection failures
+  - Deployment failure (GitHub Actions workflow failed)
+  - Site downtime (GitHub Pages unavailable)
+- **High (within 1 hour):**
+  - API rate limit approaching (>80% of limit)
+  - High API costs (>$50/day)
+  - Slow queries (>5s latency)
+- **Medium (within 24 hours):**
+  - Weekly publication missed (Sunday check)
+  - Backup failure
+  - High dead-letter queue size (>100 items)
 
-**And** alerts routed to:
-- Email for non-urgent issues
-- Slack/Discord for moderate issues
-- PagerDuty/on-call for critical issues
+**And** alerting channels:
+- Email for non-urgent issues and weekly summaries
+- Slack webhook for moderate and critical issues
+- PagerDuty for critical production incidents (optional, future)
 
-**And** runbooks document response procedures for common alerts
+**And** monitoring dashboard (Airflow UI + optional custom dashboard):
+- Pipeline status overview
+- Cost tracking (LLM tokens, API calls)
+- Quality metrics (pages generated, approval rates)
+- System health (database, API, deployment)
 
-**Prerequisites:** Story 2.5 (pipeline tracking), Story 4.5 (deployment automation)
-
-**Technical Notes:**
-- Use Airflow built-in monitoring + alerting
-- Database monitoring: pg_stat_statements, connection pool metrics
-- Site uptime: UptimeRobot, Pingdom, or custom health check
-- Cost monitoring: Track API spending per provider
-- Log aggregation: Consider ELK stack or simple log files
-- Define SLOs (service level objectives) for key metrics
-
----
-
-### Story 6.7: Quality Metrics Dashboard and Reporting
-
-As a **product manager**,
-I want **clear visibility into handbook quality and operational metrics**,
-So that **I can track progress toward goals and identify improvement areas**.
-
-**Acceptance Criteria:**
-
-**Given** handbook has been operational for at least 1 week
-**When** I view the quality dashboard
-**Then** I see metrics including:
-- **Content metrics:** Total pages, new pages this week, updated pages, stale pages
-- **Quality metrics:** AI scoring distribution, human approval rate, error reports
-- **Pipeline metrics:** Items ingested, deduplicated, scored, approved, published
-- **Source metrics:** Active sources, health status, top performing sources
-- **Community metrics:** Contributors, PRs merged, response time
-- **User metrics:** Page views (if analytics added), most visited pages
-
-**And** trends over time (weekly, monthly, quarterly)
-
-**And** export capability (CSV, PDF report)
-
-**And** automated weekly report emailed to stakeholders
-
-**Prerequisites:** Stories 2.5, 6.1, 6.4 (various tracking systems)
+**Prerequisites:** Stories 2.6 (publication monitoring), 3.6 (evidence ingestion monitoring)
 
 **Technical Notes:**
-- Centralized metrics in Postgres (time-series tables)
-- Dashboard: Streamlit, Metabase, Grafana, or custom
-- Key metrics aligned with success criteria from PRD
-- Automated report generation (weekly summary)
-- Public vs private metrics (some internal only)
-- Consider publishing public metrics page (transparency)
-
----
-
-_For implementation: Use the `create-story` workflow to generate individual story implementation plans from this epic breakdown._
+- Use AWS CloudWatch for RDS and infrastructure monitoring
+- Airflow built-in monitoring + alerting for DAGs
+- Store metrics in `pipeline_runs` table for historical tracking
+- Email alerts via SMTP (Gmail, SendGrid, or AWS SES)
+- Slack incoming webhooks for real-time notifications
+- Define SLOs (Service Level Objectives): 99.5% uptime, <2s page load, <24h content freshness
+- Runbooks document response procedures for each alert type
 
 ---
 
@@ -1545,122 +1639,175 @@ _For implementation: Use the `create-story` workflow to generate individual stor
 
 ### Overview
 
-This epic breakdown transforms the cherry-in-the-haystack PRD into **40 implementable stories** organized across **6 epics**. The breakdown follows BMad Method principles: vertically sliced stories, BDD acceptance criteria, clear dependencies, and sizing optimized for 200k context dev agents.
+This epic breakdown transforms the cherry-in-the-haystack PRD and updated architecture.md into **33 implementable stories** organized across **5 epics**. The breakdown reflects the novel two-layer knowledge architecture and follows BMad Method principles: vertically sliced stories, BDD acceptance criteria, clear dependencies, and sizing optimized for 200k context dev agents.
 
 ### Epic Statistics
 
 | Epic | Stories | Focus | Phase | Dependencies |
 |------|---------|-------|-------|--------------|
-| Epic 1: Foundation & Core Infrastructure | 7 | Technical foundation | MVP (Sequential) | None (first epic) |
-| Epic 2: Intelligent Content Ingestion Pipeline | 6 | Signal from noise | MVP (Sequential) | Epic 1 |
-| Epic 3: AI-Powered Knowledge Synthesis | 7 | Clarity through structure | MVP (Sequential) | Epic 2 |
-| Epic 4: Automated Publication System | 7 | Speed through automation | MVP (Sequential) | Epic 3 |
-| Epic 5: Community Contribution Framework | 6 | Collective intelligence | Growth (Parallel) | Epic 4 |
-| Epic 6: Content Quality & Lifecycle Management | 7 | Sustained confidence | Growth (Parallel) | Epic 4 |
-| **Total** | **40 stories** | | | |
+| Epic 1: Foundation & Core Infrastructure | 7 | Two-layer architecture setup | MVP (Sequential) | None (first epic) |
+| Epic 2: Newly Discovered Pipeline | 6 | Notion-primary weekly publication | MVP (Sequential) | Epic 1 |
+| Epic 3: Evidence Ingestion & Knowledge Graph | 7 | Two-layer knowledge system | MVP (Sequential) | Epics 1-2 |
+| Epic 4: Writer Agent & Publication | 7 | Synthesis + image generation | MVP (Sequential) | Epics 1-3 |
+| Epic 5: Community & Quality Operations | 6 | Contributions + operations | Growth (Parallel) | Epic 4 |
+| **Total** | **33 stories** | | | |
 
 ### Delivery Timeline
 
 **Phase 1: Core MVP (Epics 1-4) - Sequential Execution**
 ```
-Epic 1 (Foundation)
+Epic 1 (Foundation: Two-Layer DB)
   ↓
-Epic 2 (Ingestion Pipeline)
+Epic 2 (Newly Discovered: Notion → GitHub)
   ↓
-Epic 3 (AI Synthesis)
+Epic 3 (Knowledge Graph: Evidence → Concepts)
   ↓
-Epic 4 (Publication)
+Epic 4 (Writer Agent: Graph → Pages)
   ↓
 MVP LAUNCH ✓
 ```
 
-**Phase 2: Growth & Quality (Epics 5-6) - Parallel Execution**
+**Phase 2: Growth & Quality (Epic 5) - Parallel to Epic 4 Completion**
 ```
-Epic 5 (Community) ←→ Epic 6 (Quality Management)
+Epic 5 (Community + Operations)
   ↓
 Full Platform Maturity ✓
 ```
 
-### Requirements Coverage
+### Architecture Coverage
 
-**100% Coverage of PRD Functional Requirements:**
-- ✅ All 8 FR areas mapped to specific stories
-- ✅ All MVP acceptance criteria covered
-- ✅ Critical NFRs embedded in story acceptance criteria
+**Novel Patterns Implemented:**
+- ✅ **Pattern 1: Two-Layer Architecture** (Epic 3) - Evidence Layer (Postgres) ↔ Concept Layer (GraphDB) with normalized concepts
+- ✅ **Pattern 2: Notion as Primary** (Epic 2) - One-way backup flow, NOT bidirectional sync
+- ✅ **Pattern 3: Writer Agent Query** (Epic 4) - Graph query → synthesis with full traceability
+- ✅ **Image Generation via MCP** (Epic 4) - Custom Agent + MCP Server for diagrams
 
-**Product Magic Delivered:**
-- 🌟 **Clarity** - Epic 3 delivers MECE taxonomy helping users "now I understand"
-- 🌟 **Confidence** - Epic 6 maintains quality users can trust
-- 🌟 **Speed** - Epic 4 enables weekly updates keeping handbook "alive"
-- 🌟 **Community Intelligence** - Epic 5 makes knowledge compound instead of fade
+**PRD Requirements Coverage:**
+- ✅ **FR.1: Newly Discovered Pipeline** → Epic 2 (6 stories)
+- ✅ **FR.2: Evidence Ingestion** → Epic 3 Stories 3.1-3.5 (5 stories)
+- ✅ **FR.3: Concept Normalization** → Epic 3 Stories 3.2-3.3 (2 stories)
+- ✅ **FR.4: Writer Agent Synthesis** → Epic 4 Stories 4.1-4.2 (2 stories)
+- ✅ **FR.5: Image Generation** → Epic 4 Story 4.3 (1 story)
+- ✅ **FR.6: Patchnote Aggregation** → Epic 4 Story 4.4 (1 story)
+- ✅ **FR.7: Community Contributions** → Epic 5 Stories 5.1-5.2 (2 stories)
+- ✅ **FR.8: Operational Excellence** → Epic 5 Stories 5.3-5.6 (4 stories)
+
+### Product Magic Delivered
+
+- 🌟 **Clarity** - Epic 3 builds two-layer knowledge graph enabling intelligent, traceable synthesis
+- 🌟 **Confidence** - Epic 5 maintains quality through monitoring, validation, and community contributions
+- 🌟 **Speed** - Epic 2 enables weekly updates with Notion→GitHub pipeline (48-hour approval→publish)
+- 🌟 **Community Intelligence** - Epic 5 GitHub PR workflow makes knowledge compound instead of fade
 
 ### Story Quality Standards
 
 All stories follow these standards:
 - ✅ **BDD Format:** Given/When/Then acceptance criteria
 - ✅ **Vertical Slicing:** Complete functionality across all layers
-- ✅ **Clear Prerequisites:** Only backward dependencies (no forward refs)
+- ✅ **Clear Prerequisites:** Only backward dependencies (no forward references)
 - ✅ **Single-Session Sizing:** Completable by one dev agent in one focused session
-- ✅ **Technical Guidance:** Implementation notes for every story
+- ✅ **Technical Guidance:** Implementation notes reference architecture.md line numbers
 - ✅ **User Value:** Clear "So that..." statements connecting to user needs
 
 ### Key Dependencies
 
-**Critical Path (MVP):**
+**Critical Path (MVP - Epics 1-4):**
 1. Story 1.1 (Project Setup) → Enables all other work
-2. Story 1.2 (Database) → Required for all data storage
-3. Story 1.3 (Vector DB) → Required for deduplication
-4. Story 2.3 (AI Scoring) → Gates content quality
-5. Story 3.1 (Taxonomy) → Defines content structure
-6. Story 4.1 (Postgres→GitHub) → Connects pipeline to publication
+2. Story 1.2 (Evidence Layer) → Required for all evidence storage
+3. Story 1.3 (Concept Layer) → Required for knowledge graph
+4. Story 1.4 (pgvector) → Required for semantic search
+5. Story 1.5 (Auto-News Adaptation) → Enables Newly Discovered pipeline
+6. Story 2.1 (Notion Primary) → Establishes review workflow
+7. Story 3.2 (Concept Extraction) → Core of two-layer architecture
+8. Story 3.3 (Concept Matching) → Prevents graph fragmentation
+9. Story 4.1 (Graph Query) → Enables Writer Agent
+10. Story 4.2 (Page Synthesis) → Generates handbook content
 
 **Parallel Work Opportunities:**
-- Epic 1: Stories 1.5, 1.6, 1.7 can partially overlap
-- Epic 4: Stories 4.2, 4.3, 4.4 can be done in parallel
-- Epics 5 & 6: Can run simultaneously after Epic 4 completes
+- Epic 1: Stories 1.6 (CI/CD) and 1.7 (Local Dev) can overlap with database setup
+- Epic 2: Stories 2.3 (Category Matching) and 2.4 (Formatting) can partially overlap
+- Epic 3: Stories 3.4 (Vectorization) and 3.5 (Metadata Enrichment) can run in parallel after 3.3
+- Epic 4: Stories 4.6 (Theme) can run in parallel with 4.1-4.5 (Writer Agent)
+- Epic 5: All 6 stories can begin once Epic 4 completes (parallel to Epic 4 finalization)
 
-### Next Steps
+### Technical Innovations
 
-**Immediate: Architecture Phase**
-Run `/bmad:bmm:workflows:architecture` to:
-- Validate technical decisions for Auto-News → Handbook transformation
-- Document integration points and data flows
-- Finalize infrastructure choices (Postgres hosting, vector DB provider, etc.)
-- Create architectural decision records (ADRs)
+**Two-Layer Architecture Benefits:**
+- Normalized concepts prevent knowledge fragmentation
+- Evidence paragraphs maintain full source traceability
+- Writer Agent queries graph for structure, Postgres for evidence
+- Concept relations enable intelligent page synthesis
+- Soft deduplication via sampling_weight (no data deletion)
 
-**Then: Implementation Phase**
-1. Set up sprint tracking with `/bmad:bmm:workflows:sprint-planning`
-2. For each story, run `/bmad:bmm:workflows:create-story` to generate detailed implementation plan
-3. Execute stories with `/bmad:bmm:workflows:dev-story`
-4. Use `/bmad:bmm:workflows:code-review` for quality validation
+**Notion-as-Primary Benefits:**
+- Knowledge Team works in familiar interface
+- No custom backend UI needed (cost savings)
+- One-way backup maintains data ownership
+- Simple integration (Auto-News writes directly to Notion)
+
+**Writer Agent Design Benefits:**
+- Claude 200K context for comprehensive synthesis
+- Evidence preview format ensures proper citation
+- Patchnote aggregation tracks all changes centrally
+- Image generation via MCP decouples concerns
+
+### Cost Projections
+
+**Infrastructure (Monthly):**
+- Amazon RDS PostgreSQL 16 (db.t3.small): ~$25
+- GraphDB (self-hosted on EC2 t3.small): ~$15
+- S3 backups: ~$5
+- GitHub Pages: Free
+- **Total Infrastructure: ~$45/month**
+
+**LLM API Usage (Monthly estimates for moderate usage):**
+- Claude 3.5 Sonnet (concept extraction, synthesis, scoring): ~$50-150
+- OpenAI embeddings (text-embedding-3-small): ~$5-20
+- Gemini Flash (fallback): ~$10-30
+- **Total LLM: ~$65-200/month**
+
+**Total Monthly Cost: ~$110-245/month** (scales with content volume)
 
 ### Success Metrics Alignment
 
-Each epic directly supports PRD success criteria:
+**PRD Success Criteria Coverage:**
 
-**Clarity Metrics (Epic 3):**
-- User feedback: "Ah, now I finally understand"
-- MECE structure covers 95% of LLM engineering decisions
+| Metric | Epic Coverage | Target |
+|--------|---------------|--------|
+| 50K monthly users within 6 months | Epic 4 (publication), Epic 5 (community) | Tracked via analytics |
+| Weekly content updates | Epic 2 (Newly Discovered pipeline) | Sunday publication cadence |
+| 48-hour approval→publish | Epic 2 (Notion workflow) | Automated tracking |
+| 90%+ human approval rating | Epic 2 (scoring), Epic 5 (quality) | Tracked in Notion |
+| 95% topic coverage | Epic 3 (concept graph) | Concept count vs taxonomy |
 
-**Confidence Metrics (Epics 2, 6):**
-- 90%+ approval rating from human reviewers
-- Quality controls maintain consistent standards
+### Next Steps
 
-**Speed Metrics (Epics 2, 4):**
-- Weekly "Newly Discovered" updates
-- Content published within 48 hours of approval
-- Users catch up in minutes, not days
+**After Epic Breakdown Approval:**
 
-**Community Metrics (Epic 5):**
-- 20+ active contributors at launch → 50+ within 6 months
-- Clear contribution pathways with <48 hour review turnaround
+1. **Validate Architecture Decisions** (if needed):
+   - Run `/bmad:bmm:workflows:architecture` to refine technical choices
+   - Confirm GraphDB vs Neo4j decision
+   - Validate Notion API limitations for scale
+
+2. **Solutioning Gate Check**:
+   - Run `/bmad:bmm:workflows:solutioning-gate-check` to ensure PRD + architecture + epics alignment
+   - Verify no gaps or contradictions
+
+3. **Begin Implementation** (Phase 4):
+   - Run `/bmad:bmm:workflows:sprint-planning` to set up sprint tracking
+   - Start with Epic 1 Story 1.1 (Foundation Setup)
+   - Use `/bmad:bmm:workflows:create-story` for detailed story implementation plans
+   - Execute with `/bmad:bmm:workflows:dev-story`
+   - Review with `/bmad:bmm:workflows:code-review`
 
 ---
 
-**Epic breakdown complete and validated.** Ready for architecture phase and implementation.
+**Epic breakdown complete and validated against updated architecture.md**
 
 **Document saved:** `C:\Users\Hankeol\Desktop\Dev\cherry-in-the-haystack\docs\epics.md`
 
-**Total Stories:** 40 stories across 6 epics
-**MVP Stories:** 27 stories (Epics 1-4)
-**Growth Stories:** 13 stories (Epics 5-6)
+**Epic Count:** 5 epics
+**Story Count:** 33 stories (MVP: 27 stories | Growth: 6 stories)
+**Novel Patterns:** 3 architectural innovations fully covered
+**PRD Coverage:** 100% functional requirements mapped
+

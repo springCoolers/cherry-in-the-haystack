@@ -519,7 +519,7 @@ class NotionAgent:
                 "name": page["properties"]["Name"]["title"][0]["text"]["content"],
                 "to": page["properties"]["To"]["rich_text"][0]["text"]["content"],
                 # pdt timezone
-                "created_at": page["properties"]["Created at"]["date"]["start"] if page["properties"]["Created at"].get("date") else "",
+                "created_at": page["properties"]["Published at"]["date"]["start"] if page["properties"]["Published at"].get("date") else "",
                 "created_time": page["created_time"],
                 "preview": page["properties"]["Preview"]["rich_text"][0]["text"]["content"],
                 "notion_url": page["url"],
@@ -685,7 +685,7 @@ class NotionAgent:
                 # backward compatible with database page creation
                 "title": page["properties"]["Name"]["title"][0]["text"]["content"],
                 # pdt timezone
-                "created_at": page["properties"]["Created at"]["date"]["start"] if page["properties"]["Created at"].get("date") else "",
+                "created_at": page["properties"]["Published at"]["date"]["start"] if page["properties"]["Published at"].get("date") else "",
                 "created_time": page["created_time"],
                 "last_edited_time": props["last_edited_time"],
                 "notion_url": page["url"],
@@ -814,7 +814,7 @@ class NotionAgent:
                 ]
             },
 
-            "Created at": {
+            "Published at": {
                 "date": {
                     "start": tweet['created_at_pdt'],
                     # "time_zone": "America/Los_Angeles",
@@ -971,7 +971,7 @@ class NotionAgent:
                 ]
             },
 
-            "Created at": {
+            "Published at": {
                 "date": {
                     "start": created_time_pdt.isoformat(),
                     # "time_zone": "America/Los_Angeles",
@@ -1064,7 +1064,7 @@ class NotionAgent:
                 ]
             },
 
-            "Created at": {
+            "Published at": {
                 "date": {
                     "start": created_time_pdt.isoformat(),
                     # "time_zone": "America/Los_Angeles",
@@ -1463,7 +1463,7 @@ class NotionAgent:
         url = page["url"]
         created_time_pdt = utils.convertUTC2PDT_str(page["created_time"])
 
-        # Properties: Name, Created at, AI summary, URL
+        # Properties: Name, Published at, AI summary, URL
         properties = {
             "Name": {
                 "title": [
@@ -1474,7 +1474,7 @@ class NotionAgent:
                     }
                 ]
             },
-            "Created at": {
+            "Published at": {
                 "date": {
                     "start": created_time_pdt.isoformat(),
                 }
@@ -2284,7 +2284,7 @@ class NotionAgent:
             "To": {
                 "rich_text": {}
             },
-            "Created at": {
+            "Published at": {
                 "date": {}
             },
             "Topic": {
@@ -2346,6 +2346,12 @@ class NotionAgent:
             "Take Aways": {
                 "rich_text": {}
             },
+            "AI summary": {
+                "rich_text": {}
+            },
+            "URL": {
+                "url": {}
+            }
         }
 
         # Create the new database under the specified page
