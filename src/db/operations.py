@@ -7,7 +7,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.db.models import Book, Chapter, Section, ParagraphChunk, KeyIdea, ProcessingProgress
-from src.model.schemas import DetectedChapter, HierarchicalChunk
+from src.model.schemas import DetectedChapter, DetectedSection, HierarchicalChunk
 
 
 def create_book(session: Session, title: str, author: str = None, source_path: str = None) -> Book:
@@ -346,7 +346,10 @@ def get_or_create_section(
     chapter_id: int,
     book_id: int,
     title: str,
-    section_number: Optional[int] = None
+    section_number: Optional[int] = None,
+    level: int = 2,
+    parent_section_id: Optional[int] = None,
+    detection_method: str = "llm",
 ) -> Section:
     """섹션 조회 또는 생성 (중복 방지).
 
@@ -359,6 +362,9 @@ def get_or_create_section(
         book_id: 책 ID
         title: 섹션 제목
         section_number: 섹션 순서 (자동 계산 가능)
+        level: 계층 레벨 (2=Section, 3=Subsection)
+        parent_section_id: 상위 섹션 ID (Level 3인 경우)
+        detection_method: 감지 방법 ('toc', 'llm', 'hybrid')
 
     Returns:
         Section 객체
@@ -389,11 +395,39 @@ def get_or_create_section(
         book_id=book_id,
         section_number=section_number,
         title=title,
-        detection_method='llm',
+        level=level,
+        parent_section_id=parent_section_id,
+        detection_method=detection_method,
     )
     session.add(section)
     session.flush()  # ID 즉시 할당
     return section
+
+
+def find_parent_section(
+    session: Session,
+    chapter_id: int,
+    parent_title: Optional[str],
+) -> Optional[int]:
+    """상위 섹션 ID 찾기.
+
+    Args:
+        session: DB 세션
+        chapter_id: 챕터 ID
+        parent_title: 상위 섹션 제목
+
+    Returns:
+        상위 섹션 ID 또는 None
+    """
+    if not parent_title:
+        return None
+
+    parent = (
+        session.query(Section)
+        .filter_by(chapter_id=chapter_id, title=parent_title)
+        .first()
+    )
+    return parent.id if parent else None
 
 
 def get_sections_by_chapter(session: Session, chapter_id: int) -> List[Section]:
@@ -458,3 +492,164 @@ def delete_sections_by_chapter(session: Session, chapter_id: int) -> int:
     count = session.query(Section).filter_by(chapter_id=chapter_id).delete()
     session.commit()
     return count
+
+
+# ============================================================
+# LLM 기반 CRUD 함수
+# ============================================================
+
+# 챕터 번호 추적을 위한 모듈 레벨 카운터
+_chapter_counter = 0
+
+
+def create_chapter_from_llm(
+    session: Session,
+    book_id: int,
+    chapter: DetectedChapter,
+) -> Chapter:
+    """LLM 감지 결과로 챕터 레코드 생성.
+
+    Args:
+        session: DB 세션
+        book_id: 책 ID
+        chapter: DetectedChapter 객체
+
+    Returns:
+        생성된 Chapter 객체
+    """
+    global _chapter_counter
+    _chapter_counter += 1
+
+    db_chapter = Chapter(
+        book_id=book_id,
+        chapter_number=chapter.chapter_number or _chapter_counter,
+        title=chapter.title,
+        level=1,  # 챕터는 항상 레벨 1
+        detection_method=chapter.detection_method or "llm",
+    )
+    session.add(db_chapter)
+    session.flush()  # ID 즉시 할당
+    return db_chapter
+
+
+def create_section_from_llm(
+    session: Session,
+    chapter_id: int,
+    book_id: int,
+    section: DetectedSection,
+) -> Section:
+    """LLM 감지 결과로 섹션 레코드 생성.
+
+    Args:
+        session: DB 세션
+        chapter_id: 챕터 ID
+        book_id: 책 ID
+        section: DetectedSection 객체
+
+    Returns:
+        생성된 Section 객체
+    """
+    from sqlalchemy.sql import func
+
+    # 현재 챕터의 최대 섹션 번호 + 1
+    max_num = (
+        session.query(func.max(Section.section_number))
+        .filter_by(chapter_id=chapter_id)
+        .scalar()
+    ) or 0
+    section_number = max_num + 1
+
+    # 상위 섹션 ID 찾기
+    parent_section_id = None
+    if section.parent_title:
+        parent_section_id = find_parent_section(
+            session, chapter_id, section.parent_title
+        )
+
+    db_section = Section(
+        chapter_id=chapter_id,
+        book_id=book_id,
+        section_number=section_number,
+        title=section.title,
+        level=section.level,
+        parent_section_id=parent_section_id,
+        detection_method="llm",
+    )
+    session.add(db_section)
+    session.flush()  # ID 즉시 할당
+    return db_section
+
+
+def reset_chapter_counter() -> None:
+    """챕터 카운터 초기화 (새 책 처리 시작 시 호출)."""
+    global _chapter_counter
+    _chapter_counter = 0
+
+
+# ============================================================
+# 섹션 계층 저장 함수
+# ============================================================
+
+def save_all_sections_recursive(
+    session: Session,
+    chapter_id: int,
+    book_id: int,
+    sections: List[DetectedSection],
+    parent_section_id: Optional[int] = None,
+) -> dict:
+    """
+    섹션 트리를 재귀적으로 DB에 저장.
+
+    모든 레벨의 섹션(L2, L3, L4...)을 저장하여
+    parent_section_id로 계층 구조를 유지.
+
+    Args:
+        session: DB 세션
+        chapter_id: 챕터 ID
+        book_id: 책 ID
+        sections: DetectedSection 리스트
+        parent_section_id: 부모 섹션 ID (재귀 호출용)
+
+    Returns:
+        {section_title: section_id} 매핑
+    """
+    from sqlalchemy.sql import func
+
+    section_id_map = {}
+
+    for section in sections:
+        # 현재 챕터의 최대 섹션 번호 + 1
+        max_num = (
+            session.query(func.max(Section.section_number))
+            .filter_by(chapter_id=chapter_id)
+            .scalar()
+        ) or 0
+        section_number = max_num + 1
+
+        # 현재 섹션 저장
+        db_section = Section(
+            chapter_id=chapter_id,
+            book_id=book_id,
+            section_number=section_number,
+            title=section.title,
+            level=section.level,
+            parent_section_id=parent_section_id,
+            detection_method="toc",
+        )
+        session.add(db_section)
+        session.flush()  # ID 즉시 할당
+
+        section_id_map[section.title] = db_section.id
+
+        # 자식 섹션 재귀 저장
+        if section.children:
+            child_map = save_all_sections_recursive(
+                session=session,
+                chapter_id=chapter_id,
+                book_id=book_id,
+                sections=section.children,
+                parent_section_id=db_section.id,
+            )
+            section_id_map.update(child_map)
+
+    return section_id_map

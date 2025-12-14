@@ -3,8 +3,8 @@ Pydantic 스키마 정의
 DB 테이블 구조에 맞춘 데이터 스키마
 """
 from pydantic import BaseModel, Field
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 
 class Book(BaseModel):
@@ -25,7 +25,7 @@ class Chapter(BaseModel):
     end_page: int | None = Field(default=None, description="끝 페이지 (PDF 참조용)")
     level: int = Field(default=1, description="계층 레벨 (1=Chapter, 2=Section)")
     parent_chapter_id: int | None = Field(default=None, description="상위 챕터 ID")
-    detection_method: str = Field(default="pattern", description="감지 방법: toc, pattern, fallback")
+    detection_method: str = Field(default="toc", description="감지 방법: toc, pattern, fallback")
 
 
 class ParagraphChunk(BaseModel):
@@ -65,16 +65,46 @@ class ExtractedIdea(BaseModel):
     concept: str = Field(description="온톨로지 노드 제목 (예: LoRA, Attention, Transformer)")
 
 
-# 챕터 감지 결과
+# ============================================================
+# TOC 기반 계층 감지 스키마
+# ============================================================
+
+@dataclass
+class DetectedSection:
+    """TOC에서 감지한 섹션/서브섹션"""
+    title: str
+    level: int  # 2=섹션, 3=서브섹션, 4=서브서브섹션
+    start_char: int  # 텍스트 내 시작 위치
+    end_char: int  # 텍스트 내 끝 위치
+    content: str  # 섹션 본문 텍스트
+    parent_title: str | None = None  # 상위 섹션 제목
+    children: List["DetectedSection"] = field(default_factory=list)  # 하위 섹션들
+
+
 @dataclass
 class DetectedChapter:
-    """챕터 감지 결과"""
+    """TOC에서 감지한 챕터"""
     title: str
-    start_page: int
-    end_page: int | None
-    level: int
-    detection_method: str  # 'toc', 'pattern', 'fallback'
-    confidence: float  # 0.0 ~ 1.0
+    chapter_number: int
+    start_char: int  # 텍스트 내 시작 위치
+    end_char: int  # 텍스트 내 끝 위치
+    content: str  # 챕터 본문 텍스트
+    sections: List[DetectedSection] = field(default_factory=list)  # 하위 섹션들
+    detection_method: str = "toc"
+
+
+# LLM 출력용 Pydantic 스키마 (문단 분할용)
+class ParagraphInfo(BaseModel):
+    """문단 정보 (LLM 출력용)"""
+    text: str = Field(description="문단 텍스트 (원문 그대로)")
+    start_marker: str = Field(default="", description="문단 시작 마커 (처음 30-50자)")
+
+
+class ParagraphSplitResult(BaseModel):
+    """LLM 문단 분할 결과"""
+    paragraphs: List[ParagraphInfo] = Field(
+        description="분할된 문단 리스트"
+    )
 
 
 # 계층적 청크 (chunker 출력용)
@@ -88,8 +118,13 @@ class HierarchicalChunk:
     section_title: str | None = None  # 섹션 제목 (LLM 출력)
     paragraph_index: int = 0  # 전역 인덱스
     chapter_paragraph_index: int = 0  # 챕터 내 인덱스
-    start_char: int = 0  # 챕터 내 시작 위치
-    end_char: int = 0  # 챕터 내 끝 위치
+    start_char: int = 0  # 텍스트 내 시작 위치
+    end_char: int = 0  # 텍스트 내 끝 위치
+    # 계층 정보
+    section_level: int = 2  # 레벨 (2=section, 3=subsection)
+    detection_method: str = "toc"  # 감지 방법: 'toc'
+    parent_section_title: str | None = None  # 상위 섹션 제목
+    hierarchy_path: str = ""  # 전체 계층 경로 (예: "Chapter 1 > Section 1.1 > ...")
 
 
 # ============================================================

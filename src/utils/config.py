@@ -100,7 +100,7 @@ def get_config() -> ApplicationConfig:
         Application configuration instance
 
     Example:
-        from src.orchestrator.config import get_config
+        from src.utils.config import get_config
 
         cfg = get_config()
         min_length = cfg.chunking.MIN_PARAGRAPH_LENGTH

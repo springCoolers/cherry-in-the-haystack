@@ -4,10 +4,9 @@ Provides lazy loading for memory-efficient page-by-page processing.
 전체 텍스트 추출 및 TOC 추출 기능 포함.
 """
 
+import re
 import fitz  # PyMuPDF
 from typing import Generator, Dict, Any, List, Tuple
-
-from src.pdf.text_normalizer import TextNormalizer
 
 
 def extract_page_text(pdf_path: str, page_num: int) -> str:
@@ -125,12 +124,50 @@ def extract_full_text(pdf_path: str, normalize: bool = True) -> str:
             pages.append(page.get_text())
 
         if normalize:
-            normalizer = TextNormalizer()
-            return normalizer.normalize_full_text(pages)
+            return _normalize_pages(pages)
         else:
             return '\n'.join(pages)
     finally:
         doc.close()
+
+
+def _normalize_pages(pages: List[str]) -> str:
+    """페이지 리스트를 정규화하여 단일 텍스트로 연결.
+
+    - 페이지 경계에서 하이픈 연결 처리
+    - 여러 공백/줄바꿈 정규화
+    - 기본적인 텍스트 정리
+
+    Args:
+        pages: 페이지별 텍스트 리스트
+
+    Returns:
+        정규화된 전체 텍스트
+    """
+    result = []
+
+    for i, page_text in enumerate(pages):
+        # 페이지 텍스트 정리
+        text = page_text.strip()
+
+        if not text:
+            continue
+
+        # 여러 줄바꿈 → 더블 뉴라인
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
+        # 페이지 경계 처리: 이전 페이지와 현재 페이지 연결
+        if result and result[-1]:
+            prev = result[-1]
+            # 이전 페이지가 하이픈으로 끝나면 연결
+            if prev.endswith('-'):
+                result[-1] = prev[:-1]  # 하이픈 제거
+                # 현재 페이지 첫 단어와 연결 (줄바꿈 없이)
+                text = text.lstrip()
+
+        result.append(text)
+
+    return '\n\n'.join(result)
 
 
 def extract_toc(pdf_path: str) -> List[Dict[str, Any]]:
