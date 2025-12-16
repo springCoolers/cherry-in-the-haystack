@@ -1,0 +1,1121 @@
+@prefix llm: <http://example.org/llm-ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+llm: a owl:Ontology ;
+    rdfs:label "LLM Ontology"@en ;
+    rdfs:comment "LLM 관련 개념 온톨로지"@ko .
+
+# Predicate 정의
+llm:description a owl:DatatypeProperty ;
+    rdfs:label "description"@en ;
+    rdfs:comment "개념의 설명"@ko .
+
+llm:related a owl:ObjectProperty ;
+    rdfs:label "related"@en ;
+    rdfs:comment "개념 간의 관계"@ko .
+
+
+llm:ALBERT a owl:Class ;
+    rdfs:label "ALBERT"@en ;
+    rdfs:subClassOf llm:EncoderOnly  ;
+    llm:description "" .
+
+llm:ALiBi a owl:Class ;
+    rdfs:label "ALiBi"@en ;
+    rdfs:subClassOf llm:PositionalEncoding  ;
+    llm:description "" .
+
+llm:APIIntegration a owl:Class ;
+    rdfs:label "APIIntegration"@en ;
+    rdfs:subClassOf llm:ToolUse  ;
+    llm:description "" .
+
+llm:AStarSearch a owl:Class ;
+    rdfs:label "AStarSearch"@en ;
+    rdfs:subClassOf llm:SearchProcedure  ;
+    llm:description "" .
+
+llm:AWQ a owl:Class ;
+    rdfs:label "AWQ"@en ;
+    rdfs:subClassOf llm:Quantization  ;
+    llm:description "" .
+
+llm:AbsolutePositional a owl:Class ;
+    rdfs:label "AbsolutePositional"@en ;
+    rdfs:subClassOf llm:PositionalEncoding  ;
+    llm:description "" .
+
+llm:Accuracy a owl:Class ;
+    rdfs:label "Accuracy"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:AutonomousExperimentation a owl:Class ;
+    rdfs:label "AutonomousExperimentation"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:BART a owl:Class ;
+    rdfs:label "BART"@en ;
+    rdfs:subClassOf llm:EncoderDecoder  ;
+    llm:description "" .
+
+llm:BERT a owl:Class ;
+    rdfs:label "BERT"@en ;
+    rdfs:subClassOf llm:EncoderOnly  ;
+    llm:description "" .
+
+llm:BLEU a owl:Class ;
+    rdfs:label "BLEU"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:BPC a owl:Class ;
+    rdfs:label "BPC"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:BPE a owl:Class ;
+    rdfs:label "BPE"@en ;
+    rdfs:subClassOf llm:Tokenization  ;
+    llm:description "" .
+
+llm:BeamSearch a owl:Class ;
+    rdfs:label "BeamSearch"@en ;
+    rdfs:subClassOf llm:DecodingStrategy  ;
+    llm:description "" .
+
+llm:BenchmarkDataset a owl:Class ;
+    rdfs:label "BenchmarkDataset"@en ;
+    rdfs:subClassOf llm:EvaluationMetric  ;
+    llm:description "" .
+
+llm:BestFirstSearch a owl:Class ;
+    rdfs:label "BestFirstSearch"@en ;
+    rdfs:subClassOf llm:SearchProcedure  ;
+    llm:description "" .
+
+llm:BiasDetection a owl:Class ;
+    rdfs:label "BiasDetection"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:CausalLanguageModeling a owl:Class ;
+    rdfs:label "CausalLanguageModeling"@en ;
+    rdfs:subClassOf llm:Pretraining  ;
+    llm:description "" .
+
+llm:ChainOfThought a owl:Class ;
+    rdfs:label "ChainOfThought"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:Classification a owl:Class ;
+    rdfs:label "Classification"@en ;
+    rdfs:subClassOf llm:NLU  ;
+    llm:description "" .
+
+llm:Claude a owl:Class ;
+    rdfs:label "Claude"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:CodeExecution a owl:Class ;
+    rdfs:label "CodeExecution"@en ;
+    rdfs:subClassOf llm:ToolUse  ;
+    llm:description "" .
+
+llm:CodeIntelligence a owl:Class ;
+    rdfs:label "CodeIntelligence"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:CommonSenseReasoning a owl:Class ;
+    rdfs:label "CommonSenseReasoning"@en ;
+    rdfs:subClassOf llm:ReasoningTask  ;
+    llm:description "" .
+
+llm:Communicator a owl:Class ;
+    rdfs:label "Communicator"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:ConstitutionalAI a owl:Class ;
+    rdfs:label "ConstitutionalAI"@en ;
+    rdfs:subClassOf llm:Alignment  ;
+    llm:description "" .
+
+llm:ContentFiltering a owl:Class ;
+    rdfs:label "ContentFiltering"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:ContinualLearning a owl:Class ;
+    rdfs:label "ContinualLearning"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:Controller a owl:Class ;
+    rdfs:label "Controller"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Coordinator a owl:Class ;
+    rdfs:label "Coordinator"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Cost a owl:Class ;
+    rdfs:label "Cost"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:Critic a owl:Class ;
+    rdfs:label "Critic"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:DPO a owl:Class ;
+    rdfs:label "DPO"@en ;
+    rdfs:subClassOf llm:PreferenceOptimization  ;
+    llm:description "" .
+
+llm:DPOalsoPreferenceOptimization a owl:Class ;
+    rdfs:label "DPO (also: PreferenceOptimization)"@en ;
+    rdfs:subClassOf llm:Alignment  ;
+    llm:description "" .
+
+llm:DataAnalysis a owl:Class ;
+    rdfs:label "DataAnalysis"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:DeBERTa a owl:Class ;
+    rdfs:label "DeBERTa"@en ;
+    rdfs:subClassOf llm:EncoderOnly  ;
+    llm:description "" .
+
+llm:DenoisingAutoencoding a owl:Class ;
+    rdfs:label "DenoisingAutoencoding"@en ;
+    rdfs:subClassOf llm:Pretraining  ;
+    llm:description "" .
+
+llm:DenseRetrieval a owl:Class ;
+    rdfs:label "DenseRetrieval"@en ;
+    rdfs:subClassOf llm:RAG  ;
+    llm:description "" .
+
+llm:Distillation a owl:Class ;
+    rdfs:label "Distillation"@en ;
+    rdfs:subClassOf llm:ModelCompression  ;
+    llm:description "" .
+
+llm:ELECTRA a owl:Class ;
+    rdfs:label "ELECTRA"@en ;
+    rdfs:subClassOf llm:EncoderOnly  ;
+    llm:description "" .
+
+llm:EpisodicMemory a owl:Class ;
+    rdfs:label "EpisodicMemory"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:ExactMatch a owl:Class ;
+    rdfs:label "ExactMatch"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:ExampleSelection a owl:Class ;
+    rdfs:label "ExampleSelection"@en ;
+    rdfs:subClassOf llm:PromptEngineering  ;
+    llm:description "" .
+
+llm:Executor a owl:Class ;
+    rdfs:label "Executor"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:ExternalMemory a owl:Class ;
+    rdfs:label "ExternalMemory"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:F1 a owl:Class ;
+    rdfs:label "F1"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:Falcon a owl:Class ;
+    rdfs:label "Falcon"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:FewShot a owl:Class ;
+    rdfs:label "FewShot"@en ;
+    rdfs:subClassOf llm:BasicPrompting  ;
+    llm:description "" .
+
+llm:FlanT5 a owl:Class ;
+    rdfs:label "FlanT5"@en ;
+    rdfs:subClassOf llm:EncoderDecoder  ;
+    llm:description "" .
+
+llm:FlashAttention a owl:Class ;
+    rdfs:label "FlashAttention"@en ;
+    rdfs:subClassOf llm:AttentionMechanism  ;
+    llm:description "" .
+
+llm:FunctionCalling a owl:Class ;
+    rdfs:label "FunctionCalling"@en ;
+    rdfs:subClassOf llm:ToolUse  ;
+    llm:description "" .
+
+llm:GELU a owl:Class ;
+    rdfs:label "GELU"@en ;
+    rdfs:subClassOf llm:ActivationFunction  ;
+    llm:description "" .
+
+llm:GPT3 a owl:Class ;
+    rdfs:label "GPT3"@en ;
+    rdfs:subClassOf llm:GPTArchitecture  ;
+    llm:description "" .
+
+llm:GPT4 a owl:Class ;
+    rdfs:label "GPT4"@en ;
+    rdfs:subClassOf llm:GPTArchitecture  ;
+    llm:description "" .
+
+llm:GPTQ a owl:Class ;
+    rdfs:label "GPTQ"@en ;
+    rdfs:subClassOf llm:Quantization  ;
+    llm:description "" .
+
+llm:Gemini a owl:Class ;
+    rdfs:label "Gemini"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:GraphMemory a owl:Class ;
+    rdfs:label "GraphMemory"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:GreedyDecoding a owl:Class ;
+    rdfs:label "GreedyDecoding"@en ;
+    rdfs:subClassOf llm:DecodingStrategy  ;
+    llm:description "" .
+
+llm:GroupedQueryAttention a owl:Class ;
+    rdfs:label "GroupedQueryAttention"@en ;
+    rdfs:subClassOf llm:AttentionMechanism  ;
+    llm:description "" .
+
+llm:HumanEvaluation a owl:Class ;
+    rdfs:label "HumanEvaluation"@en ;
+    rdfs:subClassOf llm:EvaluationMetric  ;
+    llm:description "" .
+
+llm:HybridRetrieval a owl:Class ;
+    rdfs:label "HybridRetrieval"@en ;
+    rdfs:subClassOf llm:RAG  ;
+    llm:description "" .
+
+llm:ImageCaptioning a owl:Class ;
+    rdfs:label "ImageCaptioning"@en ;
+    rdfs:subClassOf llm:MultimodalTask  ;
+    llm:description "" .
+
+llm:ImitationLearning a owl:Class ;
+    rdfs:label "ImitationLearning"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:InstructionOptimization a owl:Class ;
+    rdfs:label "InstructionOptimization"@en ;
+    rdfs:subClassOf llm:PromptEngineering  ;
+    llm:description "" .
+
+llm:InstructionTuning a owl:Class ;
+    rdfs:label "InstructionTuning"@en ;
+    rdfs:subClassOf llm:Finetuning  ;
+    llm:description "" .
+
+llm:Int4Quantization a owl:Class ;
+    rdfs:label "Int4Quantization"@en ;
+    rdfs:subClassOf llm:Quantization  ;
+    llm:description "" .
+
+llm:Int8Quantization a owl:Class ;
+    rdfs:label "Int8Quantization"@en ;
+    rdfs:subClassOf llm:Quantization  ;
+    llm:description "" .
+
+llm:KVCache a owl:Class ;
+    rdfs:label "KVCache"@en ;
+    rdfs:subClassOf llm:EfficientInference  ;
+    llm:description "" .
+
+llm:KnowledgeGraph a owl:Class ;
+    rdfs:label "KnowledgeGraph"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:LLMAgent a owl:Class ;
+    rdfs:label "LLMAgent"@en ;
+    rdfs:subClassOf llm:AgentArchitecture  ;
+    llm:description "" .
+
+llm:LLaMA a owl:Class ;
+    rdfs:label "LLaMA"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:Latency a owl:Class ;
+    rdfs:label "Latency"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:LayerNorm a owl:Class ;
+    rdfs:label "LayerNorm"@en ;
+    rdfs:subClassOf llm:Normalization  ;
+    llm:description "" .
+
+llm:LogicalReasoning a owl:Class ;
+    rdfs:label "LogicalReasoning"@en ;
+    rdfs:subClassOf llm:ReasoningTask  ;
+    llm:description "" .
+
+llm:MBART a owl:Class ;
+    rdfs:label "MBART"@en ;
+    rdfs:subClassOf llm:EncoderDecoder  ;
+    llm:description "" .
+
+llm:MCTS a owl:Class ;
+    rdfs:label "MCTS"@en ;
+    rdfs:subClassOf llm:SearchProcedure  ;
+    llm:description "" .
+
+llm:MaskedLanguageModeling a owl:Class ;
+    rdfs:label "MaskedLanguageModeling"@en ;
+    rdfs:subClassOf llm:Pretraining  ;
+    llm:description "" .
+
+llm:MathReasoning a owl:Class ;
+    rdfs:label "MathReasoning"@en ;
+    rdfs:subClassOf llm:ReasoningTask  ;
+    llm:description "" .
+
+llm:MemoryModule a owl:Class ;
+    rdfs:label "MemoryModule"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:MessageRouter a owl:Class ;
+    rdfs:label "MessageRouter"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Mistral a owl:Class ;
+    rdfs:label "Mistral"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:MultiAgentCollaboration a owl:Class ;
+    rdfs:label "MultiAgentCollaboration"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:MultiAgentSystem a owl:Class ;
+    rdfs:label "MultiAgentSystem"@en ;
+    rdfs:subClassOf llm:AgentArchitecture  ;
+    llm:description "" .
+
+llm:MultiHeadAttention a owl:Class ;
+    rdfs:label "MultiHeadAttention"@en ;
+    rdfs:subClassOf llm:AttentionMechanism  ;
+    llm:description "" .
+
+llm:MultiQueryAttention a owl:Class ;
+    rdfs:label "MultiQueryAttention"@en ;
+    rdfs:subClassOf llm:AttentionMechanism  ;
+    llm:description "" .
+
+llm:NER a owl:Class ;
+    rdfs:label "NER"@en ;
+    rdfs:subClassOf llm:NLU  ;
+    llm:description "" .
+
+llm:OfflineRL a owl:Class ;
+    rdfs:label "OfflineRL"@en ;
+    rdfs:subClassOf llm:ReinforcementLearning  ;
+    llm:description "" .
+
+llm:OneShot a owl:Class ;
+    rdfs:label "OneShot"@en ;
+    rdfs:subClassOf llm:BasicPrompting  ;
+    llm:description "" .
+
+llm:OnlineRL a owl:Class ;
+    rdfs:label "OnlineRL"@en ;
+    rdfs:subClassOf llm:ReinforcementLearning  ;
+    llm:description "" .
+
+llm:PAL a owl:Class ;
+    rdfs:label "PAL"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:PaLM a owl:Class ;
+    rdfs:label "PaLM"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:ParallelDecoding a owl:Class ;
+    rdfs:label "ParallelDecoding"@en ;
+    rdfs:subClassOf llm:EfficientInference  ;
+    llm:description "" .
+
+llm:Paraphrasing a owl:Class ;
+    rdfs:label "Paraphrasing"@en ;
+    rdfs:subClassOf llm:NLG  ;
+    llm:description "" .
+
+llm:PermissionControl a owl:Class ;
+    rdfs:label "PermissionControl"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:Perplexity a owl:Class ;
+    rdfs:label "Perplexity"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:PlanAndSolve a owl:Class ;
+    rdfs:label "PlanAndSolve"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:PlanQuality a owl:Class ;
+    rdfs:label "PlanQuality"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:Planner a owl:Class ;
+    rdfs:label "Planner"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:PlannerExecutorAgent a owl:Class ;
+    rdfs:label "PlannerExecutorAgent"@en ;
+    rdfs:subClassOf llm:AgentArchitecture  ;
+    llm:description "" .
+
+llm:Planning a owl:Class ;
+    rdfs:label "Planning"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:PolicyModule a owl:Class ;
+    rdfs:label "PolicyModule"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:PositionEmbedding a owl:Class ;
+    rdfs:label "PositionEmbedding"@en ;
+    rdfs:subClassOf llm:EmbeddingLayer  ;
+    llm:description "" .
+
+llm:PostNorm a owl:Class ;
+    rdfs:label "PostNorm"@en ;
+    rdfs:subClassOf llm:Normalization  ;
+    llm:description "" .
+
+llm:PreNorm a owl:Class ;
+    rdfs:label "PreNorm"@en ;
+    rdfs:subClassOf llm:Normalization  ;
+    llm:description "" .
+
+llm:Precision a owl:Class ;
+    rdfs:label "Precision"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:PreferenceAlignment a owl:Class ;
+    rdfs:label "PreferenceAlignment"@en ;
+    rdfs:subClassOf llm:AlignmentMethod  ;
+    llm:description "" .
+
+llm:PrefixLanguageModeling a owl:Class ;
+    rdfs:label "PrefixLanguageModeling"@en ;
+    rdfs:subClassOf llm:Pretraining  ;
+    llm:description "" .
+
+llm:ProgramOfThoughts a owl:Class ;
+    rdfs:label "ProgramOfThoughts"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:PromptChaining a owl:Class ;
+    rdfs:label "PromptChaining"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:Pruning a owl:Class ;
+    rdfs:label "Pruning"@en ;
+    rdfs:subClassOf llm:ModelCompression  ;
+    llm:description "" .
+
+llm:QA a owl:Class ;
+    rdfs:label "QA"@en ;
+    rdfs:subClassOf llm:NLU  ;
+    llm:description "" .
+
+llm:RLAIF a owl:Class ;
+    rdfs:label "RLAIF"@en ;
+    rdfs:subClassOf llm:Alignment  ;
+    llm:description "" .
+
+llm:RLHF a owl:Class ;
+    rdfs:label "RLHF"@en ;
+    rdfs:subClassOf llm:Alignment  ;
+    llm:description "" .
+
+llm:RMSNorm a owl:Class ;
+    rdfs:label "RMSNorm"@en ;
+    rdfs:subClassOf llm:Normalization  ;
+    llm:description "" .
+
+llm:ROUGE a owl:Class ;
+    rdfs:label "ROUGE"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:RateLimit a owl:Class ;
+    rdfs:label "RateLimit"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:ReAct a owl:Class ;
+    rdfs:label "ReAct"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:ReLU a owl:Class ;
+    rdfs:label "ReLU"@en ;
+    rdfs:subClassOf llm:ActivationFunction  ;
+    llm:description "" .
+
+llm:Reasoner a owl:Class ;
+    rdfs:label "Reasoner"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Recall a owl:Class ;
+    rdfs:label "Recall"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:RedTeaming a owl:Class ;
+    rdfs:label "RedTeaming"@en ;
+    rdfs:subClassOf llm:AlignmentMethod  ;
+    llm:description "" .
+
+llm:Reflexion a owl:Class ;
+    rdfs:label "Reflexion"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:ReflexiveAgent a owl:Class ;
+    rdfs:label "ReflexiveAgent"@en ;
+    rdfs:subClassOf llm:AgentArchitecture  ;
+    llm:description "" .
+
+llm:RelativePositional a owl:Class ;
+    rdfs:label "RelativePositional"@en ;
+    rdfs:subClassOf llm:PositionalEncoding  ;
+    llm:description "" .
+
+llm:Retriever a owl:Class ;
+    rdfs:label "Retriever"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:RewardModel a owl:Class ;
+    rdfs:label "RewardModel"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:RoBERTa a owl:Class ;
+    rdfs:label "RoBERTa"@en ;
+    rdfs:subClassOf llm:EncoderOnly  ;
+    llm:description "" .
+
+llm:RoPE a owl:Class ;
+    rdfs:label "RoPE"@en ;
+    rdfs:subClassOf llm:PositionalEncoding  ;
+    llm:description "" .
+
+llm:SafetyAlignment a owl:Class ;
+    rdfs:label "SafetyAlignment"@en ;
+    rdfs:subClassOf llm:AlignmentMethod  ;
+    llm:description "" .
+
+llm:SafetyGuard a owl:Class ;
+    rdfs:label "SafetyGuard"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Sandboxing a owl:Class ;
+    rdfs:label "Sandboxing"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:SelfAsk a owl:Class ;
+    rdfs:label "SelfAsk"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:SelfConsistency a owl:Class ;
+    rdfs:label "SelfConsistency"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:SelfPlay a owl:Class ;
+    rdfs:label "SelfPlay"@en ;
+    rdfs:subClassOf llm:ReinforcementLearning  ;
+    llm:description "" .
+
+llm:SelfRefine a owl:Class ;
+    rdfs:label "SelfRefine"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:SemanticMemory a owl:Class ;
+    rdfs:label "SemanticMemory"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:SensitiveToolBlocking a owl:Class ;
+    rdfs:label "SensitiveToolBlocking"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:SentencePiece a owl:Class ;
+    rdfs:label "SentencePiece"@en ;
+    rdfs:subClassOf llm:Tokenization  ;
+    llm:description "" .
+
+llm:SentimentAnalysis a owl:Class ;
+    rdfs:label "SentimentAnalysis"@en ;
+    rdfs:subClassOf llm:NLU  ;
+    llm:description "" .
+
+llm:SoftwareEngineering a owl:Class ;
+    rdfs:label "SoftwareEngineering"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:SparseAttention a owl:Class ;
+    rdfs:label "SparseAttention"@en ;
+    rdfs:subClassOf llm:AttentionMechanism  ;
+    llm:description "" .
+
+llm:SparseRetrieval a owl:Class ;
+    rdfs:label "SparseRetrieval"@en ;
+    rdfs:subClassOf llm:RAG  ;
+    llm:description "" .
+
+llm:SpeculativeDecoding a owl:Class ;
+    rdfs:label "SpeculativeDecoding"@en ;
+    rdfs:subClassOf llm:EfficientInference  ;
+    llm:description "" .
+
+llm:StepCount a owl:Class ;
+    rdfs:label "StepCount"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:SuccessRate a owl:Class ;
+    rdfs:label "SuccessRate"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:Summarization a owl:Class ;
+    rdfs:label "Summarization"@en ;
+    rdfs:subClassOf llm:NLG  ;
+    llm:description "" .
+
+llm:SupervisedFinetuning a owl:Class ;
+    rdfs:label "SupervisedFinetuning"@en ;
+    rdfs:subClassOf llm:Finetuning  ;
+    llm:description "" .
+
+llm:SwiGLU a owl:Class ;
+    rdfs:label "SwiGLU"@en ;
+    rdfs:subClassOf llm:ActivationFunction  ;
+    llm:description "" .
+
+llm:T5 a owl:Class ;
+    rdfs:label "T5"@en ;
+    rdfs:subClassOf llm:EncoderDecoder  ;
+    llm:description "" .
+
+llm:TaskCompletionRate a owl:Class ;
+    rdfs:label "TaskCompletionRate"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:TaskSpecificFinetuning a owl:Class ;
+    rdfs:label "TaskSpecificFinetuning"@en ;
+    rdfs:subClassOf llm:Finetuning  ;
+    llm:description "" .
+
+llm:TemperatureSampling a owl:Class ;
+    rdfs:label "TemperatureSampling"@en ;
+    rdfs:subClassOf llm:DecodingStrategy  ;
+    llm:description "" .
+
+llm:TemplateDesign a owl:Class ;
+    rdfs:label "TemplateDesign"@en ;
+    rdfs:subClassOf llm:PromptEngineering  ;
+    llm:description "" .
+
+llm:TextGeneration a owl:Class ;
+    rdfs:label "TextGeneration"@en ;
+    rdfs:subClassOf llm:NLG  ;
+    llm:description "" .
+
+llm:TextToImage a owl:Class ;
+    rdfs:label "TextToImage"@en ;
+    rdfs:subClassOf llm:MultimodalTask  ;
+    llm:description "" .
+
+llm:TokenEmbedding a owl:Class ;
+    rdfs:label "TokenEmbedding"@en ;
+    rdfs:subClassOf llm:EmbeddingLayer  ;
+    llm:description "" .
+
+llm:ToolAugmentedAgent a owl:Class ;
+    rdfs:label "ToolAugmentedAgent"@en ;
+    rdfs:subClassOf llm:AgentArchitecture  ;
+    llm:description "" .
+
+llm:ToolCallAccuracy a owl:Class ;
+    rdfs:label "ToolCallAccuracy"@en ;
+    rdfs:subClassOf llm:AutomaticMetric  ;
+    llm:description "" .
+
+llm:ToolInterface a owl:Class ;
+    rdfs:label "ToolInterface"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:ToolUseTask a owl:Class ;
+    rdfs:label "ToolUseTask"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:TopKSampling a owl:Class ;
+    rdfs:label "TopKSampling"@en ;
+    rdfs:subClassOf llm:DecodingStrategy  ;
+    llm:description "" .
+
+llm:TopPSampling a owl:Class ;
+    rdfs:label "TopPSampling"@en ;
+    rdfs:subClassOf llm:DecodingStrategy  ;
+    llm:description "" .
+
+llm:ToxicityDetection a owl:Class ;
+    rdfs:label "ToxicityDetection"@en ;
+    rdfs:subClassOf llm:SafetyTechnique  ;
+    llm:description "" .
+
+llm:Translation a owl:Class ;
+    rdfs:label "Translation"@en ;
+    rdfs:subClassOf llm:NLG  ;
+    llm:description "" .
+
+llm:TreeOfThoughts a owl:Class ;
+    rdfs:label "TreeOfThoughts"@en ;
+    rdfs:subClassOf llm:AdvancedPrompting  ;
+    llm:description "" .
+
+llm:TreeSearch a owl:Class ;
+    rdfs:label "TreeSearch"@en ;
+    rdfs:subClassOf llm:SearchProcedure  ;
+    llm:description "" .
+
+llm:UL2 a owl:Class ;
+    rdfs:label "UL2"@en ;
+    rdfs:subClassOf llm:EncoderDecoder  ;
+    llm:description "" .
+
+llm:Unigram a owl:Class ;
+    rdfs:label "Unigram"@en ;
+    rdfs:subClassOf llm:Tokenization  ;
+    llm:description "" .
+
+llm:VQA a owl:Class ;
+    rdfs:label "VQA"@en ;
+    rdfs:subClassOf llm:MultimodalTask  ;
+    llm:description "" .
+
+llm:ValueAlignment a owl:Class ;
+    rdfs:label "ValueAlignment"@en ;
+    rdfs:subClassOf llm:AlignmentMethod  ;
+    llm:description "" .
+
+llm:VectorMemory a owl:Class ;
+    rdfs:label "VectorMemory"@en ;
+    rdfs:subClassOf llm:KnowledgeIntegration  ;
+    llm:description "" .
+
+llm:WebNavigation a owl:Class ;
+    rdfs:label "WebNavigation"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:WordPiece a owl:Class ;
+    rdfs:label "WordPiece"@en ;
+    rdfs:subClassOf llm:Tokenization  ;
+    llm:description "" .
+
+llm:WorkflowAutomation a owl:Class ;
+    rdfs:label "WorkflowAutomation"@en ;
+    rdfs:subClassOf llm:AgenticTask  ;
+    llm:description "" .
+
+llm:WorldModel a owl:Class ;
+    rdfs:label "WorldModel"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:ZeroShot a owl:Class ;
+    rdfs:label "ZeroShot"@en ;
+    rdfs:subClassOf llm:BasicPrompting  ;
+    llm:description "" .
+
+llm:PreferenceOptimization a owl:Class ;
+    rdfs:label "PreferenceOptimization"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:AugmentationTechnique a owl:Class ;
+    rdfs:label "AugmentationTechnique"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:EmbeddingLayer a owl:Class ;
+    rdfs:label "EmbeddingLayer"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:GPTArchitecture a owl:Class ;
+    rdfs:label "GPTArchitecture"@en ;
+    rdfs:subClassOf llm:DecoderOnly  ;
+    llm:description "" .
+
+llm:SafetyAndAlignment a owl:Class ;
+    rdfs:label "SafetyAndAlignment"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:ActivationFunction a owl:Class ;
+    rdfs:label "ActivationFunction"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:BasicPrompting a owl:Class ;
+    rdfs:label "BasicPrompting"@en ;
+    rdfs:subClassOf llm:PromptingTechnique  ;
+    llm:description "" .
+
+llm:EfficientInference a owl:Class ;
+    rdfs:label "EfficientInference"@en ;
+    rdfs:subClassOf llm:InferenceOptimization  ;
+    llm:description "" .
+
+llm:EvaluationMetric a owl:Class ;
+    rdfs:label "EvaluationMetric"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:Finetuning a owl:Class ;
+    rdfs:label "Finetuning"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:InferenceOptimization a owl:Class ;
+    rdfs:label "InferenceOptimization"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:ModelArchitecture a owl:Class ;
+    rdfs:label "ModelArchitecture"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:ModelCompression a owl:Class ;
+    rdfs:label "ModelCompression"@en ;
+    rdfs:subClassOf llm:InferenceOptimization  ;
+    llm:description "" .
+
+llm:MultimodalTask a owl:Class ;
+    rdfs:label "MultimodalTask"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:PromptEngineering a owl:Class ;
+    rdfs:label "PromptEngineering"@en ;
+    rdfs:subClassOf llm:PromptingTechnique  ;
+    llm:description "" .
+
+llm:PromptingTechnique a owl:Class ;
+    rdfs:label "PromptingTechnique"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:RAG a owl:Class ;
+    rdfs:label "RAG"@en ;
+    rdfs:subClassOf llm:AugmentationTechnique  ;
+    llm:description "" .
+
+llm:ReasoningTask a owl:Class ;
+    rdfs:label "ReasoningTask"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:ReinforcementLearning a owl:Class ;
+    rdfs:label "ReinforcementLearning"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:ToolUse a owl:Class ;
+    rdfs:label "ToolUse"@en ;
+    rdfs:subClassOf llm:AugmentationTechnique  ;
+    llm:description "" .
+
+llm:Alignment a owl:Class ;
+    rdfs:label "Alignment"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:AlignmentMethod a owl:Class ;
+    rdfs:label "AlignmentMethod"@en ;
+    rdfs:subClassOf llm:SafetyAndAlignment  ;
+    llm:description "" .
+
+llm:NLG a owl:Class ;
+    rdfs:label "NLG"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:NLU a owl:Class ;
+    rdfs:label "NLU"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:Normalization a owl:Class ;
+    rdfs:label "Normalization"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:PositionalEncoding a owl:Class ;
+    rdfs:label "PositionalEncoding"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:Pretraining a owl:Class ;
+    rdfs:label "Pretraining"@en ;
+    rdfs:subClassOf llm:TrainingParadigm  ;
+    llm:description "" .
+
+llm:Quantization a owl:Class ;
+    rdfs:label "Quantization"@en ;
+    rdfs:subClassOf llm:ModelCompression  ;
+    llm:description "" .
+
+llm:SearchProcedure a owl:Class ;
+    rdfs:label "SearchProcedure"@en ;
+    rdfs:subClassOf llm:AgentComponent  ;
+    llm:description "" .
+
+llm:Tokenization a owl:Class ;
+    rdfs:label "Tokenization"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:AgentArchitecture a owl:Class ;
+    rdfs:label "AgentArchitecture"@en .
+
+llm:AttentionMechanism a owl:Class ;
+    rdfs:label "AttentionMechanism"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:DecodingStrategy a owl:Class ;
+    rdfs:label "DecodingStrategy"@en ;
+    rdfs:subClassOf llm:InferenceOptimization  ;
+    llm:description "" .
+
+llm:EncoderDecoder a owl:Class ;
+    rdfs:label "EncoderDecoder"@en ;
+    rdfs:subClassOf llm:ModelArchitecture  ;
+    llm:description "" .
+
+llm:EncoderOnly a owl:Class ;
+    rdfs:label "EncoderOnly"@en ;
+    rdfs:subClassOf llm:ModelArchitecture  ;
+    llm:description "" .
+
+llm:ApplicationDomain a owl:Class ;
+    rdfs:label "ApplicationDomain"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:KnowledgeIntegration a owl:Class ;
+    rdfs:label "KnowledgeIntegration"@en .
+
+llm:DecoderOnly a owl:Class ;
+    rdfs:label "DecoderOnly"@en ;
+    rdfs:subClassOf llm:ModelArchitecture  ;
+    llm:description "" .
+
+llm:ModelComponent a owl:Class ;
+    rdfs:label "ModelComponent"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:SafetyTechnique a owl:Class ;
+    rdfs:label "SafetyTechnique"@en ;
+    rdfs:subClassOf llm:SafetyAndAlignment  ;
+    llm:description "" .
+
+llm:TrainingParadigm a owl:Class ;
+    rdfs:label "TrainingParadigm"@en ;
+    rdfs:subClassOf llm:LLMConcept  ;
+    llm:description "" .
+
+llm:AgenticTask a owl:Class ;
+    rdfs:label "AgenticTask"@en ;
+    rdfs:subClassOf llm:ApplicationDomain  ;
+    llm:description "" .
+
+llm:LLMConcept a owl:Class ;
+    rdfs:label "LLMConcept"@en .
+
+llm:AdvancedPrompting a owl:Class ;
+    rdfs:label "AdvancedPrompting"@en ;
+    rdfs:subClassOf llm:PromptingTechnique  ;
+    llm:description "" .
+
+llm:AgentComponent a owl:Class ;
+    rdfs:label "AgentComponent"@en ;
+    rdfs:subClassOf llm:ModelComponent  ;
+    llm:description "" .
+
+llm:AutomaticMetric a owl:Class ;
+    rdfs:label "AutomaticMetric"@en ;
+    rdfs:subClassOf llm:EvaluationMetric  ;
+    llm:description "" .
+
