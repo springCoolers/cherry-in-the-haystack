@@ -1299,8 +1299,7 @@ class NotionAgent:
         list_names: list,
         tweet,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         """
         Create toread database item, source twitter
@@ -1326,10 +1325,6 @@ class NotionAgent:
 
         properties.update({"Category": {
             "multi_select": categories_list,
-        }})
-
-        properties.update({"Rating": {
-            "number": rate_number
         }})
 
         if tweet.get("__relevant_score"):
@@ -1373,7 +1368,6 @@ class NotionAgent:
         ranked_page,
         topics: list,
         categories: list,
-        rate_number,
         **kwargs
     ):
         # assemble topics
@@ -1406,10 +1400,6 @@ class NotionAgent:
             "multi_select": categories_list,
         }})
 
-        properties.update({"Rating": {
-            "number": rate_number
-        }})
-
         if ranked_page.get("__relevant_score"):
             properties.update({"Relevant Score": {
                 "number": ranked_page["__relevant_score"]
@@ -1430,8 +1420,7 @@ class NotionAgent:
         database_id,
         ranked_page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_ArticleBase(ranked_page)
 
@@ -1442,8 +1431,7 @@ class NotionAgent:
             database_id,
             ranked_page,
             topics,
-            categories,
-            rate_number
+            categories
         )
 
     def createDatabaseItem_ToRead_Youtube(
@@ -1451,8 +1439,7 @@ class NotionAgent:
         database_id,
         ranked_page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_YoutubeBase(ranked_page)
 
@@ -1463,8 +1450,7 @@ class NotionAgent:
             database_id,
             ranked_page,
             topics,
-            categories,
-            rate_number
+            categories
         )
 
         # Add video metadata as a comment
@@ -1493,8 +1479,7 @@ class NotionAgent:
         database_id,
         page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         """
         Create RSS item in ToRead database with custom format:
@@ -1586,7 +1571,6 @@ class NotionAgent:
             page,
             topics,
             categories,
-            rate_number,
             list_names=[page["list_name"]]
         )
 
@@ -1827,8 +1811,7 @@ class NotionAgent:
         list_names: list,
         page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_ArticleBase(
             page, summary=False, append_notion_url=False)
@@ -1956,7 +1939,6 @@ class NotionAgent:
             page,
             topics,
             categories,
-            rate_number,
             list_names=list_names
         )
 
@@ -2297,9 +2279,6 @@ class NotionAgent:
             },
             "Category": {
                 "multi_select": {}
-            },
-            "Rating": {
-                "number": {}
             },
             "Read": {
                 "checkbox": {}

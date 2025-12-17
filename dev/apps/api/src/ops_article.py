@@ -7,7 +7,6 @@ from datetime import timedelta, datetime
 
 from notion import NotionAgent
 from llm_agent import (
-    LLMAgentCategoryAndRanking,
     LLMAgentSummary,
     LLMWebLoader,
     LLMArxivLoader
@@ -178,78 +177,6 @@ class OperatorArticle(OperatorBase):
 
         return summarized_pages
 
-    def rank(self, pages):
-        """
-        Rank page summary (not the entire content)
-        """
-        print("#####################################################")
-        print("# Rank Articles")
-        print("#####################################################")
-        print(f"Number of pages: {len(pages)}")
-
-        llm_agent = LLMAgentCategoryAndRanking()
-        llm_agent.init_prompt()
-        llm_agent.init_llm()
-
-        client = DBClient()
-        redis_key_expire_time = os.getenv(
-            "BOT_REDIS_KEY_EXPIRE_TIME", 604800)
-
-        # array of ranged pages
-        ranked = []
-
-        for page in pages:
-            title = page["title"]
-            page_id = page["id"]
-            text = page["__summary"]
-            print(f"Ranking page, title: {title}")
-
-            # Let LLM to category and rank
-            st = time.time()
-
-            llm_ranking_resp = client.get_notion_ranking_item_id(
-                "article", "default", page_id)
-
-            category_and_rank_str = None
-
-            if not llm_ranking_resp:
-                print("Not found category_and_rank_str in cache, fallback to llm_agent to rank")
-                category_and_rank_str = llm_agent.run(text)
-
-                print(f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}")
-                client.set_notion_ranking_item_id(
-                    "article", "default", page_id,
-                    category_and_rank_str,
-                    expired_time=int(redis_key_expire_time))
-
-            else:
-                print("Found category_and_rank_str from cache")
-                category_and_rank_str = utils.bytes2str(llm_ranking_resp)
-
-            print(f"Used {time.time() - st:.3f}s, Category and Rank: text: {text}, rank_resp: {category_and_rank_str}")
-
-            category_and_rank = utils.fix_and_parse_json(category_and_rank_str)
-            print(f"LLM ranked result (json parsed): {category_and_rank}")
-
-            # Parse LLM response and assemble category and rank
-            ranked_page = copy.deepcopy(page)
-
-            if not category_and_rank:
-                print("[ERROR] Cannot parse json string, assign default rating -0.01")
-                ranked_page["__topics"] = []
-                ranked_page["__categories"] = []
-                ranked_page["__rate"] = -0.01
-            else:
-                ranked_page["__topics"] = [(x["topic"], x.get("score") or 1) for x in category_and_rank["topics"]]
-                ranked_page["__categories"] = [(x["category"], x.get("score") or 1) for x in category_and_rank["topics"]]
-                ranked_page["__rate"] = category_and_rank["overall_score"]
-                ranked_page["__feedback"] = category_and_rank.get("feedback") or ""
-
-            ranked.append(ranked_page)
-
-        print(f"Ranked pages: {ranked}")
-        return ranked
-
     def _get_top_items(self, items: list, k):
         """
         items: [(name, score), ...]
@@ -306,14 +233,11 @@ class OperatorArticle(OperatorBase):
                         categories_topk = self._get_top_items(categories, topk)
                         categories_topk = [x[0].replace(",", " ")[:20] for x in categories_topk]
 
-                        rating = ranked_page["__rate"]
-
                         new_page = notion_agent.createDatabaseItem_ToRead_Article(
                             database_id,
                             ranked_page,
                             topics_topk,
-                            categories_topk,
-                            rating)
+                            categories_topk)
 
                         # Add Arxiv metadata as a comment
                         if ranked_page.get("__arxiv_result"):

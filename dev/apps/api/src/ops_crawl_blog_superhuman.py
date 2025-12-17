@@ -11,10 +11,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, Field
 
 from notion import NotionAgent
-from llm_agent import (
-    LLMAgentCategoryAndRanking,
-    LLMAgentSummary,
-)
+from llm_agent import LLMAgentSummary
 import utils
 from ops_base import OperatorBase
 from db_cli import DBClient
@@ -919,103 +916,6 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
 
         return summarized_pages
 
-    def rank(self, pages):
-        """
-        Rank page summary (not the entire content)
-        """
-        print("#####################################################")
-        print("# Rank CrawlBlogSuperhuman Articles")
-        print("#####################################################")
-        ENABLED = utils.str2bool(os.getenv("CRAWL_ENABLE_CLASSIFICATION", "False"))
-        print(f"Number of pages: {len(pages)}, enabled: {ENABLED}")
-
-        llm_agent = LLMAgentCategoryAndRanking()
-        llm_agent.init_prompt()
-        llm_agent.init_llm()
-
-        client = DBClient()
-        redis_key_expire_time = os.getenv("BOT_REDIS_KEY_EXPIRE_TIME", 604800)
-
-        # array of ranged pages
-        ranked = []
-
-        for page in pages:
-            title = page["title"]
-            page_id = page["id"]
-            list_name = page["list_name"]
-            text = page["__summary"]
-            print(f"Ranking page, title: {title}")
-
-            # Let LLM to category and rank
-            st = time.time()
-
-            # Parse LLM response and assemble category and rank
-            ranked_page = copy.deepcopy(page)
-
-            if not ENABLED:
-                ranked_page["__topics"] = []
-                ranked_page["__categories"] = []
-                ranked_page["__rate"] = -0.02
-
-                ranked.append(ranked_page)
-                continue
-
-            llm_ranking_resp = client.get_notion_ranking_item_id(
-                "superhuman_blog", list_name, page_id
-            )
-
-            category_and_rank_str = None
-
-            if not llm_ranking_resp:
-                print(
-                    "Not found category_and_rank_str in cache, fallback to llm_agent to rank"
-                )
-                category_and_rank_str = llm_agent.run(text)
-
-                print(
-                    f"Cache llm response for {redis_key_expire_time}s, page_id: {page_id}"
-                )
-                client.set_notion_ranking_item_id(
-                    "superhuman_blog",
-                    list_name,
-                    page_id,
-                    category_and_rank_str,
-                    expired_time=int(redis_key_expire_time),
-                )
-
-            else:
-                print("Found category_and_rank_str from cache")
-                category_and_rank_str = utils.bytes2str(llm_ranking_resp)
-
-            print(
-                f"Used {time.time() - st:.3f}s, Category and Rank: text: {text}, rank_resp: {category_and_rank_str}"
-            )
-
-            category_and_rank = utils.fix_and_parse_json(category_and_rank_str)
-            print(f"LLM ranked result (json parsed): {category_and_rank}")
-
-            if not category_and_rank:
-                print("[ERROR] Cannot parse json string, assign default rating -0.01")
-                ranked_page["__topics"] = []
-                ranked_page["__categories"] = []
-                ranked_page["__rate"] = -0.01
-            else:
-                ranked_page["__topics"] = [
-                    (x["topic"], x.get("score") or 1)
-                    for x in category_and_rank["topics"]
-                ]
-                ranked_page["__categories"] = [
-                    (x["category"], x.get("score") or 1)
-                    for x in category_and_rank["topics"]
-                ]
-                ranked_page["__rate"] = category_and_rank["overall_score"]
-                ranked_page["__feedback"] = category_and_rank.get("feedback") or ""
-
-            ranked.append(ranked_page)
-
-        print(f"Ranked pages: {ranked}")
-        return ranked
-
     def _get_top_items(self, items: list, k):
         """
         items: [(name, score), ...]
@@ -1072,11 +972,10 @@ class OperatorCrawlBlogSuperhuman(OperatorBase):
                         topics_topk = topics_topk[:topk]
 
                         categories_topk = []
-                        rating = page.get("__rate") or -1
 
                         # NOTE: using same structure as RSS (ops_rss.py)
                         notion_agent.createDatabaseItem_ToRead_RSS(
-                            database_id, page, topics_topk, categories_topk, rating
+                            database_id, page, topics_topk, categories_topk
                         )
 
                         self.markVisited(
