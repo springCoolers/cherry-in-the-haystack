@@ -162,6 +162,26 @@ Analyze the below content carefully and generate concise 'Summary' without losin
 {content}
 """
 
+LLM_PROMPT_ENHANCED_ANALYSIS = """
+Analyze the following content and provide three types of insights in JSON format:
+
+1. "why_it_matters": Explain why this content is significant or important (2-3 sentences in KOREAN)
+2. "insights": Extract key insights and takeaways (3-5 bullet points in KOREAN)
+3. "examples": Provide concrete examples or case studies mentioned (2-3 items in KOREAN, or "None" if not applicable)
+
+You should only respond in JSON format as described below without any explanation:
+{{
+  "why_it_matters": "이 내용이 중요한 이유...",
+  "insights": ["핵심 통찰 1", "핵심 통찰 2", "핵심 통찰 3"],
+  "examples": ["사례 1", "사례 2"]
+}}
+
+Double check before responding, ensure the response can be parsed by Python json.loads.
+
+Content:
+{content}
+"""
+
 ######################################################################
 # AUTOGEN
 ######################################################################
