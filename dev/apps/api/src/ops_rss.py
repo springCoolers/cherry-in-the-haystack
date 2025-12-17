@@ -316,16 +316,9 @@ class OperatorRSS(OperatorBase):
             print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, summary: {summary}")
             summarized_pages.append(summarized_page)
 
-        # Check if enhanced analysis is enabled
-        enable_enhanced = utils.str2bool(
-            os.getenv("RSS_ENABLE_ENHANCED_ANALYSIS", "True")
-        )
 
-        if enable_enhanced:
-            print("[INFO] Enhanced analysis enabled for RSS, running analysis...")
-            summarized_pages = self.analyze_enhanced(summarized_pages)
-        else:
-            print("[INFO] Enhanced analysis disabled for RSS")
+        print("[INFO] Enhanced analysis enabled for RSS, running analysis...")
+        summarized_pages = self.analyze_enhanced(summarized_pages)
 
         return summarized_pages
 
