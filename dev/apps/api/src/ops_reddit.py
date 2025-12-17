@@ -3,14 +3,10 @@ import time
 import copy
 import traceback
 from operator import itemgetter
-from collections import Counter
 
 from reddit_agent import RedditAgent
 from notion import NotionAgent
-from llm_agent import (
-    LLMAgentCategoryAndRanking,
-    LLMAgentSummary,
-)
+from llm_agent import LLMAgentSummary
 import utils
 from ops_base import OperatorBase
 from db_cli import DBClient
@@ -130,111 +126,6 @@ class OperatorReddit(OperatorBase):
 
         print(f"reddit_deduped (total: {tot}, duplicated: {dup}, new: {cnt}): {reddit_deduped}")
         return reddit_deduped
-
-    def rank(self, data, **kwargs):
-        """
-        Rank Reddit Post (not the entire content)
-
-        data: deduped post from dedup()
-        """
-        print("#####################################################")
-        print("# Rank Reddit Post")
-        print("#####################################################")
-        ENABLED = utils.str2bool(os.getenv("REDDIT_ENABLE_CLASSIFICATION", "False"))
-        min_score = kwargs.setdefault("min_score", 4)
-        print(f"Minimum score to rank: {min_score}, enabled: {ENABLED}")
-
-        llm_agent = LLMAgentCategoryAndRanking()
-        llm_agent.init_prompt()
-        llm_agent.init_llm()
-
-        client = DBClient()
-        redis_key_expire_time = os.getenv("BOT_REDIS_KEY_EXPIRE_TIME", 604800)
-        tot = 0
-        skipped = 0
-        err = 0
-        rank = 0
-        ranked = {}
-
-        for list_name, posts in data.items():
-            ranked_list = ranked.setdefault(list_name, [])
-
-            for post in posts:
-                tot += 1
-                relevant_score = post.get("__relevant_score")
-                title = post["title"]
-                text = post["text"]
-                post_hash_id = post["hash_id"]
-
-                # Assemble ranking content
-                content = f"{title}: {text}"
-
-                print(f"Ranking post: length: {len(content)}, content: {content[:200]}...")
-                print(f"Relevant score: {relevant_score}")
-
-                ranked_post = copy.deepcopy(post)
-
-                # Skip the ranking steps for now, to save the tokens
-                if (not ENABLED or (relevant_score and relevant_score >= 0 and relevant_score < min_score) or len(content) > 2000):
-                    print(f"Skip the low score {relevant_score} or long content ({len(content)}) to rank")
-                    skipped += 1
-
-                    ranked_post["__topics"] = []
-                    ranked_post["__categories"] = []
-                    ranked_post["__rate"] = -0.02
-
-                    ranked_list.append(ranked_post)
-                    continue
-
-                # Let LLM to category and rank, for:
-                # cold-start: no relevant score or < 0
-                # warm/hot-start: relevant score >= min_score
-                st = time.time()
-
-                llm_ranking_resp = client.get_notion_ranking_item_id(
-                    "reddit", list_name, post_hash_id)
-
-                category_and_rank_str = None
-
-                if not llm_ranking_resp:
-                    print("Not found category_and_rank_str in cache, fallback to llm_agent to rank")
-                    category_and_rank_str = llm_agent.run(text)
-
-                    print(f"Cache llm response for {redis_key_expire_time}s, hash_id: {post_hash_id}")
-                    client.set_notion_ranking_item_id(
-                        "reddit", list_name, post_hash_id,
-                        category_and_rank_str,
-                        expired_time=int(redis_key_expire_time))
-
-                else:
-                    print("Found category_and_rank_str from cache")
-                    category_and_rank_str = llm_ranking_resp
-
-                print(f"Used {time.time() - st:.3f}s, Category and Rank: text: {content}, rank_resp: {category_and_rank_str}")
-
-                category_and_rank = utils.fix_and_parse_json(category_and_rank_str)
-                print(f"LLM ranked result (json parsed): {category_and_rank}")
-
-                # Parse LLM response and assemble category and rank
-                if not category_and_rank:
-                    print("[ERROR] Cannot parse json string, assign default rating -0.01")
-                    ranked_post["__topics"] = []
-                    ranked_post["__categories"] = []
-                    ranked_post["__rate"] = -0.01
-                    err += 1
-
-                else:
-                    ranked_post["__topics"] = [(x["topic"], x.get("score") or 1) for x in category_and_rank["topics"]]
-                    ranked_post["__categories"] = [(x["category"], x.get("score") or 1) for x in category_and_rank["topics"]]
-                    ranked_post["__rate"] = category_and_rank["overall_score"] or -0.01
-                    ranked_post["__feedback"] = category_and_rank.get("feedback") or ""
-                    rank += 1
-
-                ranked_list.append(ranked_post)
-
-        print(f"Ranked reddit posts: {ranked}")
-        print(f"Total {tot}, ranked: {rank}, skipped: {skipped}, errors: {err}")
-        return ranked
 
     def push(self, data, targets, topics_topk=3, categories_topk=3):
         """
@@ -505,12 +396,9 @@ class OperatorReddit(OperatorBase):
         print(f"Original categories: {ranked_post['__categories']}, top-k: {categories}")
         categories_topk = [x[0].replace(",", " ")[:20] for x in categories]
 
-        # The __rate is [0, 1], scale to [0, 100]
-        rate = ranked_post["__rate"] * 100
-
         notion_agent.createDatabaseItem_ToRead_Reddit(
             database_id, [list_name], ranked_post,
-            topics_topk, categories_topk, rate)
+            topics_topk, categories_topk)
 
         print("Inserted one Reddit post into ToRead database")
         self.markVisited(
@@ -529,29 +417,8 @@ class OperatorReddit(OperatorBase):
         for list_name, items in inbox_data_deduped.items():
             print(f"{list_name}: Deduped inbox data count: {len(items)}")
 
-        rank_stats = {}
         for list_name, items in data_ranked.items():
-            print(f"{list_name}: Ranked data count: {len(items)}")
-            rank_stats[list_name] = Counter()
-
-            for ranked_post in items:
-                rating = ranked_post["__rate"]
-
-                if rating <= 0.5:
-                    rank_stats[list_name]["below_0.5"] += 1
-                elif rating <= 0.6:
-                    rank_stats[list_name]["below_0.6"] += 1
-                elif rating <= 0.7:
-                    rank_stats[list_name]["below_0.7"] += 1
-                elif rating <= 0.8:
-                    rank_stats[list_name]["below_0.8"] += 1
-                elif rating <= 0.9:
-                    rank_stats[list_name]["below_0.9"] += 1
-                elif rating <= 1:
-                    rank_stats[list_name]["below_1"] += 1
-
-            for key, count in rank_stats[list_name].items():
-                print(f"{list_name} - {key}: {count}")
+            print(f"{list_name}: Summarized data count: {len(items)}")
 
     def createStats(
         self,
