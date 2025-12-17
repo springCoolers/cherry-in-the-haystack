@@ -363,6 +363,47 @@ class LLMAgentSummary(LLMAgentBase):
         summary_resp = self.llmchain.run(docs)
         return summary_resp
 
+    def init_enhanced_analysis_prompt(self, prompt=None):
+        """Initialize prompt for enhanced analysis"""
+        prompt = prompt or llm_prompts.LLM_PROMPT_ENHANCED_ANALYSIS
+        self.enhanced_analysis_prompt_tpl = PromptTemplate(
+            template=prompt,
+            input_variables=["content"]
+        )
+        self.enhanced_analysis_chain = LLMChain(
+            llm=self.llm,
+            prompt=self.enhanced_analysis_prompt_tpl
+        )
+        print(f"[LLMAgentSummary] Enhanced analysis prompt initialized")
+
+    def run_enhanced_analysis(self, text: str):
+        """
+        Run enhanced analysis to get why_it_matters, insights, examples
+
+        @param text: Content to analyze
+        @return: dict with keys: why_it_matters, insights, examples
+        """
+        import json
+
+        tokens = self.get_num_tokens(text)
+        print(f"[LLM] Enhanced Analysis, number of tokens: {tokens}")
+
+        response = self.enhanced_analysis_chain.run(text)
+        print(f"[LLM] Enhanced Analysis raw response: {response[:200]}...")
+
+        # Parse JSON response
+        try:
+            result = json.loads(response)
+            return result
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse LLM response: {e}")
+            print(f"[ERROR] Raw response: {response}")
+            return {
+                "why_it_matters": "",
+                "insights": [],
+                "examples": []
+            }
+
 
 class LLMAgentJournal(LLMAgentBase):
     def __init__(self, api_key="", model_name="gpt-3.5-turbo"):
