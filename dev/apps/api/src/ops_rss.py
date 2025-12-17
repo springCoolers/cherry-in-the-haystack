@@ -316,7 +316,100 @@ class OperatorRSS(OperatorBase):
             print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, summary: {summary}")
             summarized_pages.append(summarized_page)
 
+        # Check if enhanced analysis is enabled
+        enable_enhanced = utils.str2bool(
+            os.getenv("RSS_ENABLE_ENHANCED_ANALYSIS", "True")
+        )
+
+        if enable_enhanced:
+            print("[INFO] Enhanced analysis enabled for RSS, running analysis...")
+            summarized_pages = self.analyze_enhanced(summarized_pages)
+        else:
+            print("[INFO] Enhanced analysis disabled for RSS")
+
         return summarized_pages
+
+    def analyze_enhanced(self, pages):
+        """
+        Generate enhanced analysis (why_it_matters, insights, examples)
+        for RSS articles
+        """
+        print("#####################################################")
+        print("# Enhanced Analysis for RSS Articles")
+        print("#####################################################")
+        ANALYSIS_MAX_LENGTH = int(os.getenv("ANALYSIS_MAX_LENGTH", 15000))
+        print(f"Number of pages: {len(pages)}")
+        print(f"Analysis max length: {ANALYSIS_MAX_LENGTH}")
+
+        # Initialize LLM agent
+        llm_agent = LLMAgentSummary()
+        llm_agent.init_prompt()  # for potential summary fallback
+        llm_agent.init_llm()
+        llm_agent.init_enhanced_analysis_prompt()
+
+        client = DBClient()
+        redis_key_expire_time = os.getenv("BOT_REDIS_KEY_EXPIRE_TIME", 604800)
+
+        analyzed_pages = []
+
+        for page in pages:
+            page_id = page["id"]
+            title = page["title"]
+            content = page.get("content", "")
+            summary = page.get("__summary", "")
+            list_name = page["list_name"]
+
+            print(f"Analyzing page, title: {title}, list_name: {list_name}")
+
+            st = time.time()
+
+            # Check cache
+            cached_analysis = client.get_notion_enhanced_analysis_item_id(
+                "rss", list_name, page_id
+            )
+
+            if cached_analysis:
+                print("Found cached enhanced analysis")
+                import json
+                analysis = json.loads(utils.bytes2str(cached_analysis))
+            else:
+                # Determine input: content first, then summary fallback
+                analysis_input = content if content else summary
+
+                if not analysis_input:
+                    print("[WARN] No content or summary available, skipping analysis")
+                    continue
+
+                # Truncate to max length
+                analysis_input = analysis_input[:ANALYSIS_MAX_LENGTH]
+                print(f"Analysis input length: {len(analysis_input)} chars")
+
+                # Run LLM
+                analysis = llm_agent.run_enhanced_analysis(analysis_input)
+
+                # Cache result
+                import json
+                analysis_json = json.dumps(analysis, ensure_ascii=False)
+                client.set_notion_enhanced_analysis_item_id(
+                    "rss", list_name, page_id, analysis_json,
+                    expired_time=int(redis_key_expire_time)
+                )
+                print(f"Cached enhanced analysis for {redis_key_expire_time}s")
+
+            # Add to page
+            analyzed_page = copy.deepcopy(page)
+            analyzed_page["__why_it_matters"] = analysis.get("why_it_matters", "")
+            analyzed_page["__insights"] = analysis.get("insights", [])
+            analyzed_page["__examples"] = analysis.get("examples", [])
+
+            print(f"Used {time.time() - st:.3f}s, Enhanced analysis complete")
+            print(f"  - Why it matters: {analyzed_page['__why_it_matters'][:100]}...")
+            print(f"  - Insights: {len(analyzed_page['__insights'])} items")
+            print(f"  - Examples: {len(analyzed_page['__examples'])} items")
+
+            analyzed_pages.append(analyzed_page)
+
+        return analyzed_pages
 
     def _get_top_items(self, items: list, k):
         """
