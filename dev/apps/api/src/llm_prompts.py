@@ -230,20 +230,19 @@ LLM_PROMPT_CATEGORIZATION = """
 You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE of the following predefined categories:
 
 Available Categories:
-- Model Updates
-- Datasets
-- Frameworks, Libraries & Tools
-- Evaluation, Benchmarks & Leaderboards
-- Security & Vulnerabilities
-- Regulations & Compliance
-- Infrastructure & Hardware
-- Open Source Projects
-- Community Trends
-- Research Papers
-- Business & Case Studies
-- LLM Content & Education
-- Technical Reports
-- Use Cases & Applications
+- New AI Model Release
+- New Tool Introduction
+- Technical Deep Dive
+- Benchmark & Performance
+- Industry Trend Analysis
+- AI Ethics & Regulation
+- Open-Source Project
+- Research Paper Review
+- Event Coverage
+- Community Discussion
+- Meme/Humor
+- Evaluation Driven Development
+- Evaluating AI systems
 
 Instructions:
 - Read the summary carefully and select the MOST relevant category
