@@ -341,22 +341,22 @@ class OperatorRSS(OperatorBase):
                 print("Found llm category from cache, decoding (utf-8) ...")
                 category_response = utils.bytes2str(llm_category_resp)
 
-            # Parse category JSON
+            # Parse category JSON (multi-select)
             import json
             try:
                 category_data = json.loads(category_response)
-                category = category_data.get("category", "")
+                categories = category_data.get("categories", [])
             except json.JSONDecodeError as e:
                 print(f"[ERROR] Failed to parse category JSON: {e}, response: {category_response}")
-                category = ""
+                categories = []
 
-            # assemble summary and category into page
+            # assemble summary and categories into page
             summarized_page = copy.deepcopy(page)
             summarized_page["content"] = content
             summarized_page["__summary"] = summary
-            summarized_page["__category"] = category
+            summarized_page["__categories"] = categories
 
-            print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, category: {category}, summary: {summary}")
+            print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, categories: {categories}, summary: {summary}")
             summarized_pages.append(summarized_page)
 
 

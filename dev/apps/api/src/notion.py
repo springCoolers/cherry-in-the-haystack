@@ -1488,7 +1488,7 @@ class NotionAgent:
         """
         content = page.get("content") or ""
         summary = page.get("__summary") or ""
-        category = page.get("__category") or ""
+        categories = page.get("__categories") or []
         title = page["title"]
         url = page["url"]
         created_time_pdt = utils.convertUTC2PDT_str(page["created_time"])
@@ -1559,12 +1559,12 @@ class NotionAgent:
             }
         }
 
-        # Add Category property if available
-        if category:
+        # Add Category property if available (multi-select)
+        if categories:
             properties["Category"] = {
-                "select": {
-                    "name": category
-                }
+                "multi_select": [
+                    {"name": category} for category in categories
+                ]
             }
 
         # Blocks: ## {title}\n{summary}\n{link}

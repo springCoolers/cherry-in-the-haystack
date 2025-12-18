@@ -227,7 +227,7 @@ Content:
 """
 
 LLM_PROMPT_CATEGORIZATION = """
-You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE of the following predefined categories:
+You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE OR MORE of the following predefined categories:
 
 Available Categories:
 - New AI Model Release
@@ -245,19 +245,21 @@ Available Categories:
 - Evaluating AI systems
 
 Instructions:
-- Read the summary carefully and select the MOST relevant category
-- Choose ONLY ONE category from the list above
-- If the content fits multiple categories, select the primary/dominant one
+- Read the summary carefully and select ALL relevant categories
+- You can select multiple categories if the content fits several of them
+- Select at least one category, and at most 3-4 categories
+- Prioritize the most relevant ones if there are many matches
 - Respond ONLY in JSON format without any explanation
 
 Response format:
 {{
-  "category": "Model Updates"
+  "categories": ["New AI Model Release", "Technical Deep Dive"]
 }}
 
 Double check before responding, ensure:
 1. The response can be parsed by Python json.loads
-2. The category name matches EXACTLY one from the list above (case-sensitive)
+2. Each category name matches EXACTLY one from the list above (case-sensitive)
+3. The "categories" field is an array of strings
 
 Summary to categorize:
 {content}
