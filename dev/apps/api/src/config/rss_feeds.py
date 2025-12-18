@@ -5,14 +5,31 @@ This module defines all RSS feeds to be monitored by the news pulling system.
 Using Python with TypedDict for type safety and IDE support.
 
 To add a new feed:
-1. Add a new dictionary to RSS_FEEDS list
-2. Follow the RSSFeed type structure
-3. Set enabled=True to activate
+1. Add feed name constant to FeedNames class
+2. Add feed configuration to RSS_FEEDS list using the constant
+3. Add prompt mapping in llm_prompts.py using the same constant
+4. Set enabled=True to activate
 
 Changes take effect on next DAG run.
 """
 
 from typing import TypedDict, List
+
+
+class FeedNames:
+    """
+    RSS Feed name constants
+
+    Use these constants in both RSS_FEEDS and llm_prompts.py
+    to prevent typos and maintain consistency.
+
+    When adding a new feed:
+    1. Add constant here
+    2. Use it in RSS_FEEDS below
+    3. Use it in llm_prompts.RSS_FEED_PROMPTS
+    """
+    REDDIT_ML = "Reddit MachineLearning Feed"
+    NEWSLETTER_ELVIS = "AI Newsletter - elvis saravia"
 
 
 class RSSFeed(TypedDict):
@@ -33,22 +50,23 @@ class RSSFeed(TypedDict):
 
 # RSS Feed List
 # Add new feeds here following the RSSFeed structure
+# IMPORTANT: Use FeedNames constants for the "name" field
 RSS_FEEDS: List[RSSFeed] = [
     {
-        "name": "Reddit MachineLearning Feed",
+        "name": FeedNames.REDDIT_ML,
         "url": "https://www.reddit.com/r/machinelearningnews/.rss",
         "enabled": True,
         "count": 3,
     },
     {
-        "name": "AI Newsletter - elvis saravia",
+        "name": FeedNames.NEWSLETTER_ELVIS,
         "url": "https://nlp.elvissaravia.com/feed",
         "enabled": True,
         "count": 3,
     },
     # Add more feeds here:
     # {
-    #     "name": "Your Feed Name",
+    #     "name": FeedNames.YOUR_FEED,  # Add constant to FeedNames first
     #     "url": "https://example.com/feed.rss",
     #     "enabled": True,
     #     "count": 3,

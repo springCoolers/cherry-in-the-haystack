@@ -1,5 +1,7 @@
 # All LLM prompts put here
 
+from config.rss_feeds import FeedNames
+
 LLM_PROMPT_CATEGORY_AND_RANKING_TPL = """
 You are a content review expert, you can analyze how many topics in a content, and be able to calculate a quality score of them (range 0 to 1).
 
@@ -102,10 +104,11 @@ Write in numbered list format, in KOREAN:
 """
 
 # RSS Feed Name → Prompt Template Mapping
-# Add new mappings here when adding new RSS feeds
+# IMPORTANT: Use FeedNames constants (imported from config.rss_feeds)
+# to prevent typos and maintain consistency with RSS_FEEDS
 RSS_FEED_PROMPTS = {
-    "Reddit MachineLearning Feed": LLM_PROMPT_RSS_REDDIT_ML,
-    "AI Newsletter - elvis saravia": LLM_PROMPT_RSS_NEWSLETTER,
+    FeedNames.REDDIT_ML: LLM_PROMPT_RSS_REDDIT_ML,
+    FeedNames.NEWSLETTER_ELVIS: LLM_PROMPT_RSS_NEWSLETTER,
     # Default fallback for unmapped feeds
     "default": LLM_PROMPT_SUMMARY_COMBINE_PROMPT3,
 }
