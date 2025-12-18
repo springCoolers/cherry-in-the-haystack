@@ -101,6 +101,23 @@ class DBClient(DBClientBase):
         key = key_tpl.format(source, category, item_id)
         self.driver.set(key, analysis_json, **kwargs)
 
+    def get_notion_category_item_id(self, source, category, item_id):
+        key_tpl = data_model.NOTION_CATEGORY_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        return self.driver.get(key)
+
+    def set_notion_category_item_id(
+        self,
+        source,
+        category,
+        item_id,
+        c: str,
+        **kwargs
+    ):
+        key_tpl = data_model.NOTION_CATEGORY_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        self.driver.set(key, c, **kwargs)
+
     def get_obsidian_inbox_item_id(self, source, category, item_id):
         key_tpl = data_model.OBSIDIAN_INBOX_ITEM_ID
         key = key_tpl.format(source, category, item_id)
