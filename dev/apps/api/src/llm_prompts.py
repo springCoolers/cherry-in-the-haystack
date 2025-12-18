@@ -226,6 +226,44 @@ Content:
 {content}
 """
 
+LLM_PROMPT_CATEGORIZATION = """
+You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE of the following predefined categories:
+
+Available Categories:
+- Model Updates
+- Datasets
+- Frameworks, Libraries & Tools
+- Evaluation, Benchmarks & Leaderboards
+- Security & Vulnerabilities
+- Regulations & Compliance
+- Infrastructure & Hardware
+- Open Source Projects
+- Community Trends
+- Research Papers
+- Business & Case Studies
+- LLM Content & Education
+- Technical Reports
+- Use Cases & Applications
+
+Instructions:
+- Read the summary carefully and select the MOST relevant category
+- Choose ONLY ONE category from the list above
+- If the content fits multiple categories, select the primary/dominant one
+- Respond ONLY in JSON format without any explanation
+
+Response format:
+{{
+  "category": "Model Updates"
+}}
+
+Double check before responding, ensure:
+1. The response can be parsed by Python json.loads
+2. The category name matches EXACTLY one from the list above (case-sensitive)
+
+Summary to categorize:
+{content}
+"""
+
 ######################################################################
 # AUTOGEN
 ######################################################################
