@@ -13,6 +13,7 @@ from ops_base import OperatorBase
 from db_cli import DBClient
 from ops_milvus import OperatorMilvus
 from ops_notion import OperatorNotion
+from config.rss_feeds import get_enabled_feeds
 
 import feedparser
 import requests
@@ -124,17 +125,10 @@ class OperatorRSS(OperatorBase):
         print("#####################################################")
         print("# Pulling RSS")
         print("#####################################################")
-        
-        rss_list = [
-            {
-                "name": "Reddit MachineLearning Feed",  # 원하는 이름
-                "url": "https://www.reddit.com/r/machinelearningnews/.rss"  # 실제 RSS URL
-            },
-            {
-                "name": "AI Newsletter - elvis saravia",
-                "url": "https://nlp.elvissaravia.com/feed"
-            }
-        ]
+
+        # Load RSS feeds from centralized configuration
+        rss_list = get_enabled_feeds()
+        print(f"Loaded {len(rss_list)} enabled RSS feeds from config")
 
         # Fetch articles from rss list
         pages = {}
@@ -142,9 +136,10 @@ class OperatorRSS(OperatorBase):
         for rss in rss_list:
             name = rss["name"]
             url = rss["url"]
-            print(f"Fetching RSS: {name}, url: {url}")
+            count = rss.get("count", 3)  # Use configured count or default to 3
+            print(f"Fetching RSS: {name}, url: {url}, count: {count}")
 
-            articles = self._fetch_articles(name, url, count=3)
+            articles = self._fetch_articles(name, url, count=count)
             print(f"articles: {articles}")
 
             for article in articles:
@@ -253,8 +248,8 @@ class OperatorRSS(OperatorBase):
         print(f"Summary max length: {SUMMARY_MAX_LENGTH}")
 
         llm_agent = LLMAgentSummary()
-        llm_agent.init_prompt()
-        llm_agent.init_llm()
+        llm_agent.init_prompt(combine_prompt="combine") # 여기에서 combine_prompt에 라우팅을 시도하면 됨.
+        llm_agent.init_llm() 
 
         client = DBClient()
         redis_key_expire_time = os.getenv(
