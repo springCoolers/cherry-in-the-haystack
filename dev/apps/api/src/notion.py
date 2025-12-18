@@ -1488,6 +1488,7 @@ class NotionAgent:
         """
         content = page.get("content") or ""
         summary = page.get("__summary") or ""
+        category = page.get("__category") or ""
         title = page["title"]
         url = page["url"]
         created_time_pdt = utils.convertUTC2PDT_str(page["created_time"])
@@ -1501,7 +1502,7 @@ class NotionAgent:
         insights_text = "\n".join(f"• {item}" for item in insights) if insights else ""
         examples_text = "\n".join(f"• {item}" for item in examples) if examples else ""
 
-        # Properties: Name, Published at, AI summary, URL, enhanced analysis fields
+        # Properties: Name, Published at, AI summary, Category, URL, enhanced analysis fields
         properties = {
             "Name": {
                 "title": [
@@ -1557,6 +1558,14 @@ class NotionAgent:
                 ]
             }
         }
+
+        # Add Category property if available
+        if category:
+            properties["Category"] = {
+                "select": {
+                    "name": category
+                }
+            }
 
         # Blocks: ## {title}\n{summary}\n{link}
         blocks = []
