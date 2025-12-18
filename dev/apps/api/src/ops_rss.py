@@ -247,15 +247,15 @@ class OperatorRSS(OperatorBase):
         print(f"Number of pages: {len(pages)}")
         print(f"Summary max length: {SUMMARY_MAX_LENGTH}")
 
-        llm_agent = LLMAgentSummary()
-        llm_agent.init_prompt(combine_prompt="combine") # 여기에서 combine_prompt에 라우팅을 시도하면 됨.
-        llm_agent.init_llm() 
-
         client = DBClient()
         redis_key_expire_time = os.getenv(
             "BOT_REDIS_KEY_EXPIRE_TIME", 604800)
 
         summarized_pages = []
+
+        # Track current feed to reuse LLM agent for same feed
+        current_feed_name = None
+        llm_agent = None
 
         for page in pages:
             page_id = page["id"]
@@ -264,6 +264,18 @@ class OperatorRSS(OperatorBase):
             list_name = page["list_name"]
             source_url = page["url"]
             print(f"Summarying page, title: {title}, list_name: {list_name}")
+
+            # Initialize or reinitialize LLM agent when feed changes
+            if current_feed_name != list_name or llm_agent is None:
+                import llm_prompts
+                feed_prompt = llm_prompts.get_rss_prompt(list_name)
+                print(f"[INFO] Initializing LLM agent for feed: {list_name}")
+                print(f"[INFO] Using prompt: {feed_prompt[:100]}...")
+
+                llm_agent = LLMAgentSummary()
+                llm_agent.init_prompt(combine_prompt=feed_prompt)
+                llm_agent.init_llm()
+                current_feed_name = list_name
             # print(f"Page content ({len(content)} chars): {content}")
 
             st = time.time()
