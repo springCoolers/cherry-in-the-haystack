@@ -290,16 +290,21 @@ class OperatorRSS(OperatorBase):
                 if not content:
                     # Try to load web content first, fallback to RSS summary if failed
                     try:
-                        content = utils.load_web(source_url)
-                        print(f"Page content ({len(content)} chars)")
+                        # load_web() returns None if validation fails
+                        content = utils.load_web(source_url, validate=True, min_length=200)
+                        if content:
+                            print(f"Successfully loaded web content: {len(content)} chars")
                     except Exception as e:
                         print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
+                        content = None
 
+                    # Fallback to RSS summary if web load failed or invalid
                     if not content:
-                        print("Web load failed, using RSS summary field as fallback")
+                        print("Web load failed or invalid, using RSS summary field as fallback")
                         rss_summary = page.get("summary", "")
                         if rss_summary:
                             content = rss_summary
+                            print(f"Using RSS summary as fallback: {len(content)} chars")
                         else:
                             print("[ERROR] Both web load and RSS summary failed, skip it")
                             continue
