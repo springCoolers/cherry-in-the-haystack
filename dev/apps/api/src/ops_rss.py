@@ -290,16 +290,21 @@ class OperatorRSS(OperatorBase):
                 if not content:
                     # Try to load web content first, fallback to RSS summary if failed
                     try:
-                        content = utils.load_web(source_url)
-                        print(f"Page content ({len(content)} chars)")
+                        # load_web() returns None if validation fails
+                        content = utils.load_web(source_url, validate=True, min_length=200)
+                        if content:
+                            print(f"Successfully loaded web content: {len(content)} chars")
                     except Exception as e:
                         print(f"[ERROR] Exception occurred during utils.load_web(), source_url: {source_url}, {e}")
+                        content = None
 
+                    # Fallback to RSS summary if web load failed or invalid
                     if not content:
-                        print("Web load failed, using RSS summary field as fallback")
+                        print("Web load failed or invalid, using RSS summary field as fallback")
                         rss_summary = page.get("summary", "")
                         if rss_summary:
                             content = rss_summary
+                            print(f"Using RSS summary as fallback: {len(content)} chars")
                         else:
                             print("[ERROR] Both web load and RSS summary failed, skip it")
                             continue
@@ -315,12 +320,48 @@ class OperatorRSS(OperatorBase):
                 print("Found llm summary from cache, decoding (utf-8) ...")
                 summary = utils.bytes2str(llm_summary_resp)
 
-            # assemble summary into page
+            # categorizing page
+            print(f"Categorizing page, title: {title}, list_name: {list_name}")
+
+            llm_category_resp = client.get_notion_category_item_id(
+                "rss", list_name, page_id)
+
+            if not llm_category_resp:
+                # Initialize categorization LLM agent
+                from llm_agent import LLMAgentGeneric
+                import llm_prompts
+
+                category_agent = LLMAgentGeneric()
+                category_agent.init_prompt(llm_prompts.LLM_PROMPT_CATEGORIZATION)
+                category_agent.init_llm()
+
+                # Run categorization on summary
+                category_response = category_agent.run(summary)
+
+                print(f"Cache llm category response for {redis_key_expire_time}s, page_id: {page_id}, category: {category_response}")
+                client.set_notion_category_item_id(
+                    "rss", list_name, page_id, category_response,
+                    expired_time=int(redis_key_expire_time))
+            else:
+                print("Found llm category from cache, decoding (utf-8) ...")
+                category_response = utils.bytes2str(llm_category_resp)
+
+            # Parse category JSON (multi-select)
+            import json
+            try:
+                category_data = json.loads(category_response)
+                categories = category_data.get("categories", [])
+            except json.JSONDecodeError as e:
+                print(f"[ERROR] Failed to parse category JSON: {e}, response: {category_response}")
+                categories = []
+
+            # assemble summary and categories into page
             summarized_page = copy.deepcopy(page)
             summarized_page["content"] = content
             summarized_page["__summary"] = summary
+            summarized_page["__categories"] = categories
 
-            print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, summary: {summary}")
+            print(f"Used {time.time() - st:.3f}s, Summarized page_id: {page_id}, categories: {categories}, summary: {summary}")
             summarized_pages.append(summarized_page)
 
 

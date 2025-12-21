@@ -308,7 +308,18 @@ def retry(func, retries=3, **kwargs):
                 time.sleep(5)
 
 
-def load_web(url):
+def load_web(url, validate=True, min_length=200):
+    """
+    Load web content from URL with optional validation
+
+    Args:
+        url: URL to load
+        validate: Whether to validate content (default: True)
+        min_length: Minimum valid content length (default: 200)
+
+    Returns:
+        Content string if valid, None if validation fails
+    """
     landing_page = urlUnshorten(url)
     print(f"[load_web] origin url: {url}, landing page: {landing_page}")
 
@@ -322,6 +333,33 @@ def load_web(url):
 
     content = refine_content(content)
     print(f"[load_web] finished, content (post refinement): {content[:200]}...")
+
+    # Validate content if requested
+    if validate:
+        # Check for common error patterns indicating failed web loading
+        invalid_patterns = [
+            "enable javascript",
+            "javascript is required",
+            "please enable cookies",
+            "access denied",
+            "blocked",
+            "403 forbidden",
+            "network error",
+            "connection refused",
+            "cloudflare",
+            "captcha"
+        ]
+
+        content_lower = content.lower()
+        has_invalid_pattern = any(pattern in content_lower for pattern in invalid_patterns)
+
+        # Validate content length and absence of error patterns
+        if len(content) < min_length or has_invalid_pattern:
+            print(f"[load_web] Validation failed: length={len(content)}, has_error_pattern={has_invalid_pattern}")
+            return None
+
+        print(f"[load_web] Validation passed: {len(content)} chars, valid content")
+
     return content
 
 

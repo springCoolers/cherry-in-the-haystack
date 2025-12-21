@@ -226,6 +226,45 @@ Content:
 {content}
 """
 
+LLM_PROMPT_CATEGORIZATION = """
+You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE OR MORE of the following predefined categories:
+
+Available Categories:
+- New AI Model Release
+- New Tool Introduction
+- Technical Deep Dive
+- Benchmark & Performance
+- Industry Trend Analysis
+- AI Ethics & Regulation
+- Open-Source Project
+- Research Paper Review
+- Event Coverage
+- Community Discussion
+- Meme/Humor
+- Evaluation Driven Development
+- Evaluating AI systems
+
+Instructions:
+- Read the summary carefully and select ALL relevant categories
+- You can select multiple categories if the content fits several of them
+- Select at least one category, and at most 3-4 categories
+- Prioritize the most relevant ones if there are many matches
+- Respond ONLY in JSON format without any explanation
+
+Response format:
+{{
+  "categories": ["New AI Model Release", "Technical Deep Dive"]
+}}
+
+Double check before responding, ensure:
+1. The response can be parsed by Python json.loads
+2. Each category name matches EXACTLY one from the list above (case-sensitive)
+3. The "categories" field is an array of strings
+
+Summary to categorize:
+{content}
+"""
+
 ######################################################################
 # AUTOGEN
 ######################################################################
