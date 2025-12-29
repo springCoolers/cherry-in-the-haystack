@@ -4,8 +4,8 @@ Maps to the existing PostgreSQL schema with additional fields for
 progress tracking and metadata.
 """
 
-from sqlalchemy import Column, Integer, Text, ForeignKey, String, Sequence
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy import Column, Integer, Text, ForeignKey, String, Sequence, BigInteger, Float
+from sqlalchemy.dialects.postgresql import TIMESTAMP, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 
@@ -86,6 +86,18 @@ class ParagraphChunk(Base):
     chapter_paragraph_index = Column(Integer)  # 챕터 내 문단 인덱스
     section_id = Column(Integer, ForeignKey("sections.id"))  # 섹션 참조 (정규화)
 
+    paragraph_hash = Column(String(64)) #SHA256
+    simhash64 = Column(BigInteger) #Simhash 64bit
+
+class ParagraphEmbedding(Base):
+    """문단 임베딩(배치 처리용"""
+    __tablename__ = "paragraph_embeddings"
+    id = Column(Integer, Sequence('paragraph_embeddings_id_seq'), primary_key=True)
+    chunk_id = Column(Integer, ForeignKey("paragraph_chunks.id"), unique=True, nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id"))
+    embedding = Column(ARRAY(Float))
+    model_name = Column(String(100), default="text-embedding-3-small")
+    created_at = Column(TIMESTAMP(timezone=True),server_default=func.now())
 
 class IdeaGroup(Base):
     """아이디어 묶음 (중복 제거용) - 기존 스키마 유지"""

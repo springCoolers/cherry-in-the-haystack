@@ -64,6 +64,10 @@ class PipelineState(TypedDict, total=False):
     # ─── 설정 ───
     model_version: str
 
+    # ─── 임베딩 중복제거 옵션 ───
+    enable_semantic_dedup: bool  # 임베딩 체크 활성화 여부 (기본 False)
+    semantic_threshold: float  # 유사도 임계값 (기본 0.95)
+
 
 def create_initial_state(
     pdf_path: str,

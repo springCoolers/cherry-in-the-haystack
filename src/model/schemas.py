@@ -125,6 +125,8 @@ class HierarchicalChunk:
     detection_method: str = "toc"  # 감지 방법: 'toc'
     parent_section_title: str | None = None  # 상위 섹션 제목
     hierarchy_path: str = ""  # 전체 계층 경로 (예: "Chapter 1 > Section 1.1 > ...")
+    paragraph_hash: str | None = None
+    simhash64: int | None = None
 
 
 # ============================================================

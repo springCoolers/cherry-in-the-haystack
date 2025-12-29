@@ -1,94 +1,103 @@
-"""
-중복 체크 노드.
-
-저장 전 중복 아이디어 체크.
-"""
-
 from src.workflow.state import PipelineState
 from src.db.connection import get_session
 from src.db.models import KeyIdea
+from src.dedup.dedup_service import DeduplicationService
 
 
-def check_duplicate(state: PipelineState) -> PipelineState:
+def check_chunk_duplicate(state: PipelineState) -> PipelineState:
+    """청크 레벨 중복 체크 (해시 + 선택적 임베딩).
+
+    1단계: 해시 체크 (SHA256 + SimHash) - 빠름, 무료
+    2단계: 임베딩 체크 (enable_semantic_dedup=True 시) - 의미적 유사도
+
+    해시가 놓친 의미적 중복을 임베딩으로 추가 탐지합니다.
     """
-    저장 전 중복 체크.
+    current_chunk = state.get("current_chunk")
+    book_id = state.get("book_id")
+    enable_semantic = state.get("enable_semantic_dedup", False)
+    semantic_threshold = state.get("semantic_threshold", 0.95)
 
-    동일한 concept이 이미 존재하는지 확인.
-    (추후 임베딩 기반 유사도 체크로 확장 가능)
+    if not current_chunk:
+        return {**state, "is_chunk_duplicate": False}
 
-    Args:
-        state: PipelineState (extracted_idea, book_id 필수)
+    text = current_chunk.text if hasattr(current_chunk, 'text') else current_chunk.get('text', '')
 
-    Returns:
-        업데이트된 PipelineState (is_duplicate 추가)
-    """
+    session = get_session()
+    try:
+        # 1단계: 해시 체크 (빠름)
+        dedup_service = DeduplicationService(
+            session=session,
+            fuzzy_threshold=6,
+            semantic_threshold=semantic_threshold,
+            enable_semantic=False,  # 해시만 먼저
+        )
+        result = dedup_service.check_duplicate(text, book_id=book_id)
+
+        if result.is_duplicate:
+            stats = state.get("stats", {})
+            stats["chunk_duplicates_skipped"] = stats.get("chunk_duplicates_skipped", 0) + 1
+            return {
+                **state,
+                "is_chunk_duplicate": True,
+                "chunk_duplicate_type": result.duplicate_type,
+                "stats": stats,
+            }
+
+        # 2단계: 임베딩 체크 (활성화 시에만)
+        if enable_semantic:
+            semantic_result = dedup_service.find_semantic_duplicate(
+                text, book_id=book_id, cross_book=True
+            )
+            if semantic_result:
+                stats = state.get("stats", {})
+                stats["semantic_duplicates_skipped"] = stats.get("semantic_duplicates_skipped", 0) + 1
+                return {
+                    **state,
+                    "is_chunk_duplicate": True,
+                    "chunk_duplicate_type": "semantic",
+                    "similarity_score": semantic_result[1],
+                    "stats": stats,
+                }
+
+        return {**state, "is_chunk_duplicate": False}
+    finally:
+        session.close()
+
+def check_idea_duplicate(state: PipelineState) -> PipelineState:
+    """아이디어 레벨 concept 중복 체크"""
+    #기존 check_duplicate 로직과 동일, 단 변환 키가 is_idea_duplicate
     extracted_idea = state.get("extracted_idea")
     book_id = state.get("book_id")
 
     if not extracted_idea:
-        return {**state, "is_duplicate": False}
+        return {**state, "is_idea_duplicate": False}
 
-    # concept 추출
     if hasattr(extracted_idea, "concept"):
         concept = extracted_idea.concept
     elif isinstance(extracted_idea, dict):
-        concept = extracted_idea.get("concept", "")
+        concept = extracted_idea.get("concept","")
     else:
         concept = str(extracted_idea)
-
+    
     if not concept:
-        return {**state, "is_duplicate": False}
-
+        return {**state, "is_idea_duplicate": False}
+    
     try:
         session = get_session()
         try:
-            # 동일 concept 존재 여부 확인
-            query = session.query(KeyIdea).filter(
+            existing = session.query(KeyIdea).filter(
                 KeyIdea.core_idea_text == concept
             )
-
-            # book_id가 있으면 같은 책 내에서만 중복 체크
             if book_id:
-                query = query.filter(KeyIdea.book_id == book_id)
-
-            existing = query.first()
-            is_duplicate = existing is not None
-
-            # 통계 업데이트
-            if is_duplicate:
+                existing = existing.filter(KeyIdea.book_id == book_id)
+            
+            if existing.first():
                 stats = state.get("stats", {})
-                stats["duplicates_skipped"] = stats.get("duplicates_skipped", 0) + 1
-                return {**state, "is_duplicate": True, "stats": stats}
-
-            return {**state, "is_duplicate": False}
-
+                stats["idea_duplicates_skipped"] = stats.get("idea_duplicates_skipped",0) + 1
+                return {**state, "is_idea_duplicate": True, "stats":stats}
         finally:
             session.close()
-
     except Exception as e:
-        # 에러 발생 시 중복이 아닌 것으로 처리 (저장 진행)
-        return {**state, "is_duplicate": False, "error": f"Duplicate check warning: {str(e)}"}
-
-
-def check_duplicate_embedding(state: PipelineState, threshold: float = 0.9) -> PipelineState:
-    """
-    임베딩 기반 유사도 중복 체크.
-
-    (추후 구현 예정)
-    - 현재 아이디어의 임베딩 생성
-    - 기존 아이디어들과 코사인 유사도 계산
-    - threshold 이상이면 중복으로 판단
-
-    Args:
-        state: PipelineState
-        threshold: 유사도 임계값 (기본 0.9)
-
-    Returns:
-        업데이트된 PipelineState
-    """
-    # TODO: 임베딩 기반 중복 체크 구현
-    # 1. sentence-transformers로 임베딩 생성
-    # 2. 기존 아이디어와 코사인 유사도 계산
-    # 3. 유사한 아이디어 그룹핑 (idea_group_id)
-
-    return {**state, "is_duplicate": False}
+        return {**state, "is_idea_duplicate": False}
+    
+    return {**state,"is_idea_duplicate": False}

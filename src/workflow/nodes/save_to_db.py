@@ -77,6 +77,8 @@ def save_to_db(state: PipelineState) -> PipelineState:
                 paragraph_index=paragraph_index,
                 chapter_paragraph_index=chapter_paragraph_index,
                 body_text=body_text,
+                paragraph_hash=getattr(current_chunk, "paragraph_hash",None),
+                simhash64=getattr(current_chunk, "simhash64, None"),
             )
             session.add(db_chunk)
             session.flush()  # Get ID without committing

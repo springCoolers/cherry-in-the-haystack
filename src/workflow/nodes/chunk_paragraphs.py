@@ -8,6 +8,7 @@ LLM 기반 의미적 청킹 사용.
 from src.workflow.state import PipelineState
 from src.model.schemas import HierarchicalChunk, DetectedSection
 from src.utils.pdf.hierarchy_detector import split_into_paragraphs
+from src.dedup.hash_utils import compute_paragraph_hash, compute_simhash64
 
 
 def chunk_paragraphs(state: PipelineState) -> PipelineState:
@@ -78,6 +79,10 @@ def chunk_paragraphs(state: PipelineState) -> PipelineState:
                 hierarchy_path=hierarchy_path,
             )
             chunks.append(chunk)
+        
+        for chunk in chunks:
+            chunk.paragraph_hash = compute_paragraph_hash(chunk.text)
+            chunk.simhash64 = compute_simhash64(chunk.text)
 
         return {
             **state,
@@ -177,5 +182,9 @@ def _simple_split(
             detection_method="fallback",
             hierarchy_path=hierarchy_path,
         ))
+
+    for chunk in chunks:
+        chunk.paragraph_hash = compute_paragraph_hash(chunk.text)
+        chunk.simhash64 = compute_simhash64(chunk.text)
 
     return chunks

@@ -15,6 +15,13 @@ psycopg2-binary>=2.9.0
 # Progress & Logging
 tqdm>=4.66.0
 pyyaml>=6.0.0
+rich>=13.0.0
 
 # Async/Parallel Processing
 aiohttp>=3.9.0
+
+# Embedding (OpenAI)
+openai>=1.0.0
+
+# Testing
+pytest>=7.0.0

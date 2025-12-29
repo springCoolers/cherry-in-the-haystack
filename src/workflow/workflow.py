@@ -12,7 +12,8 @@ from src.workflow.nodes import (
     extract_text,
     chunk_paragraphs,
     extract_idea,
-    check_duplicate,
+    check_idea_duplicate,
+    check_chunk_duplicate,
     save_to_db,
 )
 from src.model.schemas import DetectedChapter, DetectedSection
@@ -42,6 +43,14 @@ def _route_after_duplicate_check(state: PipelineState) -> str:
     is_duplicate = state.get("is_duplicate", False)
     return "skip" if is_duplicate else "save"
 
+def _route_after_chunk_check(state: PipelineState) -> str:
+    """청크 중복 체크 후 라우팅"""
+    return "skip" if state.get("is_chunk_duplicate",False) else "extract"
+
+def _route_after_idea_check(state: PipelineState) -> str:
+    """아이디어 중복 체크 후 라우팅"""
+    return "skip" if state.get("is_idea_duplicate",False) else "save"
+
 
 def _skip_duplicate(state: PipelineState) -> PipelineState:
     """중복 스킵 (no-op)."""
@@ -66,17 +75,27 @@ def create_idea_extraction_graph() -> StateGraph:
     """
     workflow = StateGraph(PipelineState)
 
+    workflow.add_node("check_chunk_dup", check_chunk_duplicate)
     workflow.add_node("extract", extract_idea)
-    workflow.add_node("check_dup", check_duplicate)
+    workflow.add_node("check_idea_dup", check_idea_duplicate)
     workflow.add_node("save", save_to_db)
     workflow.add_node("skip", _skip_duplicate)
 
-    workflow.set_entry_point("extract")
-    workflow.add_edge("extract", "check_dup")
+    workflow.set_entry_point("check_chunk_dup")
 
+    #청크 중복 체크 후 라우팅
     workflow.add_conditional_edges(
-        "check_dup",
-        _route_after_duplicate_check,
+        "check_chunk_dup",
+        _route_after_chunk_check,
+        {"skip": "skip", "extract": "extract"}
+    )
+    
+    workflow.add_edge("extract", "check_idea_dup")
+
+    #아이디어 중복 체크 후 라우팅
+    workflow.add_conditional_edges(
+        "check_idea_dup",
+        _route_after_idea_check,
         {"skip": "skip", "save": "save"}
     )
 
@@ -99,6 +118,8 @@ def run_pdf_pipeline(
     resume: bool = False,
     book_id: Optional[int] = None,
     model_version: str = "gemini-2.5-flash",
+    enable_semantic_dedup: bool = False,
+    semantic_threshold: float = 0.95,
 ) -> dict:
     """
     PDF 파이프라인 실행 (TOC 기반).
@@ -106,6 +127,14 @@ def run_pdf_pipeline(
     1. PDF → Plain Text + TOC 추출 (pymupdf)
     2. TOC 기반 챕터/섹션 구조 생성 (LLM 불필요)
     3. 말단 섹션별 문단 분할 및 아이디어 추출 (LLM 사용)
+
+    Args:
+        pdf_path: PDF 파일 경로
+        resume: 이전 진행 상황에서 재개 여부
+        book_id: 기존 책 ID (재개 시 사용)
+        model_version: LLM 모델 버전
+        enable_semantic_dedup: 임베딩 기반 중복제거 활성화 (기본 False)
+        semantic_threshold: 코사인 유사도 임계값 (기본 0.95)
     """
     session = get_session()
 
@@ -117,6 +146,10 @@ def run_pdf_pipeline(
             resume=resume,
             model_version=model_version,
         )
+
+        # 임베딩 중복제거 옵션 설정
+        initial_state["enable_semantic_dedup"] = enable_semantic_dedup
+        initial_state["semantic_threshold"] = semantic_threshold
 
         print("📄 PDF → Plain Text + TOC 추출 중...")
         state = extract_text(initial_state)
@@ -335,5 +368,10 @@ def _print_summary(stats: dict) -> None:
     print(f"실패: {stats.get('failed_chapters', 0)}")
     print(f"총 문단: {stats.get('total_paragraphs', 0)}")
     print(f"추출된 아이디어: {stats.get('total_ideas', 0)}")
-    print(f"중복 스킵: {stats.get('duplicates_skipped', 0)}")
+    print("─" * 40)
+    print("중복 스킵 상세:")
+    print(f"  해시 기반: {stats.get('chunk_duplicates_skipped', 0)}")
+    print(f"  임베딩 기반: {stats.get('semantic_duplicates_skipped', 0)}")
+    print(f"  아이디어 기반: {stats.get('idea_duplicates_skipped', 0)}")
+    print(f"  총 스킵: {stats.get('duplicates_skipped', 0)}")
     print("=" * 60)
