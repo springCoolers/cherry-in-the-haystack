@@ -1,15 +1,15 @@
 EXTRACTION_PROMPT = """
 # 1. Role Definition
-You are an expert technical analyst specializing in Large Language Model (LLM) technology. Your core mission is to extract the single most important concept (technical term) from technical paragraphs for knowledge graph ontology nodes.
+You are an expert technical analyst specializing in Large Language Model (LLM) technology. Your core mission is to extract the single most important idea as a descriptive noun phrase (5-10 words) that captures what the paragraph explains about its topic.
 
 # 2. Core Extraction Principles
-You must strictly adhere to the following principles when extracting the concept.
-- **SINGLE CONCEPT FOCUS**: Extract only ONE primary technical term per paragraph. Do not combine multiple concepts.
-- **TECHNICAL PRECISION**: Use precise, commonly-used technical terminology (e.g., "Transformer", "LoRA", "RAG").
-- **NO SPECULATION**: Base extraction strictly on explicit content. Do not infer concepts not present in the text.
-- **CONCISENESS**: Return only the technical term, not a sentence or explanation.
-- **CONTENT PRIORITIZATION**: Focus on the dominant technical topic that occupies the majority (60-90%) of the paragraph.
-- **ENGLISH ONLY**: Always use English technical terminology, even if the input is in another language.
+You must strictly adhere to the following principles when extracting the idea.
+- **SINGLE IDEA FOCUS**: Extract only ONE primary idea per paragraph. The idea should represent what the paragraph teaches or explains.
+- **CONTENT-BASED EXTRACTION**: Generate a noun phrase based on the paragraph's actual content, not just naming the topic.
+- **NO SPECULATION**: Base extraction strictly on explicit content. Do not infer ideas not present in the text.
+- **DESCRIPTIVE NOUN PHRASE**: Return a descriptive noun phrase (5-10 words) that summarizes what this paragraph teaches about its topic.
+- **CONTENT PRIORITIZATION**: Focus on the dominant teaching that occupies the majority (60-90%) of the paragraph.
+- **ENGLISH ONLY**: Always use English, even if the input is in another language.
 
 # 3. Extraction Guidelines
 
@@ -38,12 +38,12 @@ Before extracting, analyze the paragraph structure to identify what content is c
 - The middle portion typically contains the core substantive content
 - However, structure varies—always prioritize content volume and depth over position
 
-## 3.2. Concept Identification
-The concept is the primary technical term or topic that the paragraph is about:
-- Use the most specific, commonly-used technical term (e.g., "LoRA" not "Low-Rank Adaptation")
-- Always use English for concept names, even if the input is in another language
-- Examples: "Transformer", "Attention Mechanism", "LoRA", "RAG", "Prompt Engineering", "Fine-tuning"
-- The concept should represent the topic that receives the most substantive treatment in the paragraph
+## 3.2. Idea Identification
+The idea is a descriptive noun phrase (5-10 words) that captures what the paragraph explains or teaches:
+- The noun phrase should answer: "What does this paragraph explain or teach?"
+- Focus on the paragraph's contribution to understanding, not just the topic name
+- Create a self-explanatory phrase that conveys the key insight without needing additional context
+- The idea should represent the teaching that receives the most substantive treatment in the paragraph
 
 ## 3.3. What to Exclude
 Ignore content that serves organizational, navigational, or supporting functions:
@@ -64,13 +64,13 @@ Phrases that typically signal organizational rather than substantive content inc
 - However, if such phrases are followed by substantial explanation of the new topic within the same paragraph, extract that new topic
 
 ## 3.4. Quality Criteria
-The extracted concept should:
+The extracted idea should:
 1. Capture the essence of the paragraph's dominant content (60-90% of substantive material)
-2. Be a concise technical term, not a sentence or explanation
-3. Use domain-appropriate technical vocabulary
+2. Be a descriptive noun phrase (5-10 words) that is self-explanatory
+3. Reflect the paragraph's actual content and teaching, not just name the topic
 4. Maintain factual accuracy to the source material
 5. Be suitable for knowledge graph node creation
-6. Reflect the topic that receives the most detailed treatment, not just the first or last mentioned topic
+6. Reflect the teaching that receives the most detailed treatment, not just the first or last mentioned topic
 
 ## 3.5. Empty Result Handling
 Return empty string for the concept field when:
@@ -84,12 +84,18 @@ Return a JSON object with the following structure:
 ```json
 {{
   "concept": "string"
-  // The ontology node title - the primary technical term this paragraph is about
-  // Use English, concise, commonly-used technical terminology
-  // Use empty string "" if no substantive concept exists
+  // A descriptive noun phrase (5-10 words) summarizing the paragraph's key teaching
+  // Should reflect WHAT the paragraph explains, not just WHICH topic it covers
+  // Use empty string "" if no substantive idea exists
 }}
 ```
 
 """
 
-HUMAN_PROMPT = """{text}"""
+HUMAN_PROMPT = """# Context
+- Hierarchy: {hierarchy_path}
+- Previous paragraph: {prev_summary}
+- Next paragraph: {next_summary}
+
+# Current Paragraph (extract idea from this)
+{text}"""

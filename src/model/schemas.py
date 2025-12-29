@@ -1,7 +1,3 @@
-"""
-Pydantic 스키마 정의
-DB 테이블 구조에 맞춘 데이터 스키마
-"""
 from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -42,10 +38,7 @@ class ParagraphChunk(BaseModel):
 
 
 class KeyIdea(BaseModel):
-    """
-    key_ideas 테이블 매칭
-    LLM이 추출하는 핵심 아이디어
-    """
+    """key_ideas 테이블 매칭 : LLM이 추출하는 핵심 아이디어"""
     id: int | None = Field(default=None, description="아이디어 ID (DB 자동생성)")
     chunk_id: int | None = Field(default=None, description="청크 ID (FK)")
     book_id: int | None = Field(default=None, description="책 ID (FK)")
@@ -63,11 +56,6 @@ class IdeaGroup(BaseModel):
 class ExtractedIdea(BaseModel):
     """LLM이 추출하는 핵심 아이디어 (프롬프트 출력용)"""
     concept: str = Field(description="온톨로지 노드 제목 (예: LoRA, Attention, Transformer)")
-
-
-# ============================================================
-# TOC 기반 계층 감지 스키마
-# ============================================================
 
 @dataclass
 class DetectedSection:
@@ -126,10 +114,6 @@ class HierarchicalChunk:
     parent_section_title: str | None = None  # 상위 섹션 제목
     hierarchy_path: str = ""  # 전체 계층 경로 (예: "Chapter 1 > Section 1.1 > ...")
 
-
-# ============================================================
-# LLM 기반 의미적 청킹 스키마
-# ============================================================
 
 class SemanticParagraph(BaseModel):
     """LLM이 추출하는 의미 단위 문단"""

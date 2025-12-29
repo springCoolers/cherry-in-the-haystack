@@ -20,8 +20,11 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from src.workflow.state import create_initial_state
-from src.workflow.nodes import extract_text, chunk_paragraphs
-from src.workflow.nodes.extract_ideas import extract_idea
+from src.workflow.nodes import extract_text
+from src.workflow.nodes.process_section import (
+    _chunk_section,
+    _extract_idea,
+)
 from src.utils.pdf.hierarchy_detector import (
     detect_chapters_from_toc,
     get_leaf_sections,
@@ -252,21 +255,16 @@ def run_detailed_test(
                 "paragraphs": []
             }
 
-            # 섹션 상태 생성
-            section_state = {
-                **state,
-                "current_chapter": chapter,
-                "current_section": section,
-                "current_section_text": section.content,
-                "current_chapter_id": ch_idx + 1,
-                "hierarchy_path": hierarchy_path,
-                "book_id": None,
-            }
-
             # 청킹 수행 (LLM 기반)
             try:
-                section_state = chunk_paragraphs(section_state)
-                chunks = section_state.get("chunks", [])
+                chunks = _chunk_section(
+                    section_text=section.content,
+                    section_title=section.title,
+                    chapter_id=ch_idx + 1,
+                    chapter_title=chapter.title,
+                    hierarchy_path=hierarchy_path,
+                    section_level=section.level,
+                )
                 console.print(f"   ✅ {len(chunks)}개 문단 분할 완료")
             except Exception as e:
                 console.print(f"   [red]❌ 청킹 실패: {e}[/red]")
@@ -279,14 +277,15 @@ def run_detailed_test(
             for para_idx, chunk in enumerate(chunks[:max_paragraphs_per_section]):
                 console.print(f"\n      [dim]── 문단 {para_idx + 1}/{len(chunks)} ({len(chunk.text)}자) ──[/dim]")
 
-                # 텍스트 미리보기
-                preview = chunk.text[:200].replace('\n', ' ')
-                if len(chunk.text) > 200:
-                    preview += "..."
-                console.print(f"      [dim]{preview}[/dim]")
+                # 텍스트 전체 출력
+                console.print(f"      [dim]{chunk.text}[/dim]")
 
                 # 계층 정보 출력
                 console.print(f"      [cyan]계층: {chunk.hierarchy_path}[/cyan]")
+
+                # 앞뒤 문단 컨텍스트
+                prev_text = chunks[para_idx - 1].text if para_idx > 0 else ""
+                next_text = chunks[para_idx + 1].text if para_idx < len(chunks) - 1 else ""
 
                 paragraph_result = {
                     "index": para_idx + 1,
@@ -296,11 +295,14 @@ def run_detailed_test(
                     "detection_method": chunk.detection_method,
                 }
 
-                # LLM으로 개념 추출
-                chunk_state = {**section_state, "current_chunk": chunk}
+                # LLM으로 개념 추출 (컨텍스트 포함)
                 try:
-                    result_state = extract_idea(chunk_state)
-                    extracted = result_state.get("extracted_idea")
+                    extracted = _extract_idea(
+                        chunk.text,
+                        hierarchy_path=chunk.hierarchy_path,
+                        prev_text=prev_text,
+                        next_text=next_text,
+                    )
 
                     if extracted and extracted.concept:
                         console.print(f"      [green]✅ 핵심 개념: {extracted.concept}[/green]")

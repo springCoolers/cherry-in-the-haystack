@@ -20,6 +20,15 @@ from src.model.schemas import (
 # PipelineState: 전체 PDF 처리 파이프라인용 (TypedDict)
 # ============================================================
 
+class SectionInfo(TypedDict):
+    """섹션 처리를 위한 정보 구조."""
+    chapter: DetectedChapter
+    chapter_id: int  # DB chapter ID
+    section: DetectedSection
+    section_id: int  # DB section ID
+    hierarchy_path: str
+
+
 class PipelineState(TypedDict, total=False):
     """
     PDF 처리 파이프라인 전체 상태.
@@ -32,34 +41,42 @@ class PipelineState(TypedDict, total=False):
     book_id: Optional[int]
     resume: bool
 
-    # ─── PDF 메타데이터 ───
+    # ─── PDF 추출 결과 ───
     metadata: Optional[dict]  # title, author, total_pages
-
-    # ─── Plain Text (Option A 파이프라인) ───
     plain_text: Optional[str]  # pymupdf로 추출한 순수 텍스트
+    toc: Optional[List]  # TOC 항목 리스트
+    has_toc: bool  # TOC 존재 여부
+    page_positions: Optional[List]  # 페이지별 문자 위치 정보
 
-    # ─── 챕터/섹션 (LLM 감지 기반) ───
-    chapters: List[DetectedChapter]  # LLM이 감지한 챕터 리스트
-    current_chapter: Optional[DetectedChapter]  # 현재 처리 중인 챕터
-    current_chapter_id: Optional[int]  # 현재 챕터 DB ID
-    current_section: Optional[DetectedSection]  # 현재 처리 중인 섹션
-    current_section_text: Optional[str]  # 현재 섹션 텍스트
-    hierarchy_path: Optional[str]  # 현재 계층 경로 (예: "Chapter 1 > Section 1.1")
+    # ─── 구조 감지 결과 ───
+    chapters: List[DetectedChapter]  # 감지된 챕터 리스트
+
+    # ─── 섹션 순회 (그래프 루프용) ───
+    all_sections: List[SectionInfo]  # 처리할 모든 leaf 섹션 (flattened)
+    current_section_index: int  # 현재 처리 중인 섹션 인덱스
+
+    # ─── 현재 처리 컨텍스트 ───
+    current_chapter: Optional[DetectedChapter]
+    current_chapter_id: Optional[int]
+    current_section: Optional[DetectedSection]
+    current_section_id: Optional[int]
+    current_section_text: Optional[str]
+    hierarchy_path: Optional[str]
 
     # ─── 문단 처리 ───
-    chunks: List[HierarchicalChunk]  # 분할된 문단 리스트
-    current_chunk_index: int  # 현재 처리 중인 청크 인덱스
-    current_chunk: Optional[HierarchicalChunk]  # 현재 처리 중인 청크
-    extracted_concepts: Optional[dict]  # 추출된 개념 캐시 {paragraph_index: concept}
+    chunks: List[HierarchicalChunk]
+    current_chunk_index: int
+    current_chunk: Optional[HierarchicalChunk]
+    extracted_concepts: Optional[dict]
 
     # ─── 아이디어 추출 ───
     extracted_idea: Optional[ExtractedIdea]
-    is_duplicate: bool  # 중복 여부
-    saved_chunk_id: Optional[int]  # 저장된 청크 ID
+    is_duplicate: bool
+    saved_chunk_id: Optional[int]
 
     # ─── 결과/통계 ───
-    stats: dict  # 처리 통계
-    error: Optional[str]  # 에러 메시지
+    stats: dict
+    error: Optional[str]
 
     # ─── 설정 ───
     model_version: str
@@ -79,16 +96,21 @@ def create_initial_state(
         model_version=model_version,
         # 기본값 설정
         chapters=[],
+        all_sections=[],
+        current_section_index=0,
         chunks=[],
         current_chunk_index=0,
+        has_toc=False,
         is_duplicate=False,
         stats={
             "total_chapters": 0,
-            "completed_chapters": 0,
-            "failed_chapters": 0,
+            "total_sections": 0,
+            "completed_sections": 0,
+            "failed_sections": 0,
             "total_paragraphs": 0,
             "total_ideas": 0,
             "duplicates_skipped": 0,
+            "detection_method": "toc",
         },
     )
 

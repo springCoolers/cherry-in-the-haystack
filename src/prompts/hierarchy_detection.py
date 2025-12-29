@@ -1,13 +1,3 @@
-"""
-계층 구조 관련 프롬프트.
-
-문단 분할용 프롬프트만 사용 (챕터/섹션은 TOC 기반).
-"""
-
-# ============================================================
-# 문단 분할 프롬프트
-# ============================================================
-
 PARAGRAPH_SPLIT_PROMPT = """
 # Role
 You are a technical text analyst. Your task is to split a section of text into semantic paragraphs, where each paragraph contains ONE core idea or concept.

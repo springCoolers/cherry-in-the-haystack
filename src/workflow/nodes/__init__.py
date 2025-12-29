@@ -5,15 +5,16 @@ LangGraph 워크플로우 노드들.
 """
 
 from src.workflow.nodes.extract_text import extract_text
-from src.workflow.nodes.chunk_paragraphs import chunk_paragraphs
-from src.workflow.nodes.extract_ideas import extract_idea
-from src.workflow.nodes.check_duplicate import check_duplicate
-from src.workflow.nodes.save_to_db import save_to_db
+from src.workflow.nodes.detect_structure import detect_structure
+from src.workflow.nodes.create_book import create_book_node
+from src.workflow.nodes.process_section import process_section, route_sections
+from src.workflow.nodes.finalize import finalize
 
 __all__ = [
     "extract_text",
-    "chunk_paragraphs",
-    "extract_idea",
-    "check_duplicate",
-    "save_to_db",
+    "detect_structure",
+    "create_book_node",
+    "process_section",
+    "route_sections",
+    "finalize",
 ]
