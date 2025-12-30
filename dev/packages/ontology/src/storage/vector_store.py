@@ -165,7 +165,8 @@ class VectorStore:
         concept_id: str, 
         description: str,
         label: str = None,
-        parent: str = None
+        parent: str = None,
+        staging: bool = False
     ) -> None:
         """개념을 벡터 스토어에 추가.
         
@@ -174,6 +175,7 @@ class VectorStore:
             description: 개념 description
             label: 개념 레이블 (선택)
             parent: 부모 개념 ID (선택)
+            staging: 스테이징 컬렉션에 추가할지 여부 (False면 실제 컬렉션에 추가)
         """
         if not description:
             return
@@ -184,7 +186,8 @@ class VectorStore:
             "parent": str(parent) if parent else ""
         }
         
-        self.collection.add(
+        target_collection = self.staging_collection if staging else self.collection
+        target_collection.add(
             ids=[concept_id],
             documents=[description],
             metadatas=[metadata]
@@ -277,6 +280,40 @@ class VectorStore:
             
             # 스테이징 컬렉션 초기화
             self.clear_staging()
+    
+    def commit_staging_concepts(self, concept_ids: List[str]) -> None:
+        """스테이징 컬렉션의 특정 개념들만 실제 컬렉션으로 커밋.
+        
+        Args:
+            concept_ids: 커밋할 개념 ID 리스트
+        """
+        if not concept_ids:
+            return
+        
+        staging_data = self.staging_collection.get()
+        
+        if not staging_data["ids"]:
+            return
+        
+        filtered_indices = []
+        for i, concept_id in enumerate(staging_data["ids"]):
+            if concept_id in concept_ids:
+                filtered_indices.append(i)
+        
+        if not filtered_indices:
+            return
+        
+        filtered_ids = [staging_data["ids"][i] for i in filtered_indices]
+        filtered_documents = [staging_data["documents"][i] for i in filtered_indices]
+        filtered_metadatas = [staging_data["metadatas"][i] for i in filtered_indices]
+        
+        self.collection.add(
+            ids=filtered_ids,
+            documents=filtered_documents,
+            metadatas=filtered_metadatas
+        )
+        
+        self.staging_collection.delete(ids=filtered_ids)
     
     def clear_staging(self) -> None:
         """스테이징 컬렉션 초기화."""

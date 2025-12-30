@@ -17,7 +17,8 @@ class OntologyGraphManager:
         self,
         graph_engine: GraphQueryEngine,
         vector_store: VectorStore,
-        root_concept: str = "Thing"
+        root_concept: str = "Thing",
+        debug: bool = False
     ) -> None:
         """OntologyGraphManager 초기화.
         
@@ -25,10 +26,12 @@ class OntologyGraphManager:
             graph_engine: GraphQueryEngine 인스턴스
             vector_store: VectorStore 인스턴스
             root_concept: 루트 개념 ID (기본값: "Thing")
+            debug: 디버깅 모드 활성화 여부
         """
         self.graph_engine = graph_engine
         self.vector_store = vector_store
         self.root_concept = root_concept
+        self.debug = debug
         
         # 실제 그래프 (GraphDB에서 로드)
         self.real_graph = nx.DiGraph()
@@ -45,7 +48,9 @@ class OntologyGraphManager:
     def _load_real_graph(self) -> None:
         """GraphDB에서 subclassof 관계를 로드하여 NetworkX 그래프 생성."""
         try:
-            # SPARQL 쿼리: 모든 subclassof 관계 가져오기
+            # SPARQL 쿼리: 직접 저장된 subclassof 관계만 가져오기 (추론 제외)
+            # FROM 절을 사용하여 명시적으로 저장된 트리플만 가져옴
+            # 또는 NOT EXISTS를 사용하여 직접 관계만 필터링
             query = """
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX llm: <http://example.org/llm-ontology#>
@@ -56,6 +61,13 @@ class OntologyGraphManager:
                 ?child rdfs:subClassOf ?parent .
                 ?child a owl:Class .
                 ?parent a owl:Class .
+                # 중간 노드를 거치지 않는 직접 관계만 선택
+                # 즉, 다른 노드를 거쳐서 도달할 수 없는 관계만 선택
+                FILTER NOT EXISTS {
+                    ?child rdfs:subClassOf ?intermediate .
+                    ?intermediate rdfs:subClassOf ?parent .
+                    FILTER (?intermediate != ?child && ?intermediate != ?parent)
+                }
             }
             """
             
@@ -67,7 +79,10 @@ class OntologyGraphManager:
             # 루트 노드 추가
             self.real_graph.add_node(self.root_concept)
             
-            # 엣지 추가
+            print(f"[그래프 로드] SPARQL 쿼리 결과: {len(results)}개 관계 발견", flush=True)
+            
+            # 모든 엣지를 먼저 수집
+            all_edges = []
             for row in results:
                 child_raw = row.get("child", {}).get("value", "")
                 parent_raw = row.get("parent", {}).get("value", "")
@@ -87,24 +102,160 @@ class OntologyGraphManager:
                 else:
                     parent = parent_raw
                 
-                if child and parent:
-                    # 노드가 없으면 추가
-                    if child not in self.real_graph:
-                        self.real_graph.add_node(child)
-                    if parent not in self.real_graph:
-                        self.real_graph.add_node(parent)
+                if child and parent and child != parent:
+                    all_edges.append((parent, child))
+            
+            # 중복 엣지 제거 및 직접 부모만 유지
+            # 임시 그래프를 만들어서 직접 부모 찾기
+            temp_graph = nx.DiGraph()
+            for parent, child in all_edges:
+                temp_graph.add_edge(parent, child)
+            
+            # 각 자식 노드에 대해 직접 부모만 찾기
+            direct_edges = []
+            child_to_parents = {}
+            for parent, child in all_edges:
+                if child not in child_to_parents:
+                    child_to_parents[child] = []
+                child_to_parents[child].append(parent)
+            
+            for child, parents in child_to_parents.items():
+                if len(parents) == 1:
+                    # 부모가 하나면 그게 직접 부모
+                    direct_edges.append((parents[0], child))
+                else:
+                    # 부모가 여러 개면, 가장 가까운 부모(경로 길이가 가장 짧은 부모)만 직접 부모
+                    min_path_length = float('inf')
+                    direct_parent = None
                     
-                    self.real_graph.add_edge(parent, child)  # parent -> child 방향
+                    for parent in parents:
+                        try:
+                            # 루트에서 부모까지의 경로 길이 계산
+                            if temp_graph.has_node(self.root_concept) and temp_graph.has_node(parent):
+                                if nx.has_path(temp_graph, self.root_concept, parent):
+                                    path = nx.shortest_path(temp_graph, self.root_concept, parent)
+                                    path_length = len(path)
+                                    if path_length < min_path_length:
+                                        min_path_length = path_length
+                                        direct_parent = parent
+                                else:
+                                    # 루트에서 도달 불가능하면 직접 부모로 간주
+                                    if min_path_length == float('inf'):
+                                        direct_parent = parent
+                        except Exception:
+                            # 경로 계산 실패 시 첫 번째 부모 사용
+                            if direct_parent is None:
+                                direct_parent = parent
+                    
+                    if direct_parent:
+                        direct_edges.append((direct_parent, child))
+            
+            # 직접 엣지만 그래프에 추가
+            edge_count = 0
+            for parent, child in direct_edges:
+                if child not in self.real_graph:
+                    self.real_graph.add_node(child)
+                if parent not in self.real_graph:
+                    self.real_graph.add_node(parent)
+                
+                self.real_graph.add_edge(parent, child)  # parent -> child 방향
+                edge_count += 1
+            
+            print(f"[그래프 로드] 추가된 엣지 수: {edge_count} (중복 제거 후)", flush=True)
+            print(f"[그래프 로드] 최종 노드 수: {len(self.real_graph.nodes())}", flush=True)
+            print(f"[그래프 로드] 최종 엣지 수: {len(self.real_graph.edges())}", flush=True)
             
             # 스테이징 그래프를 실제 그래프로 초기화
             self.staging_graph = self.real_graph.copy()
             self.staging_concepts.clear()
             
+            # 디버깅 모드에서만 그래프 구조 검증 및 트리 시각화
+            if self.debug:
+                self._validate_and_visualize_graph()
+            
         except Exception as e:
-            print(f"[경고] 그래프 로드 실패: {e}")
+            print(f"[경고] 그래프 로드 실패: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             # 빈 그래프로 시작
             self.real_graph.add_node(self.root_concept)
             self.staging_graph = self.real_graph.copy()
+    
+    def _validate_and_visualize_graph(self) -> None:
+        """그래프 구조 검증 및 트리 시각화."""
+        print(f"\n[그래프 구조 검증]", flush=True)
+        
+        # 연결되지 않은 노드 확인
+        isolated_nodes = list(nx.isolates(self.staging_graph))
+        if isolated_nodes:
+            print(f"  경고: 연결되지 않은 노드 {len(isolated_nodes)}개: {isolated_nodes[:5]}...", flush=True)
+        
+        # 순환 참조 확인
+        try:
+            cycles = list(nx.simple_cycles(self.staging_graph))
+            if cycles:
+                print(f"  경고: 순환 참조 발견 {len(cycles)}개", flush=True)
+                for cycle in cycles[:3]:
+                    print(f"    {' → '.join(cycle)} → {cycle[0]}", flush=True)
+        except Exception:
+            pass
+        
+        # 루트에서 도달 가능한 노드 수
+        if self.root_concept in self.staging_graph:
+            reachable = nx.descendants(self.staging_graph, self.root_concept)
+            print(f"  루트에서 도달 가능한 노드: {len(reachable)}개", flush=True)
+        
+        # 트리 구조 시각화 (최대 깊이 3, 최대 자식 10개)
+        print(f"\n[그래프 트리 구조]", flush=True)
+        tree_viz = self._visualize_tree(max_depth=3, max_children=10)
+        print(tree_viz, flush=True)
+    
+    def _visualize_tree(self, max_depth: int = 3, max_children: int = 10) -> str:
+        """전체 그래프를 트리 구조로 시각화.
+        
+        Args:
+            max_depth: 최대 깊이
+            max_children: 각 노드당 최대 자식 수
+            
+        Returns:
+            시각화된 트리 문자열
+        """
+        if self.root_concept not in self.staging_graph:
+            return "  (그래프가 비어있음)"
+        
+        lines = []
+        
+        def _print_tree(node: str, prefix: str = "", is_last: bool = True, depth: int = 0):
+            if depth > max_depth:
+                return
+            
+            # 현재 노드 출력
+            connector = "└── " if is_last else "├── "
+            lines.append(f"{prefix}{connector}{node}")
+            
+            # 자식 노드 가져오기
+            children = list(self.staging_graph.successors(node))
+            if not children:
+                return
+            
+            # 최대 자식 수 제한
+            children_to_show = sorted(children)[:max_children]
+            has_more = len(children) > max_children
+            
+            # 자식 노드 출력
+            for idx, child in enumerate(children_to_show):
+                is_last_child = (idx == len(children_to_show) - 1) and not has_more
+                extension = "    " if is_last else "│   "
+                child_prefix = prefix + extension
+                _print_tree(child, child_prefix, is_last_child, depth + 1)
+            
+            # 더 많은 자식이 있음을 표시
+            if has_more:
+                extension = "    " if is_last else "│   "
+                lines.append(f"{prefix}{extension}... ({len(children) - max_children}개 더)")
+        
+        _print_tree(self.root_concept)
+        return "\n".join(lines)
     
     def get_root_children(self) -> List[str]:
         """루트 개념 바로 아래 자식 개념들 반환.
@@ -156,28 +307,42 @@ class OntologyGraphManager:
     def get_path_to_root(self, node: str) -> List[str]:
         """노드에서 루트까지의 경로 반환.
         
+        staging_graph를 먼저 확인하고, 없으면 real_graph를 확인합니다.
+        NetworkX의 all_simple_paths를 사용하여 모든 경로를 찾고 가장 긴 경로를 선택합니다.
+        (계층 구조에서 가장 깊은 경로가 올바른 경로)
+        
         Args:
             node: 시작 노드
             
         Returns:
             루트까지의 경로 (노드 리스트)
         """
-        if node not in self.staging_graph:
+        # staging_graph에 있으면 staging_graph 사용
+        if node in self.staging_graph:
+            graph = self.staging_graph
+        # real_graph에 있으면 real_graph 사용
+        elif node in self.real_graph:
+            graph = self.real_graph
+        else:
             return []
         
-        path = []
-        current = node
-        
-        while current and current != self.root_concept:
-            path.append(current)
-            predecessors = list(self.staging_graph.predecessors(current))
-            if predecessors:
-                current = predecessors[0]  # 첫 번째 부모만 사용
-            else:
-                break
-        
-        path.append(self.root_concept)
-        return list(reversed(path))
+        # NetworkX 내장 함수로 모든 단순 경로 찾기
+        try:
+            if not nx.has_path(graph, self.root_concept, node):
+                return []
+            
+            # 모든 단순 경로 찾기
+            all_paths = list(nx.all_simple_paths(graph, self.root_concept, node))
+            
+            if not all_paths:
+                return []
+            
+            # 가장 긴 경로 선택 (계층 구조에서 가장 깊은 경로가 올바른 경로)
+            longest_path = max(all_paths, key=len)
+            return longest_path
+            
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return []
     
     def stage_add_concept(
         self,
@@ -298,7 +463,8 @@ class OntologyGraphManager:
         enriched = []
         for concept in similar:
             concept_id = concept.get("concept_id", "")
-            if concept_id in self.staging_graph:
+            # staging_graph 또는 real_graph에 있으면 경로 가져오기
+            if concept_id in self.staging_graph or concept_id in self.real_graph:
                 path = self.get_path_to_root(concept_id)
                 concept["path_to_root"] = path
                 concept["depth"] = len(path) - 1

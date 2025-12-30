@@ -1,5 +1,9 @@
 """Staging manager for batch concept addition with review."""
 
+import json
+import os
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 from pipeline.ontology_graph_manager import OntologyGraphManager
 from storage.graph_query_engine import GraphQueryEngine
@@ -13,7 +17,8 @@ class StagingManager:
         self,
         graph_manager: OntologyGraphManager,
         graph_engine: GraphQueryEngine,
-        vector_store: VectorStore
+        vector_store: VectorStore,
+        db_path: Optional[str] = None
     ) -> None:
         """StagingManager 초기화.
         
@@ -21,6 +26,7 @@ class StagingManager:
             graph_manager: OntologyGraphManager 인스턴스
             graph_engine: GraphQueryEngine 인스턴스
             vector_store: VectorStore 인스턴스
+            db_path: 스테이징 파일 저장 경로 (None이면 vector_store의 db_path 사용)
         """
         self.graph_manager = graph_manager
         self.graph_engine = graph_engine
@@ -28,13 +34,33 @@ class StagingManager:
         
         # 스테이징된 개념들 저장 (확인용)
         self.staged_concepts: List[Dict[str, Any]] = []
+        
+        # 스테이징 파일 경로 설정 (db/staged_result/ 디렉토리에 저장)
+        if db_path:
+            base_path = Path(db_path).parent / "staged_result"
+        else:
+            base_path = Path(vector_store.db_path).parent / "staged_result"
+        
+        self.staging_file_path = str(base_path / "staging_concepts.json")
+        base_path.mkdir(parents=True, exist_ok=True)
+    
+    def _save_to_file(self) -> None:
+        """스테이징 데이터를 JSON 파일로 저장."""
+        data = {
+            "staged_concepts": self.staged_concepts,
+            "last_updated": datetime.now().isoformat()
+        }
+        with open(self.staging_file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     
     def add_staged_concept(
         self,
         concept_id: str,
         label: str,
         description: str,
-        parent_concept: str
+        parent_concept: str,
+        original_keywords: Optional[List[str]] = None,
+        parent_assignment_reason: Optional[str] = None
     ) -> None:
         """스테이징된 개념 추가 (메타데이터 저장).
         
@@ -43,13 +69,24 @@ class StagingManager:
             label: 개념 레이블
             description: 개념 설명
             parent_concept: 부모 개념 ID
+            original_keywords: 클러스터에 있던 오리지널 키워드 리스트
+            parent_assignment_reason: 부모 할당 이유
         """
-        self.staged_concepts.append({
+        concept_data = {
             "concept_id": concept_id,
             "label": label,
             "description": description,
             "parent_concept": parent_concept
-        })
+        }
+        
+        if original_keywords:
+            concept_data["original_keywords"] = original_keywords
+        
+        if parent_assignment_reason:
+            concept_data["parent_assignment_reason"] = parent_assignment_reason
+        
+        self.staged_concepts.append(concept_data)
+        self._save_to_file()  # 자동 저장
     
     def get_staging_summary(self) -> Dict[str, Any]:
         """스테이징된 변경사항 요약.
@@ -78,8 +115,54 @@ class StagingManager:
             }
         }
     
+    def sync_from_graph_manager(self) -> None:
+        """graph_manager의 스테이징 정보를 기반으로 staged_concepts를 채움.
+        
+        add_staged_concept()가 호출되지 않은 경우를 대비하여,
+        graph_manager와 vector_store의 스테이징 정보를 기반으로
+        staged_concepts를 자동으로 채웁니다.
+        """
+        changes = self.graph_manager.get_staging_changes()
+        added_concept_ids = set(changes.get("added", []))
+        
+        if not added_concept_ids:
+            return
+        
+        staging_data = self.vector_store.staging_collection.get()
+        
+        if not staging_data["ids"]:
+            return
+        
+        for i, concept_id in enumerate(staging_data["ids"]):
+            if concept_id in added_concept_ids:
+                metadata = staging_data["metadatas"][i]
+                description = staging_data["documents"][i]
+                label = metadata.get("label", concept_id)
+                
+                parent_concept = metadata.get("parent", "")
+                
+                if not parent_concept or parent_concept not in self.graph_manager.staging_graph:
+                    predecessors = list(self.graph_manager.staging_graph.predecessors(concept_id))
+                    if predecessors:
+                        parent_concept = predecessors[0]
+                    else:
+                        parent_concept = "LLMConcept"
+                
+                existing = any(c["concept_id"] == concept_id for c in self.staged_concepts)
+                if not existing:
+                    self.staged_concepts.append({
+                        "concept_id": concept_id,
+                        "label": label,
+                        "description": description,
+                        "parent_concept": parent_concept
+                    })
+        
+        if self.staged_concepts:
+            self._save_to_file()
+    
     def print_staging_summary(self) -> None:
         """스테이징된 변경사항을 출력."""
+        self.sync_from_graph_manager()
         summary = self.get_staging_summary()
         
         print(f"\n{'='*80}")
@@ -99,38 +182,6 @@ class StagingManager:
                 if concept.get("description"):
                     print(f"      설명: {concept['description'][:80]}...")
     
-    def commit_to_real_db(self) -> None:
-        """스테이징된 변경사항을 실제 DB에 반영."""
-        print(f"\n{'='*80}")
-        print(f"실제 DB에 반영 시작")
-        print(f"{'='*80}\n")
-        
-        # Graph DB에 추가
-        print(f"Graph DB에 추가 중...")
-        for idx, concept in enumerate(self.staged_concepts, 1):
-            print(f"  [{idx}/{len(self.staged_concepts)}] {concept['concept_id']} → {concept['parent_concept']}")
-            
-            self.graph_engine.add_concept(
-                concept_id=concept["concept_id"],
-                label=concept["label"],
-                parent=concept["parent_concept"],
-                description=concept["description"]
-            )
-        
-        # Vector DB: 스테이징 컬렉션을 실제 컬렉션으로 복사
-        print(f"\nVector DB에 반영 중...")
-        self.vector_store.commit_staging()
-        
-        # 그래프 매니저 커밋
-        self.graph_manager.commit_staging()
-        
-        # 스테이징 매니저 초기화
-        self.staged_concepts.clear()
-        
-        print(f"\n✓ 실제 DB 반영 완료")
-        print(f"  - Graph DB: {len(self.staged_concepts)}개 개념 추가")
-        print(f"  - Vector DB: 스테이징 컬렉션 → 실제 컬렉션 커밋")
-        print(f"  - 그래프 매니저: 스테이징 커밋 완료")
     
     def rollback_staging(self) -> None:
         """스테이징된 변경사항을 취소."""
@@ -138,7 +189,13 @@ class StagingManager:
         self.graph_manager.rollback_staging()
         self.vector_store.rollback_staging()
         self.staged_concepts.clear()
+        
+        # 스테이징 파일도 삭제
+        if os.path.exists(self.staging_file_path):
+            os.remove(self.staging_file_path)
+        
         print(f"✓ 스테이징 롤백 완료")
         print(f"  - 그래프 매니저: 롤백 완료")
         print(f"  - Vector DB: 스테이징 컬렉션 초기화")
+        print(f"  - 스테이징 파일: 삭제됨")
 

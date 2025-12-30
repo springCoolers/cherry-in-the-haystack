@@ -102,6 +102,27 @@ class GraphQueryEngine:
         """
         self.update(query)
 
+    def concept_exists(self, concept_id: str) -> bool:
+        """개념이 GraphDB에 존재하는지 확인.
+        
+        Args:
+            concept_id: 개념 ID
+            
+        Returns:
+            존재 여부
+        """
+        query = f"""
+        PREFIX llm: <http://example.org/llm-ontology#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        
+        ASK {{
+            llm:{concept_id} a owl:Class .
+        }}
+        """
+        self.sparql.setQuery(query)
+        results = self.sparql.query().convert()
+        return results.get("boolean", False)
+
     def update_description(self, concept_id: str, description: str) -> None:
         """개념의 description 업데이트.
         

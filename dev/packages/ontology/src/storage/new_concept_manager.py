@@ -409,10 +409,27 @@ class NewConceptManager:
     def remove_cluster(self, cluster_id: int) -> None:
         """클러스터 제거.
         
+        클러스터에 포함된 모든 개념을 new_concepts 테이블에서도 삭제합니다.
+        
         Args:
             cluster_id: 클러스터 ID
         """
         cursor = self.conn.cursor()
+        
+        # 클러스터에 포함된 개념 ID 목록 가져오기
+        cursor.execute("SELECT concept_ids FROM concept_clusters WHERE id = ?", (cluster_id,))
+        row = cursor.fetchone()
+        
+        if row and row[0]:
+            concept_ids = row[0].split(",")
+            # 클러스터에 포함된 모든 개념을 new_concepts 테이블에서 삭제
+            placeholders = ",".join("?" * len(concept_ids))
+            cursor.execute(
+                f"DELETE FROM new_concepts WHERE concept IN ({placeholders})",
+                concept_ids
+            )
+        
+        # 클러스터 삭제
         cursor.execute("DELETE FROM concept_clusters WHERE id = ?", (cluster_id,))
         self.conn.commit()
 

@@ -5,7 +5,8 @@ import json
 import sys
 import argparse
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -18,6 +19,8 @@ from pipeline.document_ontology_mapper import DocumentOntologyMapper
 from pipeline.ontology_graph_manager import OntologyGraphManager
 from pipeline.staging_manager import StagingManager
 from pipeline.relation_builder import add_relations_by_source
+from pipeline.graph_reorganizer import GraphReorganizer
+from pipeline.graph_exporter import GraphExporter
 
 
 def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
@@ -106,7 +109,8 @@ def process_jsonl(
     graph_manager = OntologyGraphManager(
         graph_engine=graph_engine,
         vector_store=vector_store,
-        root_concept="LLMConcept"
+        root_concept="LLMConcept",
+        debug=debug
     )
     print(f"그래프 로드 완료: {len(graph_manager.real_graph.nodes())}개 노드, {len(graph_manager.real_graph.edges())}개 엣지")
     
@@ -114,7 +118,8 @@ def process_jsonl(
     staging_manager = StagingManager(
         graph_manager=graph_manager,
         graph_engine=graph_engine,
-        vector_store=vector_store
+        vector_store=vector_store,
+        db_path=vector_db_path
     )
     
     ontology_updater = OntologyUpdater(
@@ -162,12 +167,14 @@ def process_jsonl(
                 metadata=metadata
             )
             
+            concept_id = result.get("matched_concept_id")
             results.append({
                 "concept": concept,
                 "section_id": section_id,
                 "section_title": section_title,
                 "source": source,
-                "matched_concept_id": result.get("matched_concept_id"),
+                "matched_concept_id": concept_id,
+                "concept_id": concept_id,
                 "is_new": result.get("is_new", False)
             })
             
@@ -180,6 +187,51 @@ def process_jsonl(
             print(f"  ✗ 오류: {e}")
             continue
     
+    # # 그래프 구조 분석 및 재구성
+    # print(f"\n{'='*60}")
+    # print(f"그래프 구조 분석 및 재구성")
+    # print(f"{'='*60}\n")
+    
+    # reorganizer = GraphReorganizer(
+    #     graph_manager=graph_manager,
+    #     graph_engine=graph_engine,
+    #     vector_store=vector_store,
+    #     staging_manager=staging_manager,
+    #     debug=debug
+    # )
+    
+    # comparison = reorganizer.compare_trees()
+    
+    # if comparison.new_concepts:
+    #     print(f"신규 추가된 개념: {len(comparison.new_concepts)}개")
+    #     print(f"변경된 서브트리: {len(comparison.modified_subtrees)}개")
+    #     print(f"자식이 2개 이상인 부모: {len(comparison.parents_with_many_children)}개\n")
+        
+    #     suggestions = reorganizer.suggest_reorganization(comparison)
+        
+    #     if suggestions.intermediate_concepts or suggestions.relocations:
+    #         evaluations = reorganizer.evaluate_suggestions(suggestions)
+            
+    #         final_graph = reorganizer.finalize_reorganization(suggestions, evaluations)
+            
+    #         graph_manager.staging_graph = final_graph
+            
+    #         print(f"\n그래프 재구성 완료")
+    #         print(f"  최종 노드 수: {len(final_graph.nodes())}개")
+    #         print(f"  최종 엣지 수: {len(final_graph.edges())}개")
+    #     else:
+    #         print("재구성 제안 없음\n")
+        
+    #     graph_exporter = GraphExporter(graph_engine, graph_manager)
+    #     output_dir = Path(vector_db_path).parent / "graph_exports"
+    #     files = graph_exporter.export_all(graph_manager.staging_graph, output_dir)
+        
+    #     print(f"\n그래프 구조 파일 저장 완료:")
+    #     for file_type, file_path in files.items():
+    #         print(f"  - {file_type}: {file_path}")
+    # else:
+    #     print("신규 추가된 개념이 없어 그래프 재구성을 건너뜁니다.\n")
+    
     # 스테이징된 변경사항 확인 및 최종 반영
     print(f"\n{'='*60}")
     print(f"스테이징된 변경사항 확인")
@@ -187,21 +239,60 @@ def process_jsonl(
     
     staging_manager.print_staging_summary()
     
+    if staging_manager.staged_concepts:
+        print(f"\n✓ 스테이징 JSON 파일 저장됨: {staging_manager.staging_file_path}")
+    
+    # results를 JSON 파일로 저장
+    results_dir = Path(vector_db_path).parent / "staged_result"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    results_file = results_dir / "mapping_results.json"
+    
+    # 클러스터링으로 추가된 개념들로 results 업데이트
+    # staging_manager의 staged_concepts를 직접 사용 (파일보다 메모리 데이터가 더 정확)
+    if staging_manager.staged_concepts:
+        # original_keywords -> concept_id 매핑 생성
+        keyword_to_concept = {}
+        for staged_concept in staging_manager.staged_concepts:
+            concept_id = staged_concept.get("concept_id")
+            original_keywords = staged_concept.get("original_keywords", [])
+            if original_keywords:
+                for keyword in original_keywords:
+                    keyword_to_concept[keyword] = concept_id
+        
+        # results 업데이트
+        updated_count = 0
+        for result in results:
+            concept = result.get("concept")
+            if concept in keyword_to_concept and not result.get("matched_concept_id"):
+                concept_id = keyword_to_concept[concept]
+                result["matched_concept_id"] = concept_id
+                result["concept_id"] = concept_id
+                updated_count += 1
+        
+        if updated_count > 0:
+            print(f"\n✓ 클러스터링으로 추가된 개념 매칭: {updated_count}개 업데이트됨")
+    
+    results_data = {
+        "results": results,
+        "total_count": len(results),
+        "matched_count": sum(1 for r in results if r.get("matched_concept_id")),
+        "new_count": sum(1 for r in results if r.get("is_new")),
+        "last_updated": datetime.now().isoformat()
+    }
+    
+    with open(results_file, 'w', encoding='utf-8') as f:
+        json.dump(results_data, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n✓ 매핑 결과 JSON 파일 저장됨: {results_file}")
+    print(f"  - 총 처리: {results_data['total_count']}개")
+    print(f"  - 매칭됨: {results_data['matched_count']}개")
+    print(f"  - 신규: {results_data['new_count']}개")
+    
     # 사용자 확인 (자동 승인 또는 수동 확인)
     print(f"\n{'='*60}")
     print(f"실제 DB 반영 여부 확인")
     print(f"{'='*60}")
     
-    # 자동 승인 모드 (나중에 수동 확인으로 변경 가능)
-    import sys
-    if "--auto-commit" in sys.argv:
-        print("자동 승인 모드: 스테이징된 변경사항을 실제 DB에 반영합니다.")
-        staging_manager.commit_to_real_db()
-    else:
-        print("\n스테이징된 변경사항을 실제 DB에 반영하시겠습니까?")
-        print("반영하려면: --auto-commit 플래그를 추가하거나")
-        print("수동으로 staging_manager.commit_to_real_db()를 호출하세요.")
-        print("\n롤백하려면: staging_manager.rollback_staging()을 호출하세요.")
     
     # print(f"\n{'='*60}")
     # print(f"관계 추가 시작")

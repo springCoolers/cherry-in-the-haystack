@@ -30,6 +30,7 @@ class ClusterValidationResult(BaseModel):
     selected_noun_phrase: str = Field(..., description="선택된 대표 noun_phrase_summary")
     can_merge: bool = Field(..., description="모든 개념을 합칠 수 있는지 여부")
     reason: str = Field(..., description="합칠 수 있는지 여부에 대한 이유")
+    representative_description: str = Field(..., description="클러스터의 모든 개념을 포괄하는 통합 description")
 
 
 class MappingState(TypedDict):
@@ -161,14 +162,12 @@ class DocumentOntologyMapper:
         
         workflow.add_conditional_edges("match_with_llm", should_save_new)
         workflow.add_edge("save_new_concept", "check_new_concept_clusters")
-
-        workflow.add_edge("check_new_concept_clusters", END)
         
-        # def should_add_to_ontology(state: MappingState) -> str:
-        #     return "add_to_ontology" if state.get("should_add_to_ontology", False) else END
+        def should_add_to_ontology(state: MappingState) -> str:
+            return "add_to_ontology" if state.get("should_add_to_ontology", False) else END
         
-        # workflow.add_conditional_edges("check_new_concept_clusters", should_add_to_ontology)
-        # workflow.add_edge("add_to_ontology", END)
+        workflow.add_conditional_edges("check_new_concept_clusters", should_add_to_ontology)
+        workflow.add_edge("add_to_ontology", END)
 
         return workflow.compile()
 
@@ -231,8 +230,9 @@ class DocumentOntologyMapper:
             print(f"\n{'='*60}", flush=True)
             print(f"[search_similar_concepts] 개념: {concept}", flush=True)
             print(f"{'='*60}", flush=True)
-            total_concepts = self.vector_store.count()
-            print(f"ChromaDB 총 개념 수: {total_concepts}", flush=True)
+            total_concepts = self.vector_store.count(include_staging=False)
+            staging_concepts = self.vector_store.count(include_staging=True) - total_concepts
+            print(f"ChromaDB 총 개념 수: {total_concepts} (스테이징: {staging_concepts})", flush=True)
         
         # 1. 한글 description 생성
         korean_description = self._generate_korean_description(concept, chunk_text)
@@ -240,11 +240,17 @@ class DocumentOntologyMapper:
         if self.debug:
             print(f"생성된 한글 설명: {korean_description}", flush=True)
         
-        # 2. 한글 설명으로 벡터 검색
-        candidates = self.vector_store.find_similar(korean_description, k=5)
+        # 2. 한글 설명으로 벡터 검색 (스테이징 컬렉션 포함)
+        candidates = self.vector_store.find_similar(korean_description, k=5, include_staging=True)
         
         # LLMConcept은 매칭 대상에서 제외
         candidates = [c for c in candidates if c.get('concept_id') != 'LLMConcept']
+        
+        if self.debug:
+            print(f"\n검색된 후보 수: {len(candidates)}", flush=True)
+            for idx, c in enumerate(candidates, 1):
+                source = c.get('source', 'unknown')
+                print(f"  {idx}. {c.get('concept_id')} (source: {source}, distance: {c.get('distance', 'N/A')})", flush=True)
         
         state["candidates"] = candidates
         state["korean_description"] = korean_description
@@ -413,6 +419,7 @@ class DocumentOntologyMapper:
                         # 클러스터에 대표 개념 정보 추가
                         cluster["representative_concept"] = representative_concept
                         cluster["selected_noun_phrase"] = validation_result.selected_noun_phrase
+                        cluster["representative_description"] = validation_result.representative_description
                         
                         state["should_add_to_ontology"] = True
                         state["cluster"] = cluster
@@ -499,18 +506,24 @@ class DocumentOntologyMapper:
    - 개념들 간의 차이가 단순히 표현 방식의 차이인가, 아니면 본질적으로 다른 개념인가?
 4. 합칠 수 있다면 can_merge=True, 그렇지 않다면 can_merge=False
 5. 판단 이유를 명확하게 설명
+6. 클러스터의 모든 개념을 포괄하는 통합 description 생성 (3-5문장)
+   - 각 개념의 description을 종합하여 더 포괄적이고 정확한 설명 작성
+   - 벡터 검색에 유리하도록 다양한 표현과 키워드를 자연스럽게 포함
+   - 전문적이면서도 명확하게 작성
 
 **주의사항:**
 - 각각 독립적으로 구분이 필요한 (각각 학습이 필요한) 개념을 합치면 안됩니다.
 - 완전히 동일하지 않더라도 세부적이어서 구분이 필요하지 않은 개념이라면 상위 개념으로 합칠 수 있습니다. 
-- 선택한 noun_phrase_summary는 모든 개념을 대표할 수 있어야 합니다"""),
+- 선택한 noun_phrase_summary는 모든 개념을 대표할 수 있어야 합니다
+- representative_description은 클러스터의 모든 개념을 포괄해야 합니다"""),
             HumanMessage(content=f"""다음 클러스터의 개념들을 분석해주세요:
 
 {cluster_text}
 
 1. 가장 적절한 대표 noun_phrase_summary를 선택하세요
 2. 클러스터의 모든 개념이 선택한 대표 개념과 합쳐질 수 있는지 판단하세요
-3. 판단 이유를 명확하게 설명하세요""")
+3. 판단 이유를 명확하게 설명하세요
+4. 클러스터의 모든 개념을 포괄하는 통합 description을 생성하세요 (3-5문장)""")
         ]
         
         try:
@@ -569,57 +582,57 @@ class DocumentOntologyMapper:
                 print("✗ 대표 개념 선택 실패", flush=True)
             return state
         
+        # 대표 개념을 온톨로지에 추가
+        concept_id = representative_concept.get('noun_phrase_summary') or representative_concept.get('concept', '')
+        concept_to_add = {
+            "concept_id": concept_id,
+            "label": concept_id,
+            "description": cluster.get('representative_description', '')
+        }
+        
         if self.debug:
             print(f"\n[대표 개념 선택]", flush=True)
             print(f"  선택된 대표 개념: {representative_concept.get('noun_phrase_summary', representative_concept.get('concept', 'N/A'))}", flush=True)
             print(f"  원본 키워드: {representative_concept.get('original_keyword', 'N/A')}", flush=True)
-        
-        # 대표 개념을 온톨로지에 추가
-        concept_id = representative_concept.get('noun_phrase_summary') or representative_concept.get('concept', '')
-        concepts_to_add = [
-            {
-                "concept_id": concept_id,
-                "label": concept_id,
-                "description": representative_concept.get('description', '')
-            }
-        ]
-        
-        if self.debug:
-            print(f"\n[온톨로지에 추가할 개념들]", flush=True)
-            for c in concepts_to_add:
-                print(f"  - {c['concept_id']}", flush=True)
-        
-        # 부모 개념 결정 과정 디버깅
-        if self.debug:
-            print(f"\n[부모 개념 결정 시작]", flush=True)
-            print(f"클러스터의 모든 개념:", flush=True)
-            for c in concepts_to_add:
-                print(f"  - {c['concept_id']}: {c['description'][:100]}...", flush=True)
+            print(f"\n[온톨로지에 추가할 개념]", flush=True)
+            print(f"  - 개념 ID: {concept_to_add['concept_id']}", flush=True)
+            print(f"  - 새로 생성된 Description:", flush=True)
+            print(f"    {concept_to_add['description']}", flush=True)
         
         # 부모 개념 결정 (LLM 사용)
-        parent_concept = self.ontology_updater._decide_parent_concept(concepts_to_add)
+        parent_concept, reason = self.ontology_updater._decide_parent_concept(
+            concept_id=concept_to_add['concept_id'],
+            description=concept_to_add['description'],
+            debug=self.debug
+        )
         
-        if self.debug:
-            if parent_concept:
-                print(f"✓ LLM이 결정한 부모 개념: {parent_concept}", flush=True)
-            else:
-                print(f"✗ LLM이 부모 개념을 결정하지 못함 → 기본값 'LLMConcept' 사용", flush=True)
-                parent_concept = "LLMConcept"
+        # 클러스터에서 오리지널 키워드 리스트 추출
+        concept_details = cluster.get("concept_details", [])
+        original_keywords = [
+            detail.get("original_keyword")
+            for detail in concept_details
+            if detail.get("original_keyword")
+        ]
         
         if not parent_concept:
-            parent_concept = "LLMConcept"
+            if self.debug:
+                print(f"\n[온톨로지 추가 취소]", flush=True)
+                print(f"  부모 개념을 결정하지 못하여 개념 추가를 건너뜁니다.", flush=True)
+            return state
         
         if self.debug:
             print(f"\n[온톨로지에 추가 중]", flush=True)
             print(f"부모 개념: {parent_concept}", flush=True)
-            print(f"추가할 개념 수: {len(concepts_to_add)}개", flush=True)
         
         # 스테이징 모드로 먼저 추가 (임시)
-        self.ontology_updater.add_new_concepts(
-            concepts=concepts_to_add,
-            parent_concept=parent_concept,
-            debug=self.debug,
-            staging=True  # 임시 추가만
+        self.ontology_updater.add_new_concept(
+            concept_id=concept_to_add['concept_id'],
+            label=concept_to_add['label'],
+            description=concept_to_add['description'],
+            parent_concept=parent_concept or "LLMConcept",
+            staging=True,
+            original_keywords=original_keywords,
+            parent_assignment_reason=reason
         )
         
         # 스테이징된 변경사항 확인 및 표시
@@ -631,23 +644,19 @@ class DocumentOntologyMapper:
                     path = self.ontology_updater.graph_manager.get_path_to_root(concept_id)
                     print(f"  - {concept_id} (경로: {' → '.join(path)})", flush=True)
                 
-                # 선택된 부모의 서브트리 시각화
-                subtree_viz = self.ontology_updater.graph_manager.visualize_subtree(
-                    parent_concept, 
-                    max_depth=3
-                )
-                print(f"\n[부모 개념 '{parent_concept}'의 서브트리]", flush=True)
-                print(subtree_viz, flush=True)
         
         # 스테이징만 수행 (실제 DB 반영은 main.py 끝에서 일괄 처리)
         # 스테이징된 변경사항은 graph_manager에 저장됨
         
         self.new_concept_manager.remove_cluster(cluster["id"])
         
+        # 추가된 concept_id를 state에 저장 (add_relations_by_source에서 사용)
+        state["matched_concept_id"] = concept_to_add['concept_id']
+        
         if self.debug:
             print(f"\n✓ 온톨로지 추가 완료", flush=True)
             print(f"  - 부모 개념: {parent_concept}", flush=True)
-            print(f"  - 추가된 개념 수: {len(concepts_to_add)}개", flush=True)
+            print(f"  - 추가된 개념: {concept_to_add['concept_id']}", flush=True)
             print(f"  - 클러스터 ID {cluster['id']} 삭제됨", flush=True)
         
         return state
