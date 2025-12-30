@@ -1,0 +1,12 @@
+db/
+backups/
+snapshots/
+*.db
+*.pyc
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+uv.lock
+
