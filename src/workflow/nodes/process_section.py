@@ -7,10 +7,11 @@ from src.model.schemas import ExtractedIdea, HierarchicalChunk
 from src.prompts.extraction import EXTRACTION_PROMPT, HUMAN_PROMPT
 from src.utils.pdf.hierarchy_detector import split_into_paragraphs
 from src.db.connection import get_session
-from src.db.models import ParagraphChunk as DBParagraphChunk, KeyIdea
+from src.db.models import ParagraphChunk as DBParagraphChunk, KeyIdea, ParagraphEmbedding
 from src.workflow.utils import get_concept_from_idea
 from src.dedup.hash_utils import compute_paragraph_hash, compute_simhash64
 from src.dedup.dedup_service import DeduplicationService
+from src.dedup.embedding_utils import compute_embedding
 
 
 def process_section(state: PipelineState) -> PipelineState:
@@ -261,13 +262,14 @@ def _process_chunk(
         if _check_idea_duplicate(concept, book_id):
             return {"saved": False, "is_chunk_duplicate": False, "is_idea_duplicate": True}
 
-        # 4. DB 저장
+        # 4. DB 저장 (시맨틱 dedup 활성화 시 임베딩도 함께 저장)
         _save_to_db(
             chunk=chunk,
             extracted_idea=extracted_idea,
             book_id=book_id,
             chapter_id=chapter_id,
             section_id=section_id,
+            enable_semantic_dedup=enable_semantic_dedup,
         )
 
         return {"saved": True, "is_chunk_duplicate": False, "is_idea_duplicate": False}
@@ -388,8 +390,12 @@ def _save_to_db(
     book_id: int,
     chapter_id: int,
     section_id: int,
+    enable_semantic_dedup: bool = False,
 ) -> None:
-    """청크와 아이디어를 DB에 저장."""
+    """청크와 아이디어를 DB에 저장.
+
+    enable_semantic_dedup=True일 경우 임베딩도 함께 생성하여 저장.
+    """
     session = get_session()
     try:
         # ParagraphChunk 저장
@@ -400,9 +406,26 @@ def _save_to_db(
             paragraph_index=chunk.paragraph_index,
             chapter_paragraph_index=chunk.chapter_paragraph_index,
             body_text=chunk.text,
+            paragraph_hash=chunk.paragraph_hash,
+            simhash64=chunk.simhash64,
         )
         session.add(db_chunk)
         session.flush()
+
+        # 임베딩 생성 및 저장 (시맨틱 중복제거 활성화 시)
+        if enable_semantic_dedup:
+            try:
+                embedding_result = compute_embedding(chunk.text)
+                db_embedding = ParagraphEmbedding(
+                    chunk_id=db_chunk.id,
+                    book_id=book_id,
+                    embedding=embedding_result.embedding,
+                    model_name=embedding_result.model,
+                )
+                session.add(db_embedding)
+            except Exception:
+                # 임베딩 생성 실패해도 청크는 저장
+                pass
 
         # KeyIdea 저장
         concept = get_concept_from_idea(extracted_idea)

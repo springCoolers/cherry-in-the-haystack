@@ -58,8 +58,10 @@ extract_text → detect_structure → create_book → process_section (loop) →
 5단계: concept 문자열 매칭 (무료, DB 쿼리)
     │ (일치) → 중복으로 스킵
     ▼
-6단계: DB 저장
+6단계: DB 저장 + 임베딩 저장 (enable_semantic_dedup=True 시)
 ```
+
+**중요**: `enable_semantic_dedup=True`일 때 새 청크 저장 시 임베딩도 함께 생성하여 `paragraph_embeddings` 테이블에 저장합니다. 이렇게 해야 다음 청크 처리 시 임베딩 기반 중복 체크가 작동합니다.
 
 ---
 
@@ -94,7 +96,7 @@ scripts/
 | `_check_chunk_duplicate()` | SHA256 + SimHash + 임베딩 중복 체크 |
 | `_extract_idea()` | LLM으로 아이디어 추출 |
 | `_check_idea_duplicate()` | concept 문자열 중복 체크 |
-| `_save_to_db()` | 청크 + 아이디어 DB 저장 |
+| `_save_to_db()` | 청크 + 아이디어 + 임베딩 DB 저장 |
 
 ---
 
@@ -195,6 +197,40 @@ def _check_idea_duplicate(concept: str, book_id: int) -> bool:
 - `"Transformer"`와 `"Transformer architecture"`는 다른 개념
 - 임베딩으로 비교하면 유사하다고 판단될 수 있음
 - 서로 다른 관점을 담고 있으므로 둘 다 저장하는 것이 적절
+
+### 6단계: DB 저장 + 임베딩 생성
+
+```python
+# process_section.py
+def _save_to_db(chunk, extracted_idea, book_id, ..., enable_semantic_dedup=False):
+    # 1. ParagraphChunk 저장 (해시 포함)
+    db_chunk = DBParagraphChunk(
+        body_text=chunk.text,
+        paragraph_hash=chunk.paragraph_hash,
+        simhash64=chunk.simhash64,
+        ...
+    )
+    session.add(db_chunk)
+    session.flush()
+
+    # 2. 임베딩 생성 및 저장 (enable_semantic_dedup=True 시)
+    if enable_semantic_dedup:
+        embedding_result = compute_embedding(chunk.text)
+        db_embedding = ParagraphEmbedding(
+            chunk_id=db_chunk.id,
+            embedding=embedding_result.embedding,
+            ...
+        )
+        session.add(db_embedding)
+
+    # 3. KeyIdea 저장
+    ...
+```
+
+- 새 청크 저장 시 임베딩도 함께 생성
+- `paragraph_embeddings` 테이블에 저장
+- **비용**: OpenAI API 호출 (~$0.00002/1K tokens)
+- 다음 청크 처리 시 임베딩 기반 중복 체크 가능
 
 ---
 
@@ -372,6 +408,33 @@ python run_pipeline.py "tests/Reflexion.pdf" gemini-2.5-flash
 
 1. 같은 PDF를 두 번 실행
 2. 두 번째 실행 시 `해시 기반` 스킵 수가 증가하면 정상 작동
+
+---
+
+## scripts/generate_embeddings.py 용도
+
+### 실시간 vs 배치 임베딩 생성
+
+| 시나리오 | 임베딩 생성 방식 |
+|---------|-----------------|
+| **새 PDF 처리** | `_save_to_db()`에서 실시간 생성 |
+| **기존 데이터** | `generate_embeddings.py`로 배치 생성 |
+
+### generate_embeddings.py가 필요한 경우
+
+1. **기존 데이터 마이그레이션**: 이전에 `enable_semantic_dedup=False`로 처리한 청크들
+2. **임베딩 모델 변경**: `text-embedding-3-small` → 다른 모델로 교체 시
+3. **임베딩 재생성**: 기존 임베딩 삭제 후 다시 생성
+
+### 결론
+
+```
+새 데이터 → _save_to_db()에서 실시간 생성 (enable_semantic_dedup=True)
+기존 데이터 → scripts/generate_embeddings.py로 배치 생성
+```
+
+`enable_semantic_dedup=True`로 처음부터 실행하면 `generate_embeddings.py`를 별도로 실행할 필요 없음.
+단, 기존 데이터가 있거나 일괄 재생성이 필요할 때를 위해 스크립트는 유지.
 
 ---
 
