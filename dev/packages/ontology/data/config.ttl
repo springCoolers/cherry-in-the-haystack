@@ -1,0 +1,37 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rep: <http://www.openrdf.org/config/repository#> .
+@prefix sail: <http://www.openrdf.org/config/sail#> .
+@prefix sr: <http://www.openrdf.org/config/repository/sail#> .
+@prefix graphdb: <http://www.ontotext.com/config/graphdb#> .
+
+[] a rep:Repository ;
+    rep:repositoryID "llm-ontology" ;
+    rdfs:label "LLM Ontology Repository" ;
+    rep:repositoryImpl [
+        rep:repositoryType "graphdb:SailRepository" ;
+        sr:sailImpl [
+            sail:sailType "graphdb:Sail" ;
+            
+            graphdb:ruleset "rdfs" ;
+            
+            graphdb:check-for-inconsistencies "false" ;
+            graphdb:disable-sameAs "true" ;
+            
+            graphdb:enable-context-index "false" ;
+            graphdb:enable-literal-index "true" ;
+            graphdb:enablePredicateList "true" ;
+            
+            graphdb:entity-id-size "32" ;
+            graphdb:entity-index-size "10000000" ;
+            
+            graphdb:in-memory-literal-properties "true" ;
+            
+            graphdb:query-timeout "0" ;
+            graphdb:query-limit-results "0" ;
+            graphdb:throw-QueryEvaluationException-on-timeout "false" ;
+            
+            graphdb:read-only "false" ;
+            graphdb:repository-type "file-repository" ;
+            graphdb:storage-folder "storage" ;
+        ]
+    ] .
