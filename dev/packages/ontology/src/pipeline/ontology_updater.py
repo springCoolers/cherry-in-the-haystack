@@ -14,8 +14,28 @@ from pipeline.ontology_graph_manager import OntologyGraphManager
 from pipeline.staging_manager import StagingManager
 
 
+class ParentCandidate(BaseModel):
+    """부모 개념 후보 모델."""
+    
+    concept: str = Field(..., description="부모 개념 ID")
+    score: int = Field(..., description="적합도 점수 (1-3점 척도)")
+
+
+class ParentCandidatesResult(BaseModel):
+    """부모 개념 후보 결정 결과 모델."""
+    
+    candidates: List[ParentCandidate] = Field(
+        ...,
+        description="부모 개념 후보 리스트 (최대 3개, 점수 높은 순)"
+    )
+    reason: str = Field(
+        ...,
+        description="각 후보를 선택한 이유를 상세히 설명"
+    )
+
+
 class ParentConceptResult(BaseModel):
-    """부모 개념 결정 결과 모델."""
+    """부모 개념 결정 결과 모델 (하위 호환성 유지용)."""
     
     parent_concept_id: Optional[str] = Field(
         None,
@@ -79,6 +99,7 @@ class OntologyUpdater:
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.llm = llm or ChatOpenAI(model=model, temperature=0)
         self.structured_llm_parent = self.llm.with_structured_output(ParentConceptResult)
+        self.structured_llm_parent_candidates = self.llm.with_structured_output(ParentCandidatesResult)
         self.structured_llm_critic = self.llm.with_structured_output(CriticReviewResult)
         self.structured_llm_description = self.llm.with_structured_output(DescriptionResult)
         self.graph_manager = graph_manager
@@ -92,7 +113,8 @@ class OntologyUpdater:
         parent_concept: str,
         staging: bool = False,
         original_keywords: Optional[List[str]] = None,
-        parent_assignment_reason: Optional[str] = None
+        parent_assignment_reason: Optional[str] = None,
+        parent_candidates: Optional[List[Dict[str, Any]]] = None
     ) -> None:
         """신규 개념을 Graph DB와 Vector DB에 추가.
         
@@ -132,7 +154,8 @@ class OntologyUpdater:
                     description=description,
                     parent_concept=parent_concept,
                     original_keywords=original_keywords,
-                    parent_assignment_reason=parent_assignment_reason
+                    parent_assignment_reason=parent_assignment_reason,
+                    parent_candidates=parent_candidates
                 )
         else:
             # 실제 DB에 추가
@@ -230,6 +253,178 @@ class OntologyUpdater:
         for i, concept1 in enumerate(concepts):
             for concept2 in concepts[i + 1:]:
                 self.graph_engine.add_relation(concept1, concept2)
+
+    def _decide_parent_candidates(
+        self,
+        concept_id: str,
+        description: str,
+        debug: bool = False
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """LLM으로 부모 개념 후보 결정 (최대 3개, 점수 포함).
+        
+        Args:
+            concept_id: 개념 ID
+            description: 개념 설명
+            debug: 디버그 모드 여부
+            
+        Returns:
+            (부모 후보 리스트 [{concept: str, score: int}, ...], 결정 이유) 튜플
+        """
+        if debug:
+            print(f"\n[부모 개념 후보 결정]", flush=True)
+            print(f"입력 개념: {concept_id}", flush=True)
+        
+        similar_concepts = self.graph_manager.find_similar_concepts_in_graph(
+            description,
+            k=5
+        )
+        
+        similar_concepts = [sim for sim in similar_concepts if sim.get("concept_id") != "LLMConcept"]
+        
+        if debug:
+            print(f"\n[1단계] Vector DB에서 찾은 유사 개념:", flush=True)
+            for idx, sim in enumerate(similar_concepts, 1):
+                concept_id_sim = sim.get("concept_id", "")
+                path = sim.get("path_to_root", [])
+                print(f"  {idx}. {concept_id_sim}", flush=True)
+                if path:
+                    print(f"     경로: {' → '.join(path)}", flush=True)
+        
+        candidate_parents = set()
+        for similar in similar_concepts:
+            concept_id_sim = similar.get('concept_id', '')
+            path = similar.get('path_to_root', [])
+            
+            if concept_id_sim and concept_id_sim != "LLMConcept":
+                candidate_parents.add(concept_id_sim)
+            
+            if path:
+                for node in path[1:-1]:
+                    if node != "LLMConcept":
+                        candidate_parents.add(node)
+        
+        candidate_parents.discard("LLMConcept")
+        
+        if not candidate_parents:
+            if debug:
+                print(f"\n[경고] 후보 부모 개념이 없습니다.", flush=True)
+            return ([], None)
+        
+        if debug:
+            print(f"\n[2단계] 계층적 후보 부모 개념들:", flush=True)
+            for candidate in sorted(candidate_parents):
+                print(f"  - {candidate}", flush=True)
+        
+        candidate_info_list = []
+        for candidate_id in sorted(candidate_parents):
+            subtree_viz = self.graph_manager.visualize_subtree(candidate_id, max_depth=2)
+            
+            path_to_candidate = self.graph_manager.get_path_to_root(candidate_id)
+            siblings = []
+            if len(path_to_candidate) > 1:
+                parent_id = path_to_candidate[-2]
+                if parent_id in self.graph_manager.staging_graph:
+                    all_children = list(self.graph_manager.staging_graph.successors(parent_id))
+                    siblings = [c for c in all_children if c != candidate_id]
+            
+            similarity_score = None
+            try:
+                similar_to_candidate = self.vector_store.find_similar(description, k=10, include_staging=True)
+                for sim in similar_to_candidate:
+                    if sim.get('concept_id') == candidate_id:
+                        distance = sim.get('distance')
+                        if distance is not None:
+                            similarity_score = 1 - distance
+                        break
+            except Exception:
+                pass
+            
+            candidate_info_list.append({
+                "concept_id": candidate_id,
+                "subtree": subtree_viz,
+                "siblings": siblings[:5],
+                "similarity": similarity_score,
+                "path_to_root": path_to_candidate
+            })
+        
+        if debug:
+            print(f"\n[3단계] 후보 부모 개념 상세 정보:", flush=True)
+            for info in candidate_info_list:
+                print(f"  - {info['concept_id']}", flush=True)
+                print(f"    형제 개념: {', '.join(info['siblings'][:3])}..." if info['siblings'] else "    형제 개념: 없음", flush=True)
+                print(f"    유사도: {info['similarity']:.3f}" if info['similarity'] else "    유사도: N/A", flush=True)
+        
+        candidate_info_str = "\n\n".join([
+            f"{idx}. {info['concept_id']}\n"
+            f"   - 경로: {' → '.join(info['path_to_root'])}\n"
+            f"   - 형제 개념: {', '.join(info['siblings'][:5]) if info['siblings'] else '없음'}\n"
+            f"   - 유사도: {info['similarity']:.3f}" if info['similarity'] else f"   - 유사도: N/A"
+            f"\n   - 서브트리:\n{info['subtree']}"
+            for idx, info in enumerate(candidate_info_list, 1)
+        ])
+        
+        messages = [
+            SystemMessage(content="""당신은 온톨로지 전문가입니다.
+새로운 개념을 온톨로지의 적절한 위치에 배치해야 합니다.
+
+**작업:**
+주어진 후보 부모 개념들 중에서 최대 3개를 선택하고, 각각에 대해 1-3점 척도로 적합도를 점수화하세요.
+
+**점수 기준:**
+- 3점: 매우 적합한 부모 개념 (논리적 일관성, 서브트리 구조, 형제 개념 비교, 의미적 유사도 모두 우수)
+- 2점: 적합한 부모 개념 (대부분의 기준을 만족하지만 일부 부족한 점이 있음)
+- 1점: 약간 적합한 부모 개념 (일부 기준은 만족하지만 다른 기준에서 부족함)
+
+**판단 기준:**
+1. 새 개념이 후보 부모의 하위 개념으로 논리적으로 적합한가?
+2. 서브트리 구조를 보면 이 위치가 적절한가?
+3. 형제 개념들과 비교했을 때 같은 레벨에 있어야 하는가?
+4. 의미적 유사도가 높은가?
+
+**중요:**
+- 최대 3개까지만 선택하세요
+- 점수가 높은 순으로 정렬하세요
+- 각 후보에 대한 점수와 이유를 명확히 설명하세요
+- 모든 피드백은 **한국어로** 작성하세요"""),
+            HumanMessage(content=f"""다음 새 개념의 부모 개념 후보를 최대 3개까지 선택하고 각각에 점수를 부여해주세요:
+
+**새 개념:**
+- 개념 ID: {concept_id}
+- 설명: {description[:500]}
+
+**후보 부모 개념들:**
+
+{candidate_info_str}
+
+최대 3개를 선택하고 각각에 1-3점 척도로 점수를 부여해주세요. 점수가 높은 순으로 정렬하고, 각 후보를 선택한 이유를 **한국어로** 상세히 설명해주세요.""")
+        ]
+        
+        try:
+            if debug:
+                print(f"\n[4단계] LLM으로 부모 개념 후보 결정 중...", flush=True)
+            
+            result = self.structured_llm_parent_candidates.invoke(messages)
+            
+            candidates = []
+            for candidate in result.candidates[:3]:
+                candidates.append({
+                    "concept": candidate.concept,
+                    "score": candidate.score
+                })
+            
+            if debug:
+                print(f"\n[부모 개념 후보 결정 결과]", flush=True)
+                for idx, cand in enumerate(candidates, 1):
+                    print(f"  {idx}. {cand['concept']} (점수: {cand['score']})", flush=True)
+                if result.reason:
+                    print(f"  결정 이유: {result.reason[:200]}...", flush=True)
+            
+            return (candidates, result.reason)
+        
+        except Exception as e:
+            if debug:
+                print(f"[LLM 오류] 부모 개념 후보 결정 실패: {e}", flush=True)
+            return ([], None)
 
     def _decide_parent_concept(
         self,

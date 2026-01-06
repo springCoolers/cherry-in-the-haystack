@@ -10,6 +10,23 @@ from langchain_core.messages import SystemMessage, HumanMessage
 import os
 
 
+class ExtractedConcept(BaseModel):
+    """추출된 개념 모델."""
+    
+    concept: str = Field(..., description="추출된 개념 이름")
+    context: str = Field(..., description="해당 개념이 언급된 문맥")
+    mentioned_in_keyword: bool = Field(..., description="원본 키워드에 실제로 언급되었는지 여부 (True: 키워드에 언급됨, False: chunk_text에만 있음)")
+
+
+class ConceptExtractionResult(BaseModel):
+    """개념 추출 결과 모델."""
+    
+    concepts: List[ExtractedConcept] = Field(
+        ...,
+        description="추출된 개념 리스트 (최대 3개)"
+    )
+
+
 class MatchingResult(BaseModel):
     """매칭 결과 구조화된 출력 모델."""
     
@@ -44,6 +61,7 @@ class ConceptMatcher:
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.llm = ChatOpenAI(model=model, temperature=0)
         self.structured_llm = self.llm.with_structured_output(MatchingResult)
+        self.structured_llm_extraction = self.llm.with_structured_output(ConceptExtractionResult)
 
     def match(
         self,
@@ -207,4 +225,134 @@ class ConceptMatcher:
             result_dict = error_result.model_dump()
             result_dict["matched"] = None
             return result_dict
+
+    def extract_noun_phrases_from_keyword(
+        self,
+        original_keyword: str,
+        chunk_text: str,
+        section_title: Optional[str] = None,
+        top_level_categories: Optional[List[str]] = None
+    ) -> List[str]:
+        """original keyword에서 중복되지 않는 noun phrase를 최대 3개까지 추출.
+        
+        Args:
+            original_keyword: 원본 키워드
+            chunk_text: 원본 텍스트 청크 (맥락 제공용)
+            section_title: 섹션 제목 (선택)
+            
+        Returns:
+            추출된 noun phrase 리스트 (최대 3개, 중복 제거)
+        """
+        section_info = f"\n섹션 제목: {section_title}" if section_title else ""
+        
+        categories_info = ""
+        if top_level_categories:
+            categories_info = f"""
+**온톨로지 1depth 카테고리 (LLMConcept의 직접 자식):**
+{', '.join(top_level_categories)}
+
+이 카테고리에 속할 수 있다는 것은 LLM/머신러닝/AI 도메인 특화 개념이라는 의미입니다.
+"""
+        
+        system_prompt = """당신은 LLM 및 머신러닝 온톨로지 전문가입니다.
+키워드에서 핵심 기술 개념만 추출하세요 (최대 3개, 3단어 이내 명사구). 텍스트 맥락은 참고용이며, 키워드에 실제로 언급된 개념만 추출해야 합니다.
+
+**핵심 원칙:**
+1. **절대 키워드 전체를 반환하지 마세요. 핵심 기술 개념/용어만 추출하세요**
+   - ❌ "Strategic advantages of implementing a Minimum Viable Product" (전체 키워드)
+   - ✅ "Minimum Viable Product" 또는 "MVP" (핵심 개념만)
+   - ❌ "Definition and purpose of a Minimum Viable Product (MVP)" (전체 키워드)
+   - ✅ "Minimum Viable Product" 또는 "MVP" (핵심 개념만)
+   - **키워드에서 핵심 개념만 식별하고, 그것만 추출하세요**
+2. 온톨로지의 1depth 카테고리(LLMConcept의 직접 자식)의 하위에 속하는 구체적인 기술 개념 또는 LLM 관련 개발에 필수적인 개념 추출
+   - ❌ "AgentArchitecture", "KnowledgeIntegration", "EvaluationMetric" (1depth 카테고리 자체)
+   - ✅ "LLMAgent", "RAG", "HumanEvaluation" (1depth 카테고리의 하위 개념)
+   - ✅ "MVP", "Agile", "CI/CD" (LLM 관련 개발에 필수적인 개념)
+   - 이 카테고리의 하위에 속할 수 있거나, LLM 관련 개발에 필수적인 개념이라는 의미
+3. 원본 키워드에 언급된 개념만 (mentioned_in_keyword: True)
+4. 일반 표현은 기술 개념으로 변환 가능 (예: "content creation" → "TextGeneration")
+
+**추출 기준:**
+- 기술적/학술적 용어이거나 전문 용어
+- LLM 엔지니어가 별도로 학습해야 할 정도로 중요한 개념
+- 독립적인 학습 주제가 될 수 있는 개념
+- 온톨로지의 1depth 카테고리의 하위에 속하는 구체적인 기술 개념 우선
+- LLM 관련 개발에 필수적인 개념도 포함 가능 (예: MVP, Agile, CI/CD 등)
+
+**mentioned_in_keyword 판단:**
+- True: 원본 키워드에 직접 언급되거나 명확하게 암시된 개념
+- False: chunk_text에만 있고 원본 키워드에는 없는 개념 (추출하지 마세요)
+
+**개념 변환:**
+- 일반적인 표현이 온톨로지의 기술 개념과 동의어이거나 밀접하게 관련이 있는 경우 변환 가능
+- 예: "content creation" → "TextGeneration", "model training" → "Training" 또는 "Finetuning"
+- 변환된 개념도 원본 키워드에 명확하게 암시되어야 하며, mentioned_in_keyword는 True
+
+**제외 대상:**
+- 1depth 카테고리 자체 (예: "AgentArchitecture", "KnowledgeIntegration", "EvaluationMetric" 등)
+- "LLM", "AI" (Large Language Model, Artificial Intelligence) - 이 두 용어는 추출하지 마세요
+- 일반적인 영어 표현 ("end goal", "solid intuition", "good practice" 등)
+- 추상적이고 모호한 표현 ("importance", "understanding", "concept" 등)
+- 문서 구조 단어 (Overview, Introduction, Guide 등)
+- 온톨로지의 1depth 카테고리 하위에 속할 수 없는 일반적인 단어
+"""
+        
+        user_prompt = f"""다음 키워드에서 온톨로지의 1depth 카테고리의 하위에 속하는 구체적인 기술 개념 또는 LLM 관련 개발에 필수적인 개념인 noun phrase를 최대 3개까지 추출해주세요.
+
+{section_info}
+{categories_info}
+
+**원본 키워드:** {original_keyword}
+**텍스트 맥락 (참고용):** {chunk_text[:800]}
+
+**실행 지시:**
+- **절대 키워드 전체를 반환하지 마세요. 핵심 기술 개념만 추출하세요**
+  - ❌ "Strategic advantages of implementing a Minimum Viable Product" (전체 키워드)
+  - ✅ "Minimum Viable Product" 또는 "MVP" (핵심 개념만)
+  - ❌ "Definition and purpose of a Minimum Viable Product (MVP)" (전체 키워드)
+  - ✅ "Minimum Viable Product" 또는 "MVP" (핵심 개념만)
+  - 예: "Challenges in personal brand content creation requiring LLM Twin assistance" → "LLM Twin", "TextGeneration"
+- 1depth 카테고리 자체는 추출하지 마세요 (예: "AgentArchitecture" ❌, "LLMAgent" ✅)
+- LLM 관련 개발에 필수적인 개념도 포함 가능 (예: MVP, Agile, CI/CD 등)
+- 키워드에 언급된 개념만 (mentioned_in_keyword: True)
+- 일반 표현은 기술 개념으로 변환 (예: "content creation" → "TextGeneration")
+- 중복되지 않는 중요한 noun phrase만 추출
+"""
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ]
+        
+        try:
+            result = self.structured_llm_extraction.invoke(messages)
+            
+            noun_phrases = []
+            seen = set()
+            
+            # 1depth 카테고리 목록을 소문자로 변환하여 비교용으로 준비
+            top_level_categories_lower = set()
+            if top_level_categories:
+                top_level_categories_lower = {cat.lower() for cat in top_level_categories}
+            
+            for extracted_concept in result.concepts[:3]:
+                noun_phrase = extracted_concept.concept.strip()
+                noun_phrase_lower = noun_phrase.lower()
+                
+                # original keyword에 실제로 언급된 개념만 포함
+                if not extracted_concept.mentioned_in_keyword:
+                    continue
+                
+                # 1depth 카테고리와 동일한 개념은 제외
+                if top_level_categories_lower and noun_phrase_lower in top_level_categories_lower:
+                    continue
+                
+                if noun_phrase and noun_phrase_lower not in seen:
+                    seen.add(noun_phrase_lower)
+                    noun_phrases.append(noun_phrase)
+            
+            return noun_phrases[:3]
+        
+        except Exception as e:
+            return []
 

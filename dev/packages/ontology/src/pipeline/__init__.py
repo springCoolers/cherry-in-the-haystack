@@ -3,13 +3,14 @@
 from pipeline.document_ontology_mapper import DocumentOntologyMapper, MappingState
 from pipeline.concept_matcher import ConceptMatcher
 from pipeline.ontology_updater import OntologyUpdater
-from pipeline.relation_builder import add_relations_by_source
+from pipeline.rematch import rematch_all, rematch_unmatched
 
 __all__ = [
     "DocumentOntologyMapper",
     "MappingState",
     "ConceptMatcher",
     "OntologyUpdater",
-    "add_relations_by_source",
+    "rematch_all",
+    "rematch_unmatched",
 ]
 

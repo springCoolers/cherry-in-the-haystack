@@ -13,17 +13,41 @@ from sklearn.preprocessing import normalize
 class NewConceptManager:
     """신규 개념 관리 (SQLite)."""
 
-    def __init__(self, db_path: str, vector_store=None) -> None:
+    def __init__(
+        self, 
+        db_path: str, 
+        vector_store=None,
+        mode: str = "real",
+        task_id: Optional[str] = None,
+        real_new_concept_db_path: Optional[str] = None
+    ) -> None:
         """NewConceptManager 초기화.
         
         Args:
             db_path: SQLite DB 파일 경로
             vector_store: VectorStore 인스턴스 (벡터 유사도 계산용)
+            mode: 'real' 또는 'stage' 모드
+            task_id: task ID (stage 모드일 때 사용)
+            real_new_concept_db_path: Real DB 경로 (stage 모드일 때 클러스터링에 사용)
         """
-        self.db_path = db_path
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        self.mode = mode
+        self.task_id = task_id
+        self.real_new_concept_db_path = real_new_concept_db_path
         
-        self.conn = sqlite3.connect(db_path)
+        if mode == "stage" and task_id:
+            db_path_obj = Path(db_path)
+            if "stage" in str(db_path_obj) and task_id in str(db_path_obj):
+                self.db_path = db_path
+            else:
+                db_dir = Path(db_path).parent / "stage" / task_id
+                db_dir.mkdir(parents=True, exist_ok=True)
+                self.db_path = str(db_dir / "new_concepts.db")
+        else:
+            self.db_path = db_path
+        
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        self.conn = sqlite3.connect(self.db_path)
         self.vector_store = vector_store
         self._create_tables()
         
@@ -184,7 +208,7 @@ class NewConceptManager:
         
         # 3개 단위로 클러스터링 실행
         if self._should_run_clustering():
-            self._create_clusters()
+            self._create_clusters(real_new_concept_db_path=self.real_new_concept_db_path)
             self._update_clustering_tracker()
 
     def get_all_concepts(self, include_embedding: bool = False) -> List[Dict[str, Any]]:
@@ -234,54 +258,107 @@ class NewConceptManager:
         
         return concepts
 
-    def _create_clusters(self) -> None:
+    def _create_clusters(self, real_new_concept_db_path: Optional[str] = None) -> None:
         """신규 개념들을 벡터 유사도 기반으로 클러스터링.
         
         description의 임베딩을 비교하여 유사한 개념들을 클러스터로 묶습니다.
         DBSCAN 알고리즘을 사용하여 밀도 기반 클러스터링을 수행합니다.
+        
+        Args:
+            real_new_concept_db_path: Real DB 경로 (stage 모드일 때 Real 개념도 함께 클러스터링)
         """
         
-        # 모든 신규 개념 가져오기
-        concepts = self.get_all_concepts()
+        # Stage DB의 모든 신규 개념 가져오기
+        stage_concepts = self.get_all_concepts()
         
-        if len(concepts) < 2:
+        # Real DB의 개념도 함께 로드 (stage 모드이고 real 경로가 제공된 경우)
+        real_concepts = []
+        if self.mode == "stage" and real_new_concept_db_path and Path(real_new_concept_db_path).exists():
+            try:
+                real_conn = sqlite3.connect(real_new_concept_db_path)
+                real_cursor = real_conn.cursor()
+                real_cursor.execute("""SELECT concept, description, source, embedding, 
+                                    original_keyword, noun_phrase_summary, reason 
+                                    FROM new_concepts""")
+                for row in real_cursor.fetchall():
+                    real_concepts.append({
+                        "concept": row[0],
+                        "description": row[1],
+                        "source": row[2],
+                        "embedding": row[3],
+                        "original_keyword": row[4],
+                        "noun_phrase_summary": row[5],
+                        "reason": row[6]
+                    })
+                real_conn.close()
+            except Exception as e:
+                print(f"[경고] Real DB 로드 실패: {e}")
+        
+        # Stage + Real 개념 합치기
+        all_concepts = stage_concepts + real_concepts
+        
+        if len(all_concepts) < 2:
             return
         
-        # 기존 클러스터 삭제
+        # 기존 클러스터 삭제 (Stage DB에만 저장)
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM concept_clusters")
         self.conn.commit()
         
-        # 저장된 임베딩 사용 (이미 계산되어 있음)
-        concepts_with_emb = self.get_all_concepts(include_embedding=True)
-        concept_names = [c["concept"] for c in concepts_with_emb]
+        # Stage 개념의 임베딩 가져오기
+        stage_concepts_with_emb = self.get_all_concepts(include_embedding=True)
+        
+        # Real 개념의 임베딩 처리
+        real_concepts_with_emb = []
+        if real_concepts:
+            for rc in real_concepts:
+                real_concept_dict = {
+                    "concept": rc["concept"],
+                    "description": rc["description"],
+                    "embedding": rc.get("embedding"),
+                    "is_real": True
+                }
+                real_concepts_with_emb.append(real_concept_dict)
+        
+        # Stage 개념에 is_real 플래그 추가
+        for sc in stage_concepts_with_emb:
+            sc["is_real"] = False
+        
+        # 모든 개념 합치기
+        all_concepts_with_emb = stage_concepts_with_emb + real_concepts_with_emb
+        concept_names = [c["concept"] for c in all_concepts_with_emb]
         
         # 임베딩 복원
         try:
             embeddings = []
             cursor = self.conn.cursor()
-            for c in concepts_with_emb:
+            zero_emb_count = 0
+            computed_emb_count = 0
+            for c in all_concepts_with_emb:
                 if c.get("embedding"):
                     # bytes에서 numpy array로 복원
                     emb_array = np.frombuffer(c["embedding"], dtype=np.float32)
                     embeddings.append(emb_array)
                 else:
-                    # 임베딩이 없으면 계산 (기존 데이터 호환성)
+                    # 임베딩이 없으면 계산
                     if self.vector_store and c.get("description"):
                         embedding_bytes = self._compute_embedding(c["description"])
                         if embedding_bytes:
                             emb_array = np.frombuffer(embedding_bytes, dtype=np.float32)
                             embeddings.append(emb_array)
-                            # DB에 저장 (다음번에는 재사용)
-                            cursor.execute(
-                                "UPDATE new_concepts SET embedding = ? WHERE id = ?",
-                                (embedding_bytes, c["id"])
-                            )
+                            computed_emb_count += 1
+                            # Stage 개념만 DB에 저장 (Real 개념은 저장하지 않음)
+                            if not c.get("is_real") and "id" in c:
+                                cursor.execute(
+                                    "UPDATE new_concepts SET embedding = ? WHERE id = ?",
+                                    (embedding_bytes, c["id"])
+                                )
                         else:
                             embeddings.append(np.zeros(1024))
+                            zero_emb_count += 1
                     else:
                         embeddings.append(np.zeros(1024))
-            
+                        zero_emb_count += 1
             
             embeddings = np.array(embeddings, dtype=np.float32)
             self.conn.commit()
@@ -297,6 +374,14 @@ class NewConceptManager:
             # 수치 오차로 인한 음수 값 방지 (clip to [0, 2])
             distance_matrix = np.clip(1 - similarity_matrix, 0, 2)
             
+            # 정확히 일치하는 개념 이름들을 찾아서 거리를 0으로 설정
+            # 같은 이름의 개념들은 같은 클러스터에 묶이도록 함
+            for i in range(len(concept_names)):
+                for j in range(i + 1, len(concept_names)):
+                    if concept_names[i] == concept_names[j]:
+                        distance_matrix[i, j] = 0.0
+                        distance_matrix[j, i] = 0.0
+            
             # 거리 행렬이 유효한지 확인
             if np.any(np.isnan(distance_matrix)) or np.any(np.isinf(distance_matrix)):
                 raise ValueError("거리 행렬에 NaN 또는 Inf 값이 있습니다")
@@ -305,13 +390,19 @@ class NewConceptManager:
                 raise ValueError(f"거리 행렬에 음수 값이 있습니다: min={distance_matrix.min()}")
             
             # DBSCAN 클러스터링
-            # eps: 최대 거리 (0.3 = 70% 이상 유사도)
-            # min_samples: 최소 샘플 수 (2개 이상)
-            clustering = DBSCAN(eps=0.3, min_samples=2, metric='precomputed')
+            # eps: 최대 거리 (0.25 = 75% 이상 유사도)
+            # min_samples: 최소 샘플 수 (3개 이상)
+            clustering = DBSCAN(eps=0.25, min_samples=3, metric='precomputed')
             cluster_labels = clustering.fit_predict(distance_matrix)
             
             # 클러스터별로 개념 그룹화
             clusters_dict = {}
+            # stage 모드일 때만 real 개념 구분
+            if self.mode == "stage":
+                concept_to_is_real = {c["concept"]: c.get("is_real", False) for c in all_concepts_with_emb}
+            else:
+                concept_to_is_real = {}
+            
             for idx, label in enumerate(cluster_labels):
                 if label == -1:  # 노이즈 (클러스터에 속하지 않음)
                     continue
@@ -321,26 +412,71 @@ class NewConceptManager:
                 clusters_dict[label].append(concept_names[idx])
             
             # 클러스터를 DB에 저장
+            # mode가 "real"이면 모든 개념을 저장, "stage"면 stage 개념만 저장
             cluster_id = 1
+            saved_cluster_count = 0
             for label, concept_list in clusters_dict.items():
-                if len(concept_list) >= 2:
-                    cluster_name = f"cluster_{cluster_id}"
-                    concept_ids_str = ",".join(concept_list)
-                    
-                    cursor.execute(
-                        "INSERT INTO concept_clusters (cluster_name, concept_ids) VALUES (?, ?)",
-                        (cluster_name, concept_ids_str)
-                    )
-                    cluster_id += 1
+                if self.mode == "real":
+                    # Real 모드: 모든 개념 포함
+                    filtered_concept_list = concept_list
+                else:
+                    # Stage 모드: Stage 개념만 필터링
+                    filtered_concept_list = [c for c in concept_list if not concept_to_is_real.get(c, False)]
+                
+                if len(filtered_concept_list) >= 2:
+                    # 클러스터 크기가 10개를 초과하면 재분할
+                    if len(filtered_concept_list) > 10:
+                        # 필터링된 개념만으로 재분할
+                        filtered_indices = [concept_names.index(c) for c in filtered_concept_list]
+                        filtered_embeddings = embeddings_normalized[filtered_indices]
+                        filtered_similarity = cosine_similarity(filtered_embeddings)
+                        filtered_distance = np.clip(1 - filtered_similarity, 0, 2)
+                        
+                        # 작은 클러스터로 재분할
+                        sub_clustering = DBSCAN(eps=0.15, min_samples=2, metric='precomputed')
+                        sub_labels = sub_clustering.fit_predict(filtered_distance)
+                        
+                        # 서브클러스터별로 저장
+                        sub_clusters = {}
+                        for sub_idx, sub_label in enumerate(sub_labels):
+                            if sub_label == -1:
+                                continue
+                            if sub_label not in sub_clusters:
+                                sub_clusters[sub_label] = []
+                            sub_clusters[sub_label].append(filtered_concept_list[sub_idx])
+                        
+                        # 각 서브클러스터 저장 (2개 이상 10개 이하인 것만)
+                        for sub_concept_list in sub_clusters.values():
+                            if len(sub_concept_list) >= 2 and len(sub_concept_list) <= 10:
+                                cluster_name = f"cluster_{cluster_id}"
+                                concept_ids_str = ",".join(sub_concept_list)
+                                cursor.execute(
+                                    "INSERT INTO concept_clusters (cluster_name, concept_ids) VALUES (?, ?)",
+                                    (cluster_name, concept_ids_str)
+                                )
+                                cluster_id += 1
+                                saved_cluster_count += 1
+                    else:
+                        # 10개 이하면 그대로 저장
+                        cluster_name = f"cluster_{cluster_id}"
+                        concept_ids_str = ",".join(filtered_concept_list)
+                        cursor.execute(
+                            "INSERT INTO concept_clusters (cluster_name, concept_ids) VALUES (?, ?)",
+                            (cluster_name, concept_ids_str)
+                        )
+                        cluster_id += 1
+                        saved_cluster_count += 1
             
             self.conn.commit()
+            
+            print(f"[클러스터링 완료] 총 {len(all_concepts)}개 개념, {saved_cluster_count}개 클러스터")
             
         except Exception as e:
             raise e
     
 
     
-    def get_clusters(self, min_size: int = 5, concept: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_clusters(self, min_size: int = 5, concept: Optional[str] = None, debug: bool = False) -> List[Dict[str, Any]]:
         """클러스터 반환.
         
         저장된 클러스터를 읽어서 반환합니다.
@@ -349,6 +485,7 @@ class NewConceptManager:
         Args:
             min_size: 최소 클러스터 크기
             concept: 특정 개념이 포함된 클러스터만 필터링 (None이면 모든 클러스터)
+            debug: 디버그 모드
             
         Returns:
             클러스터 리스트 (각 개념의 noun_phrase_summary 정보 포함)
@@ -365,11 +502,18 @@ class NewConceptManager:
             
             # min_size 체크
             if len(concept_ids) < min_size:
+                if debug and concept and concept in concept_ids:
+                    print(f"[디버깅] 클러스터 '{row[1]}'는 {len(concept_ids)}개로 min_size({min_size}) 미만이라 제외됨", flush=True)
                 continue
             
             # 특정 개념이 포함된 클러스터만 필터링
             if concept is not None and concept not in concept_ids:
+                if debug:
+                    print(f"[디버깅] 클러스터 '{row[1]}'에 '{concept}'가 포함되지 않음 (포함된 개념: {', '.join(concept_ids[:5])}{'...' if len(concept_ids) > 5 else ''})", flush=True)
                 continue
+            
+            if debug and concept:
+                print(f"[디버깅] 클러스터 '{row[1]}'에 '{concept}' 포함됨 ({len(concept_ids)}개 개념)", flush=True)
             
             # 각 개념의 상세 정보 가져오기
             concept_details = []

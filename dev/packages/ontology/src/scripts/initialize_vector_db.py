@@ -17,7 +17,7 @@ from langchain_openai import ChatOpenAI
 
 def main():
     ttl_path = project_root / "data" / "llm_ontology.ttl"
-    vector_db_path = project_root / "db" / "vector_store"
+    vector_db_path = project_root / "db" / "real" / "vector_store"
     
     print("=== 온톨로지 개념 description 생성 및 Vector DB 초기화 ===\n")
     

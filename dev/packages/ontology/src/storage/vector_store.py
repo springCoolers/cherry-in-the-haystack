@@ -1,6 +1,6 @@
 """Vector store for ontology concepts using ChromaDB."""
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from pathlib import Path
 import chromadb
 from chromadb.config import Settings
@@ -10,13 +10,22 @@ from chromadb.utils import embedding_functions
 class VectorStore:
     """ChromaDB 벡터 스토어 관리."""
 
-    def __init__(self, db_path: str, collection_name: str = "ontology_concepts") -> None:
+    def __init__(
+        self, 
+        db_path: str, 
+        collection_name: str = "ontology_concepts",
+        task_id: Optional[str] = None
+    ) -> None:
         """벡터 스토어 초기화.
         
         Args:
             db_path: ChromaDB 저장 경로
             collection_name: 컬렉션 이름
+            task_id: task ID (stage 모드일 때 별도 디렉토리 사용)
         """
+        if task_id:
+            db_path = str(Path(db_path).parent / "stage" / task_id / "vector_store")
+        
         db_path = str(Path(db_path).resolve())
         self.db_path = db_path
         self.collection_name = collection_name
@@ -102,28 +111,48 @@ class VectorStore:
             metadatas=metadatas
         )
 
-    def find_similar(self, query: str, k: int = 5, include_staging: bool = True) -> List[Dict[str, Any]]:
+    def find_similar(
+        self, 
+        query: str, 
+        k: int = 5, 
+        include_staging: bool = True,
+        exclude_concept_ids: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
         """유사 개념 검색.
         
         Args:
             query: 검색할 쿼리 (키워드 또는 문장)
             k: 반환할 유사 개념 개수
             include_staging: 스테이징 컬렉션도 검색할지 여부
+            exclude_concept_ids: 검색에서 제외할 개념 ID 리스트
             
         Returns:
             유사 개념 리스트 (concept_id, description, distance 포함)
         """
         similar_concepts = []
         
+        # 제외할 개념이 있으면 where 절 생성
+        where_clause = None
+        if exclude_concept_ids:
+            where_clause = {
+                "concept_id": {"$nin": exclude_concept_ids}
+            }
+        
         # 1. 실제 컬렉션에서 검색
         total_count = self.collection.count()
         if total_count > 0:
-            n_results = min(k, total_count)
+            # 제외할 개념이 있으면 더 많이 가져온 후 필터링
+            n_results = min(k * 2 if exclude_concept_ids else k, total_count)
             
-            results = self.collection.query(
-                query_texts=[query],
-                n_results=n_results
-            )
+            query_params = {
+                "query_texts": [query],
+                "n_results": n_results
+            }
+            
+            if where_clause:
+                query_params["where"] = where_clause
+            
+            results = self.collection.query(**query_params)
             
             if results["ids"] and results["ids"][0]:
                 for i in range(len(results["ids"][0])):
@@ -132,19 +161,24 @@ class VectorStore:
                         "description": results["documents"][0][i],
                         "metadata": results["metadatas"][0][i],
                         "distance": results["distances"][0][i] if "distances" in results else None,
-                        "source": "real"  # 실제 컬렉션에서 온 것
+                        "source": "real"
                     })
         
         # 2. 스테이징 컬렉션에서도 검색 (옵션)
         if include_staging:
             staging_count = self.staging_collection.count()
             if staging_count > 0:
-                n_results = min(k, staging_count)
+                n_results = min(k * 2 if exclude_concept_ids else k, staging_count)
                 
-                staging_results = self.staging_collection.query(
-                    query_texts=[query],
-                    n_results=n_results
-                )
+                query_params = {
+                    "query_texts": [query],
+                    "n_results": n_results
+                }
+                
+                if where_clause:
+                    query_params["where"] = where_clause
+                
+                staging_results = self.staging_collection.query(**query_params)
                 
                 if staging_results["ids"] and staging_results["ids"][0]:
                     for i in range(len(staging_results["ids"][0])):
@@ -153,7 +187,7 @@ class VectorStore:
                             "description": staging_results["documents"][0][i],
                             "metadata": staging_results["metadatas"][0][i],
                             "distance": staging_results["distances"][0][i] if "distances" in staging_results else None,
-                            "source": "staging"  # 스테이징 컬렉션에서 온 것
+                            "source": "staging"
                         })
         
         # 거리 순으로 정렬하고 k개만 반환

@@ -35,7 +35,7 @@ class StagingManager:
         # 스테이징된 개념들 저장 (확인용)
         self.staged_concepts: List[Dict[str, Any]] = []
         
-        # 스테이징 파일 경로 설정 (db/staged_result/ 디렉토리에 저장)
+        # 스테이징 파일 경로 설정 (db/stage/{task_id}/staged_result/ 디렉토리에 저장)
         if db_path:
             base_path = Path(db_path).parent / "staged_result"
         else:
@@ -60,7 +60,8 @@ class StagingManager:
         description: str,
         parent_concept: str,
         original_keywords: Optional[List[str]] = None,
-        parent_assignment_reason: Optional[str] = None
+        parent_assignment_reason: Optional[str] = None,
+        parent_candidates: Optional[List[Dict[str, Any]]] = None
     ) -> None:
         """스테이징된 개념 추가 (메타데이터 저장).
         
@@ -68,15 +69,15 @@ class StagingManager:
             concept_id: 개념 ID
             label: 개념 레이블
             description: 개념 설명
-            parent_concept: 부모 개념 ID
-            original_keywords: 클러스터에 있던 오리지널 키워드 리스트
+            parent_concept: 부모 개념 ID (Graph DB 추가용, parent_candidates의 첫 번째 것)
+            original_keywords: 클러스터에 있던 오리지널 키워드 리스트 및 할당된 개념
             parent_assignment_reason: 부모 할당 이유
+            parent_candidates: 부모 개념 후보 리스트 (최대 3개, 각각 {concept: str, score: int} 형식)
         """
         concept_data = {
             "concept_id": concept_id,
             "label": label,
-            "description": description,
-            "parent_concept": parent_concept
+            "description": description
         }
         
         if original_keywords:
@@ -84,6 +85,9 @@ class StagingManager:
         
         if parent_assignment_reason:
             concept_data["parent_assignment_reason"] = parent_assignment_reason
+        
+        if parent_candidates:
+            concept_data["parent_candidates"] = parent_candidates
         
         self.staged_concepts.append(concept_data)
         self._save_to_file()  # 자동 저장
@@ -96,10 +100,14 @@ class StagingManager:
         """
         changes = self.graph_manager.get_staging_changes()
         
-        # 부모 개념별로 그룹화
+        # 부모 개념별로 그룹화 (parent_candidates의 첫 번째 것 사용)
         by_parent = {}
         for concept in self.staged_concepts:
-            parent = concept["parent_concept"]
+            parent_candidates = concept.get("parent_candidates", [])
+            if parent_candidates:
+                parent = parent_candidates[0]["concept"]
+            else:
+                parent = "Unknown"
             if parent not in by_parent:
                 by_parent[parent] = []
             by_parent[parent].append(concept)
@@ -139,7 +147,11 @@ class StagingManager:
                 description = staging_data["documents"][i]
                 label = metadata.get("label", concept_id)
                 
-                parent_concept = metadata.get("parent", "")
+                parent_candidates = metadata.get("parent_candidates", [])
+                if parent_candidates:
+                    parent_concept = parent_candidates[0]["concept"]
+                else:
+                    parent_concept = metadata.get("parent", "")
                 
                 if not parent_concept or parent_concept not in self.graph_manager.staging_graph:
                     predecessors = list(self.graph_manager.staging_graph.predecessors(concept_id))

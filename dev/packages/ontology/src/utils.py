@@ -1,7 +1,6 @@
 """Common utilities for ontology package."""
 
-from typing import Dict, List, Tuple
-from pathlib import Path
+from typing import Dict, List
 from rdflib import Graph, Namespace, RDF, RDFS, Literal
 from rdflib.term import URIRef
 
@@ -22,27 +21,6 @@ def load_ontology_graph(ttl_path: str) -> Graph:
     graph = Graph()
     graph.parse(ttl_path, format="turtle")
     return graph
-
-
-def load_ontology_descriptions(ttl_path: str) -> Dict[str, str]:
-    """온톨로지에서 개념 description 추출.
-    
-    Args:
-        ttl_path: TTL 파일 경로
-        
-    Returns:
-        개념 ID와 description의 딕셔너리
-    """
-    graph = load_ontology_graph(ttl_path)
-    descriptions = {}
-    
-    for subject in graph.subjects(RDF.type, OWL.Class):
-        concept_id = str(subject).replace(str(LLM), "")
-        desc_obj = graph.value(subject, LLM.description)
-        if desc_obj:
-            descriptions[concept_id] = str(desc_obj)
-    
-    return descriptions
 
 
 def load_all_concepts(ttl_path: str) -> List[Dict[str, str]]:
@@ -97,44 +75,4 @@ def update_ttl_descriptions(ttl_path: str, descriptions: Dict[str, str]) -> None
     
     graph.serialize(destination=ttl_path, format="turtle")
 
-
-def add_concept_to_ttl(
-    ttl_path: str,
-    concept_id: str,
-    label: str,
-    parent: str,
-    description: str
-) -> None:
-    """TTL 파일에 새 개념 추가.
-    
-    Args:
-        ttl_path: TTL 파일 경로
-        concept_id: 개념 ID
-        label: 개념 레이블
-        parent: 부모 개념 ID
-        description: 개념 설명
-    """
-    graph = load_ontology_graph(ttl_path)
-    
-    subject = URIRef(str(LLM) + concept_id)
-    parent_uri = URIRef(str(LLM) + parent)
-    
-    graph.add((subject, RDF.type, OWL.Class))
-    graph.add((subject, RDFS.label, Literal(label, lang="en")))
-    graph.add((subject, RDFS.subClassOf, parent_uri))
-    graph.add((subject, LLM.description, Literal(description)))
-    
-    graph.serialize(destination=ttl_path, format="turtle")
-
-
-def extract_keywords_from_document(document: str) -> List[str]:
-    """문서에서 키워드 추출.
-    
-    Args:
-        document: 문서 텍스트
-        
-    Returns:
-        추출된 키워드 리스트
-    """
-    pass
 

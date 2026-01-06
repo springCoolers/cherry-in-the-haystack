@@ -10,3 +10,5 @@ __pycache__/
 .DS_Store
 uv.lock
 
+*.backup
+*.txt
