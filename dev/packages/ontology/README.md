@@ -98,10 +98,6 @@ ontology/
 cd dev/packages/ontology
 uv sync
 
-#  API
-
-export OPENAI_API_KEY="your-REDACTED-api-key"
-export OPENAI_MODEL="gpt-4o-mini"
 
 # 또는 OpenAI API
 # export OPENAI_API_KEY="your-openai-api-key"
