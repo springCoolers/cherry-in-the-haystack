@@ -30,6 +30,16 @@ NOTION_RANKING_ITEM_ID = "notion_ranking_item_id_{}_{}_{}"
 NOTION_SUMMARY_ITEM_ID = "notion_summary_item_id_{}_{}_{}"
 
 # key: prefix + source_name + list_name + id
+# val: llm enhanced analysis response (JSON: why_it_matters, insights, examples)
+# ttl: 1 week
+NOTION_ENHANCED_ANALYSIS_ITEM_ID = "notion_enhanced_analysis_item_id_{}_{}_{}"
+
+# key: prefix + source_name + list_name + id
+# val: llm category response (JSON string)
+# ttl: 2 weeks
+NOTION_CATEGORY_ITEM_ID = "notion_category_item_id_{}_{}_{}"
+
+# key: prefix + source_name + list_name + id
 # val: true/false
 OBSIDIAN_INBOX_ITEM_ID = "obsidian_inbox_item_id_{}_{}_{}"
 

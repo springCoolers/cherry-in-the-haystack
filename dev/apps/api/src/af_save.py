@@ -11,6 +11,7 @@ from ops_youtube import OperatorYoutube
 from ops_rss import OperatorRSS
 from ops_reddit import OperatorReddit
 from ops_crawl_blog_superhuman import OperatorCrawlBlogSuperhuman
+from ops_crawl_rss_natolambert import OperatorCrawlRSSNatoLambert
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix", help="runtime prefix path",
@@ -69,17 +70,14 @@ def process_twitter(args):
 
     data_filtered = op.filter(data_scored, min_score=4)
 
-    data_ranked = op.rank(
-        data_filtered, min_score=args.min_score_to_rank)
-
     targets = args.targets.split(",")
     pushed_stats = op.push(
-        data_ranked, targets, args.topics_top_k, args.categories_top_k)
+        data_filtered, targets, args.topics_top_k, args.categories_top_k)
 
     # Print and create stats
-    op.printStats("Twitter", data, data_deduped, data_ranked)
+    op.printStats("Twitter", data, data_deduped, data_filtered)
     return op.createStats(
-        data, data_deduped, data_scored, data_filtered, data_ranked,
+        data, data_deduped, data_scored, data_filtered, data_filtered,
         pushed_stats)
 
 
@@ -92,10 +90,9 @@ def process_article(args):
     data = op.readFromJson(args.data_folder, args.run_id, "article.json")
     data_deduped = op.dedup(data, target="toread")
     data_summarized = op.summarize(data_deduped)
-    data_ranked = op.rank(data_summarized)
 
     targets = args.targets.split(",")
-    pushed_stats = op.push(data_ranked, targets)
+    pushed_stats = op.push(data_summarized, targets)
 
     return op.createStats(
         "Article",
@@ -103,7 +100,7 @@ def process_article(args):
         data,
         data_deduped=data_deduped,
         data_summarized=data_summarized,
-        data_ranked=data_ranked,
+        data_ranked=data_summarized,
         pushed_stats=pushed_stats)
 
 
@@ -122,10 +119,9 @@ def process_youtube(args):
         data_deduped = [x for x in data.values()]
 
     data_summarized = op.summarize(data_deduped)
-    data_ranked = op.rank(data_summarized)
 
     targets = args.targets.split(",")
-    pushed_stats = op.push(data_ranked, targets)
+    pushed_stats = op.push(data_summarized, targets)
 
     return op.createStats(
         "YouTube",
@@ -133,7 +129,7 @@ def process_youtube(args):
         data,
         data_deduped=data_deduped,
         data_summarized=data_summarized,
-        data_ranked=data_ranked,
+        data_ranked=data_summarized,
         pushed_stats=pushed_stats)
 
 
@@ -204,19 +200,17 @@ def process_reddit(args):
     data_filtered = op.filter(data_scored, min_score=4)
 
     data_summarized = op.summarize(data_filtered)
-    data_ranked = op.rank(
-        data_summarized, min_score=args.min_score_to_rank)
 
     targets = args.targets.split(",")
     pushed_stats = op.push(
-        data_ranked, targets, args.topics_top_k, args.categories_top_k)
+        data_summarized, targets, args.topics_top_k, args.categories_top_k)
 
     # Print and create stats
-    op.printStats("Reddit", data, data_deduped, data_ranked)
+    op.printStats("Reddit", data, data_deduped, data_summarized)
 
     return op.createStats(
         data, data_deduped, data_scored, data_filtered,
-        data_summarized, data_ranked, pushed_stats)
+        data_summarized, data_summarized, pushed_stats)
 
 
 def process_crawl(args, op, source="crawl"):
@@ -226,10 +220,9 @@ def process_crawl(args, op, source="crawl"):
     data = op.readFromJson(args.data_folder, args.run_id, f"{source}.json")
     data_deduped = op.dedup(data, target="toread")
     data_summarized = op.summarize(data_deduped)
-    data_ranked = op.rank(data_summarized)
 
     targets = args.targets.split(",")
-    pushed_stats = op.push(data_ranked, targets)
+    pushed_stats = op.push(data_summarized, targets)
 
     return op.createStats(
         source,
@@ -237,7 +230,7 @@ def process_crawl(args, op, source="crawl"):
         data,
         data_deduped=data_deduped,
         data_summarized=data_summarized,
-        data_ranked=data_ranked,
+        data_ranked=data_summarized,
         pushed_stats=pushed_stats
     )
 
@@ -271,6 +264,9 @@ def run(args):
             op = OperatorCrawlBlogSuperhuman()
             stat = process_crawl(args, op, source=source)
 
+        elif source == "CrawlBlogNatoLambert":
+            stat = process_rss(args)
+            
         stats.extend(stat)
 
     # Print stats

@@ -35,3 +35,6 @@ logs/
 
 # venv
 .venv
+
+# claude txt files
+.claude/*.txt

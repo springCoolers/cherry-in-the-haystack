@@ -137,8 +137,15 @@ def urlGet(url, timeout=3):
     if not url:
         return False, {}
 
+    # Add headers to avoid being blocked by sites like Reddit
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
     try:
-        resp = requests.get(url, timeout=timeout)
+        resp = requests.get(url, headers=headers, timeout=timeout)
         return True, resp
     except Exception as e:
         print(f"[ERROR] urlGet failed: {e}")
@@ -149,8 +156,15 @@ def urlHead(url, timeout=3, allow_redirects=True):
     if not url:
         return False, {}
 
+    # Add headers to avoid being blocked by sites like Reddit
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
     try:
-        resp = requests.head(url, timeout=timeout, allow_redirects=allow_redirects)
+        resp = requests.head(url, headers=headers, timeout=timeout, allow_redirects=allow_redirects)
         return True, resp
     except Exception as e:
         print(f"[ERROR] urlHead failed: {e}")
@@ -294,7 +308,18 @@ def retry(func, retries=3, **kwargs):
                 time.sleep(5)
 
 
-def load_web(url):
+def load_web(url, validate=True, min_length=200):
+    """
+    Load web content from URL with optional validation
+
+    Args:
+        url: URL to load
+        validate: Whether to validate content (default: True)
+        min_length: Minimum valid content length (default: 200)
+
+    Returns:
+        Content string if valid, None if validation fails
+    """
     landing_page = urlUnshorten(url)
     print(f"[load_web] origin url: {url}, landing page: {landing_page}")
 
@@ -308,6 +333,33 @@ def load_web(url):
 
     content = refine_content(content)
     print(f"[load_web] finished, content (post refinement): {content[:200]}...")
+
+    # Validate content if requested
+    if validate:
+        # Check for common error patterns indicating failed web loading
+        invalid_patterns = [
+            "enable javascript",
+            "javascript is required",
+            "please enable cookies",
+            "access denied",
+            "blocked",
+            "403 forbidden",
+            "network error",
+            "connection refused",
+            "cloudflare",
+            "captcha"
+        ]
+
+        content_lower = content.lower()
+        has_invalid_pattern = any(pattern in content_lower for pattern in invalid_patterns)
+
+        # Validate content length and absence of error patterns
+        if len(content) < min_length or has_invalid_pattern:
+            print(f"[load_web] Validation failed: length={len(content)}, has_error_pattern={has_invalid_pattern}")
+            return None
+
+        print(f"[load_web] Validation passed: {len(content)} chars, valid content")
+
     return content
 
 

@@ -76,6 +76,48 @@ class DBClient(DBClientBase):
         key = key_tpl.format(source, category, item_id)
         self.driver.set(key, s, **kwargs)
 
+    def get_notion_enhanced_analysis_item_id(self, source, category, item_id):
+        """
+        Get cached enhanced analysis for an item
+        Key pattern: notion:enhanced_analysis:{source}:{list_name}:{item_id}
+        """
+        key_tpl = data_model.NOTION_ENHANCED_ANALYSIS_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        return self.driver.get(key)
+
+    def set_notion_enhanced_analysis_item_id(
+        self,
+        source,
+        category,
+        item_id,
+        analysis_json: str,
+        **kwargs
+    ):
+        """
+        Cache enhanced analysis (JSON string)
+        TTL: 604800 seconds (7 days)
+        """
+        key_tpl = data_model.NOTION_ENHANCED_ANALYSIS_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        self.driver.set(key, analysis_json, **kwargs)
+
+    def get_notion_category_item_id(self, source, category, item_id):
+        key_tpl = data_model.NOTION_CATEGORY_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        return self.driver.get(key)
+
+    def set_notion_category_item_id(
+        self,
+        source,
+        category,
+        item_id,
+        c: str,
+        **kwargs
+    ):
+        key_tpl = data_model.NOTION_CATEGORY_ITEM_ID
+        key = key_tpl.format(source, category, item_id)
+        self.driver.set(key, c, **kwargs)
+
     def get_obsidian_inbox_item_id(self, source, category, item_id):
         key_tpl = data_model.OBSIDIAN_INBOX_ITEM_ID
         key = key_tpl.format(source, category, item_id)

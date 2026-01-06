@@ -1,5 +1,7 @@
 # All LLM prompts put here
 
+from config.rss_feeds import FeedNames
+
 LLM_PROMPT_CATEGORY_AND_RANKING_TPL = """
 You are a content review expert, you can analyze how many topics in a content, and be able to calculate a quality score of them (range 0 to 1).
 
@@ -81,6 +83,48 @@ Write a concise and precise numbered list summary of the following text without 
 ```{text}```
 """
 
+# RSS Feed-specific prompts
+# Map RSS feed name to custom prompt template
+LLM_PROMPT_RSS_REDDIT_ML = """
+Write a technical summary of this Reddit ML discussion, focusing on:
+- Key technical insights and implementation details
+- Community opinions and trending viewpoints
+- Practical applications and code examples mentioned
+Write in numbered list format, in KOREAN:
+```{text}```
+"""
+
+LLM_PROMPT_RSS_NEWSLETTER = """
+Write a newsletter-style summary highlighting:
+- Main insights and key takeaways
+- Actionable recommendations
+- Important facts and figures
+Write in numbered list format, in KOREAN:
+```{text}```
+"""
+
+# RSS Feed Name → Prompt Template Mapping
+# IMPORTANT: Use FeedNames constants (imported from config.rss_feeds)
+# to prevent typos and maintain consistency with RSS_FEEDS
+RSS_FEED_PROMPTS = {
+    FeedNames.REDDIT_ML: LLM_PROMPT_RSS_REDDIT_ML,
+    FeedNames.NEWSLETTER_ELVIS: LLM_PROMPT_RSS_NEWSLETTER,
+    # Default fallback for unmapped feeds
+    "default": LLM_PROMPT_SUMMARY_COMBINE_PROMPT3,
+}
+
+def get_rss_prompt(feed_name: str) -> str:
+    """
+    Get prompt template for specific RSS feed
+
+    Args:
+        feed_name: RSS feed name from config
+
+    Returns:
+        Prompt template string
+    """
+    return RSS_FEED_PROMPTS.get(feed_name, RSS_FEED_PROMPTS["default"])
+
 LLM_PROMPT_SUMMARY_COMBINE_PROMPT4 = """
 As a professional summarizer, create a concise and comprehensive summary of the provided text, be it an article, post, conversation, or passage, while adhering to these guidelines:
 - Craft a summary that is detailed, thorough, in-depth, and complex, while maintaining clarity and conciseness.
@@ -159,6 +203,65 @@ Analyze the below content carefully and generate concise 'Summary':
 
 LLM_PROMPT_SUMMARY_SIMPLE2 = """
 Analyze the below content carefully and generate concise 'Summary' without losing any numbers, and English numbers need to convert to digital numbers:
+{content}
+"""
+
+LLM_PROMPT_ENHANCED_ANALYSIS = """
+Analyze the following content and provide three types of insights in JSON format:
+
+1. "why_it_matters": Explain why this content is significant or important (2-3 sentences in KOREAN)
+2. "insights": Extract key insights and takeaways (3-5 bullet points in KOREAN)
+3. "examples": Provide concrete examples or case studies mentioned (2-3 items in KOREAN, or "None" if not applicable)
+
+You should only respond in JSON format as described below without any explanation:
+{{
+  "why_it_matters": "이 내용이 중요한 이유...",
+  "insights": ["핵심 통찰 1", "핵심 통찰 2", "핵심 통찰 3"],
+  "examples": ["사례 1", "사례 2"]
+}}
+
+Double check before responding, ensure the response can be parsed by Python json.loads.
+
+Content:
+{content}
+"""
+
+LLM_PROMPT_CATEGORIZATION = """
+You are an AI content categorization expert. Analyze the provided summary text and classify it into ONE OR MORE of the following predefined categories:
+
+Available Categories:
+- New AI Model Release
+- New Tool Introduction
+- Technical Deep Dive
+- Benchmark & Performance
+- Industry Trend Analysis
+- AI Ethics & Regulation
+- Open-Source Project
+- Research Paper Review
+- Event Coverage
+- Community Discussion
+- Meme/Humor
+- Evaluation Driven Development
+- Evaluating AI systems
+
+Instructions:
+- Read the summary carefully and select ALL relevant categories
+- You can select multiple categories if the content fits several of them
+- Select at least one category, and at most 3-4 categories
+- Prioritize the most relevant ones if there are many matches
+- Respond ONLY in JSON format without any explanation
+
+Response format:
+{{
+  "categories": ["New AI Model Release", "Technical Deep Dive"]
+}}
+
+Double check before responding, ensure:
+1. The response can be parsed by Python json.loads
+2. Each category name matches EXACTLY one from the list above (case-sensitive)
+3. The "categories" field is an array of strings
+
+Summary to categorize:
 {content}
 """
 

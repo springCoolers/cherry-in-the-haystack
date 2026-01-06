@@ -1187,12 +1187,29 @@ class NotionAgent:
         blocks = []
 
         for i in range(len(arr)):
-            new_size = cur_size + len(arr[i])
+            piece = arr[i]
 
-            if new_size <= chunk_size:
-                cur_size += len(arr[i])
-                cur_text.append(arr[i])
-            else:
+            # If a single piece exceeds chunk_size, force split it
+            while len(piece) > chunk_size:
+                # Flush current accumulated text first
+                if cur_text:
+                    blocks.append({
+                        "object": "block",
+                        "type": type,
+                        type: {
+                            "rich_text": [
+                                {
+                                    "text": {
+                                        "content": ". ".join(cur_text)
+                                    },
+                                }
+                            ]
+                        }
+                    })
+                    cur_text = []
+                    cur_size = 0
+
+                # Add the oversized piece as its own block (truncated)
                 blocks.append({
                     "object": "block",
                     "type": type,
@@ -1200,31 +1217,57 @@ class NotionAgent:
                         "rich_text": [
                             {
                                 "text": {
-                                    "content": ". ".join(cur_text)
+                                    "content": piece[:chunk_size]
                                 },
                             }
                         ]
                     }
                 })
+                piece = piece[chunk_size:]
 
-                # reset to arr[i]
-                cur_text = [arr[i]]
-                cur_size = len(arr[i])
+            # Handle the remaining piece (or normal-sized piece)
+            if piece:
+                new_size = cur_size + len(piece)
+
+                if new_size <= chunk_size:
+                    cur_size += len(piece)
+                    cur_text.append(piece)
+                else:
+                    # Flush current block
+                    if cur_text:
+                        blocks.append({
+                            "object": "block",
+                            "type": type,
+                            type: {
+                                "rich_text": [
+                                    {
+                                        "text": {
+                                            "content": ". ".join(cur_text)
+                                        },
+                                    }
+                                ]
+                            }
+                        })
+
+                    # reset to current piece
+                    cur_text = [piece]
+                    cur_size = len(piece)
 
         # append last
-        blocks.append({
-            "object": "block",
-            "type": type,
-            type: {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": ". ".join(cur_text)
-                        },
-                    }
-                ]
-            }
-        })
+        if cur_text:
+            blocks.append({
+                "object": "block",
+                "type": type,
+                type: {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": ". ".join(cur_text)
+                            },
+                        }
+                    ]
+                }
+            })
 
         if len(blocks) > 1:
             print(f"[notion._createBlock_RichText]: chunked rich text content into {len(blocks)} chunks")
@@ -1256,8 +1299,7 @@ class NotionAgent:
         list_names: list,
         tweet,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         """
         Create toread database item, source twitter
@@ -1283,10 +1325,6 @@ class NotionAgent:
 
         properties.update({"Category": {
             "multi_select": categories_list,
-        }})
-
-        properties.update({"Rating": {
-            "number": rate_number
         }})
 
         if tweet.get("__relevant_score"):
@@ -1330,7 +1368,6 @@ class NotionAgent:
         ranked_page,
         topics: list,
         categories: list,
-        rate_number,
         **kwargs
     ):
         # assemble topics
@@ -1363,10 +1400,6 @@ class NotionAgent:
             "multi_select": categories_list,
         }})
 
-        properties.update({"Rating": {
-            "number": rate_number
-        }})
-
         if ranked_page.get("__relevant_score"):
             properties.update({"Relevant Score": {
                 "number": ranked_page["__relevant_score"]
@@ -1387,8 +1420,7 @@ class NotionAgent:
         database_id,
         ranked_page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_ArticleBase(ranked_page)
 
@@ -1399,8 +1431,7 @@ class NotionAgent:
             database_id,
             ranked_page,
             topics,
-            categories,
-            rate_number
+            categories
         )
 
     def createDatabaseItem_ToRead_Youtube(
@@ -1408,8 +1439,7 @@ class NotionAgent:
         database_id,
         ranked_page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_YoutubeBase(ranked_page)
 
@@ -1420,8 +1450,7 @@ class NotionAgent:
             database_id,
             ranked_page,
             topics,
-            categories,
-            rate_number
+            categories
         )
 
         # Add video metadata as a comment
@@ -1450,20 +1479,30 @@ class NotionAgent:
         database_id,
         page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         """
-        Create RSS item in ToRead database with custom format:
-        - Properties: AI summary, URL
-        - Blocks: ## {title}\n{summary}\n{link}
+        Create RSS item in ToRead database with enhanced analysis fields:
+        - Properties: AI summary, URL, Why it matters, Insights, Examples
+        - Blocks: ## {title}\n{content}\n{link}
         """
+        content = page.get("content") or ""
         summary = page.get("__summary") or ""
+        categories = page.get("__categories") or []
         title = page["title"]
         url = page["url"]
         created_time_pdt = utils.convertUTC2PDT_str(page["created_time"])
 
-        # Properties: Name, Published at, AI summary, URL
+        # Extract enhanced analysis fields
+        why_it_matters = page.get("__why_it_matters", "")
+        insights = page.get("__insights", [])
+        examples = page.get("__examples", [])
+
+        # Convert lists to formatted strings
+        insights_text = "\n".join(f"• {item}" for item in insights) if insights else ""
+        examples_text = "\n".join(f"• {item}" for item in examples) if examples else ""
+
+        # Properties: Name, Published at, AI summary, Category, URL, enhanced analysis fields
         properties = {
             "Name": {
                 "title": [
@@ -1490,8 +1529,43 @@ class NotionAgent:
             },
             "URL": {
                 "url": url
+            },
+            "Why it matters": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": why_it_matters[:2000]  # Notion limit: 2000 chars
+                        }
+                    }
+                ]
+            },
+            "Insights": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": insights_text[:2000]  # Notion limit: 2000 chars
+                        }
+                    }
+                ]
+            },
+            "Examples": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": examples_text[:2000]  # Notion limit: 2000 chars
+                        }
+                    }
+                ]
             }
         }
+
+        # Add Category property if available (multi-select)
+        if categories:
+            properties["Category"] = {
+                "multi_select": [
+                    {"name": category} for category in categories
+                ]
+            }
 
         # Blocks: ## {title}\n{summary}\n{link}
         blocks = []
@@ -1511,49 +1585,10 @@ class NotionAgent:
             }
         })
 
-        # Summary paragraphs (split by newline, handle 2000 char limit)
-        summary_lines = summary.split('\n')
-        current_block = ""
-
-        for line in summary_lines:
-            if len(current_block) + len(line) + 1 > 2000:
-                # Flush current block
-                if current_block:
-                    blocks.append({
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [
-                                {
-                                    "text": {
-                                        "content": current_block
-                                    }
-                                }
-                            ]
-                        }
-                    })
-                current_block = line
-            else:
-                if current_block:
-                    current_block += "\n" + line
-                else:
-                    current_block = line
-
-        # Flush remaining
-        if current_block:
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [
-                        {
-                            "text": {
-                                "content": current_block
-                            }
-                        }
-                    ]
-                }
-            })
+        # Summary paragraphs (use existing helper to handle 2000 char limit)
+        if content:
+            content_blocks = self._createBlock_RichText("paragraph", content)
+            blocks.extend(content_blocks)
 
         # Link
         blocks.append({
@@ -1581,7 +1616,6 @@ class NotionAgent:
             page,
             topics,
             categories,
-            rate_number,
             list_names=[page["list_name"]]
         )
 
@@ -1822,8 +1856,7 @@ class NotionAgent:
         list_names: list,
         page,
         topics: list,
-        categories: list,
-        rate_number
+        categories: list
     ):
         properties, blocks = self._createDatabaseItem_ArticleBase(
             page, summary=False, append_notion_url=False)
@@ -1951,7 +1984,6 @@ class NotionAgent:
             page,
             topics,
             categories,
-            rate_number,
             list_names=list_names
         )
 
@@ -2292,9 +2324,6 @@ class NotionAgent:
             },
             "Category": {
                 "multi_select": {}
-            },
-            "Rating": {
-                "number": {}
             },
             "Read": {
                 "checkbox": {}
