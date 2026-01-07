@@ -122,7 +122,10 @@ docker rm -f graphdb-ontology  # 제거
 ### 3. Vector DB 초기화
 
 ```bash
-python src/scripts/initialize_vector_db.py
+uv run python src/scripts/commit_ontology_assignment.py \
+  --tsv commit_concepts.tsv \
+  --staging-json staging_concepts.json \
+  --stage-db new_concepts.db
 ```
 
 TTL 파일에서 모든 개념을 로드하고, description이 없으면 LLM으로 생성한 후 ChromaDB에 저장합니다.
