@@ -103,6 +103,9 @@ uv sync
 # export OPENAI_API_KEY="your-openai-api-key"
 ```
 
+#### OPENAI API KEY IS A MUST 
+
+
 ### 2. GraphDB 시작
 
 ```bash
