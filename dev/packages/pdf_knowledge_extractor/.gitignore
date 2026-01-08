@@ -1,0 +1,29 @@
+# 환경 설정
+.env
+*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Output & Logs
+output/
+*.log
+
+# Database
+*.db
+
+# PDF files
+*.pdf
+
+# Claude
+.claude/
