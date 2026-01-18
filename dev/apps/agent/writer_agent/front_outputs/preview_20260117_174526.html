@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Writer Agent Preview</title>
+  <style>
+    :root {
+      --bg: #f6f2ed;
+      --ink: #1e1e1e;
+      --ink-soft: #4a4a4a;
+      --accent: #0e6f5c;
+      --accent-2: #e0823d;
+      --card: #ffffff;
+      --line: #e5dccf;
+      --shadow: 0 14px 30px rgba(32, 24, 16, 0.12);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff6ea 0%, var(--bg) 40%, #efe6dc 100%);
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 28px;
+      padding: 28px 32px 48px;
+      min-height: 100vh;
+    }
+
+    aside {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      height: fit-content;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .nav-item {
+      font-size: 14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      background: #f7f0e7;
+    }
+
+    main {
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 28px 36px 40px;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      font-size: 34px;
+      margin: 0 0 6px;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .section {
+      margin-top: 26px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: inline-block;
+      background: #efe6dc;
+      padding: 8px 14px;
+      border-radius: 999px;
+    }
+
+    .summary-card {
+      margin-top: 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .summary-card p {
+      margin: 10px 0 0;
+      color: var(--ink-soft);
+    }
+
+    .grid {
+      margin-top: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 20px rgba(33, 26, 18, 0.08);
+    }
+
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      background: #fff6ea;
+      border: 1px solid #f0d9c2;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .reference {
+      border-left: 4px solid var(--accent);
+    }
+
+    .patch {
+      border-left: 4px solid var(--accent-2);
+    }
+
+    @media (max-width: 960px) {
+      .page { grid-template-columns: 1fr; }
+      aside { order: 2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside>
+      <div class="nav-title">LLM Engineering Basics</div>
+      <div class="nav-item">0. Prologue - What is LLM</div>
+      <div class="nav-item">1. FM & Prompt Engineering</div>
+      <div class="nav-title" style="margin-top:16px;">LLM Engineering Advanced</div>
+      <div class="nav-item">MCP - Model Context Protocol</div>
+      <div class="nav-title" style="margin-top:16px;">Contributor Guide</div>
+    </aside>
+
+    <main>
+      <header>
+        <h1 id="topic"></h1>
+        <p>Your weekly digest of the most important developments in the LLM ecosystem.</p>
+      </header>
+
+      <section class="section">
+        <div class="section-title">Summary & Why It Matters</div>
+        <div class="summary-card">
+          <strong>Summary</strong>
+          <p id="summary"></p>
+          <strong>Why it matters</strong>
+          <p id="why"></p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Important Evidence</div>
+        <div id="evidence" class="grid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Related Concepts</div>
+        <div id="related" class="pill-row"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">References</div>
+        <div id="references" class="grid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Patch Notes</div>
+        <div id="updates" class="grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const pageData = {"topic": "RAG evaluation", "summary": "RAG evaluation refers to the systematic assessment of Retrieval-Augmented Generation (RAG) models that combine retrieval mechanisms with generative language modeling to improve performance on tasks such as question answering and information retrieval. This evaluation employs diverse metrics including exact match, functional correctness, and text similarity, focusing on benchmarking models to measure quality, comparative ranking, and guiding iterative development. Embedded within AI and LLM engineering best practices, RAG evaluation forms a critical part of the AI model lifecycle, from training pipelines to deployment, within a data-centric architecture that supports flexibility and continuous improvement.", "why_it_matters": "RAG evaluation is vital for ensuring the effectiveness and reliability of hybrid retrieval-generative systems that enhance language model capabilities. It addresses the complexities inherent in both retrieval and generation, enabling precise measurement of model quality and comparison across multiple approaches. This informs development choices, maintains high standards for AI applications, supports ongoing model refinement, and ultimately leads to more accurate, contextually relevant, and robust AI-powered systems in real-world use cases.", "evidence_cards": [{"title": "AI Engineering", "excerpt": "In this accessible guide, author Chip Huyen discusses AI engineering: the process of building applications with readily available foundation models. AI application developers will discover how to navigate the AI landscape, including mode...", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 21, "section_id": null, "chunk_id": 114}}, {"title": "LLM Engineers Handbook", "excerpt": "tanding the LLM Twin Concept and Architecture 6 \u2022 Data storage, versioning, and retrieval \u2022 LLM fine-tuning \u2022 RAG \u2022 Content generation evaluation Note that we never said not to use OpenAI\u2019s GPT API, just that the LLM framework we will pr...", "source": {"book_title": "LLM Engineers Handbook", "book_author": "Unknown", "page_number": null, "chapter_id": 6, "section_id": 6, "chunk_id": 118}}, {"title": "AI Engineering", "excerpt": "Every AI engineer building real-world applications should read this book. It\u2019s a vital guide to end-to-end AI system design, from model development and evaluation to large-scale deployment and operation. \u2014Andrei Lopatenko, Director Searc...", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 21, "section_id": null, "chunk_id": 127}}, {"title": "AI Engineering", "excerpt": "AI Engineering is an essential guide for anyone building software with Generative AI! It demystifies the technology, highlights the importance of evaluation, and shares what should be done to achieve quality before starting with costly f...", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 21, "section_id": null, "chunk_id": 135}}, {"title": "AI Engineering", "excerpt": "Planning AI Applications 28 Use Case Evaluation 29 Setting Expectations 32 Milestone Planning 33 Maintenance 34", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 23, "section_id": null, "chunk_id": 164}}, {"title": "LLM Engineers Handbook", "excerpt": "The final thing you must understand about the FTI pattern is that the system doesn\u2019t have to contain only three pipelines. In most cases, it will include more. For example, the feature pipeline can be composed of a service that computes...", "source": {"book_title": "LLM Engineers Handbook", "book_author": "Unknown", "page_number": null, "chapter_id": 6, "section_id": 15, "chunk_id": 180}}, {"title": "AI Engineering", "excerpt": "Exact Evaluation 125 Functional Correctness 126 Similarity Measurements Against Reference Data 127", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 23, "section_id": null, "chunk_id": 185}}, {"title": "AI Engineering", "excerpt": "Ranking Models with Comparative Evaluation 148 Challenges of Comparative Evaluation 152 The Future of Comparative Evaluation 155", "source": {"book_title": "AI Engineering", "book_author": "Chip Huyen;", "page_number": null, "chapter_id": 23, "section_id": null, "chunk_id": 189}}, {"title": "LLM Engineers Handbook", "excerpt": "The LLM Engineer\u2019s Handbook is a comprehensive guide to applying best practices to the new field of LLM engineering. Throughout the chapters, readers will find simplified key concepts, practical techniques, and experts tips for every sta...", "source": {"book_title": "LLM Engineers Handbook", "book_author": "Unknown", "page_number": null, "chapter_id": 5, "section_id": null, "chunk_id": 71}}], "related_cards": [{"label": "Benchmarks and datasets"}, {"label": "Challenges"}, {"label": "Challenges (Evaluation)"}, {"label": "Challenges (Exact-match metrics)"}, {"label": "Challenges (Instruction-following evaluation)"}, {"label": "Challenges (Reference-based evaluation)"}, {"label": "Decisioning and selection"}, {"label": "Evaluation"}, {"label": "Evaluation framework and process"}, {"label": "Evaluation framework design"}, {"label": "Evaluation metrics"}, {"label": "Evaluation pitfalls"}, {"label": "Information retrieval"}, {"label": "Language model evaluation"}, {"label": "Methods"}, {"label": "Metrics"}, {"label": "Natural Language Processing"}, {"label": "Post-training effects"}, {"label": "Preference modeling"}, {"label": "Question answering"}, {"label": "Reasoning error analysis"}, {"label": "Retrieval-Augmented Generation"}, {"label": "Specialized evaluations"}, {"label": "Text similarity measurement"}], "reference_cards": [{"source": "AI Engineering", "author": "Chip Huyen;", "snippets": [{"chunk_id": 114, "excerpt": "In this accessible guide, author Chip Huyen discusses AI engineering: the process of building applications  with readily available foundation models. AI application developers will discover how to nav"}, {"chunk_id": 127, "excerpt": "Every AI engineer building real-world applications should read this book. It\u2019s a vital guide to end-to-end AI system design, from model development and evaluation to large-scale deployment and operati"}, {"chunk_id": 135, "excerpt": "AI Engineering is an essential guide for anyone building software with Generative AI! It demystifies the technology, highlights the importance of evaluation, and shares what should be done to achieve"}, {"chunk_id": 164, "excerpt": "Planning AI Applications                                                                                               28 Use Case Evaluation"}, {"chunk_id": 185, "excerpt": "Exact Evaluation                                                                                                            125 Functional Correctness"}]}, {"source": "LLM Engineers Handbook", "author": "Unknown", "snippets": [{"chunk_id": 118, "excerpt": "tanding the LLM Twin Concept and Architecture 6 \u2022 Data storage, versioning, and retrieval \u2022 LLM fine-tuning \u2022 RAG \u2022 Content generation evaluation Note that we never said not to use OpenAI\u2019s GPT API, j"}, {"chunk_id": 180, "excerpt": "The final thing you must understand about the FTI pattern is that the system doesn\u2019t have to  contain only three pipelines. In most cases, it will include more. For example, the feature pipeline  can"}, {"chunk_id": 71, "excerpt": "The LLM Engineer\u2019s Handbook is a comprehensive guide to applying best practices to the new  field of LLM engineering. Throughout the chapters, readers will find simplified key concepts,  practical tec"}]}]};
+    const patchData = {"topic": "RAG evaluation", "updates": null, "patch_notes": ["Initial summary generated for RAG evaluation incorporating key concepts, evaluation challenges, and its role within AI and LLM engineering frameworks."]};
+
+    document.getElementById('topic').textContent = pageData.topic || 'Untitled Topic';
+    document.getElementById('summary').textContent = pageData.summary || '';
+    document.getElementById('why').textContent = pageData.why_it_matters || '';
+
+    const evidenceRoot = document.getElementById('evidence');
+    pageData.evidence_cards.forEach((card) => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <h4>${card.title}</h4>
+        <p>${card.excerpt}</p>
+        <p style="margin-top:10px;color:#7a6f63;font-size:12px;">
+          ${card.source.book_title || ''}${card.source.book_author ? ' · ' + card.source.book_author : ''}
+        </p>
+      `;
+      evidenceRoot.appendChild(div);
+    });
+
+    const relatedRoot = document.getElementById('related');
+    pageData.related_cards.forEach((item) => {
+      const span = document.createElement('span');
+      span.className = 'pill';
+      span.textContent = item.label;
+      relatedRoot.appendChild(span);
+    });
+
+    const refRoot = document.getElementById('references');
+    pageData.reference_cards.forEach((ref) => {
+      const div = document.createElement('div');
+      div.className = 'card reference';
+      const snippets = (ref.snippets || []).map((s) => `<li>${s.excerpt || ''}</li>`).join('');
+      div.innerHTML = `
+        <h4>${ref.source || 'Unknown Source'}</h4>
+        <p>${ref.author || ''}</p>
+        <ul style="padding-left:18px;color:#6f6255;">${snippets}</ul>
+      `;
+      refRoot.appendChild(div);
+    });
+
+    const updateRoot = document.getElementById('updates');
+    patchData.updates.forEach((u) => {
+      const div = document.createElement('div');
+      div.className = 'card patch';
+      div.innerHTML = `
+        <h4>${u.title}</h4>
+        <p>${u.body}</p>
+      `;
+      updateRoot.appendChild(div);
+    });
+
+    if (patchData.patch_notes && patchData.patch_notes.length) {
+      const div = document.createElement('div');
+      div.className = 'card patch';
+      div.innerHTML = `
+        <h4>Patch Notes</h4>
+        <ul style="padding-left:18px;color:#6f6255;">${patchData.patch_notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+      `;
+      updateRoot.appendChild(div);
+    }
+  </script>
+</body>
+</html>
