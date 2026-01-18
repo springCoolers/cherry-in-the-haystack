@@ -1,0 +1,182 @@
+{
+  "topic": "RAG evaluation",
+  "summary": "RAG evaluation refers to the systematic assessment of Retrieval-Augmented Generation (RAG) models that combine retrieval mechanisms with generative language modeling to improve performance on tasks such as question answering and information retrieval. This evaluation employs diverse metrics including exact match, functional correctness, and text similarity, focusing on benchmarking models to measure quality, comparative ranking, and guiding iterative development. Embedded within AI and LLM engineering best practices, RAG evaluation forms a critical part of the AI model lifecycle, from training pipelines to deployment, within a data-centric architecture that supports flexibility and continuous improvement.",
+  "why_it_matters": "RAG evaluation is vital for ensuring the effectiveness and reliability of hybrid retrieval-generative systems that enhance language model capabilities. It addresses the complexities inherent in both retrieval and generation, enabling precise measurement of model quality and comparison across multiple approaches. This informs development choices, maintains high standards for AI applications, supports ongoing model refinement, and ultimately leads to more accurate, contextually relevant, and robust AI-powered systems in real-world use cases.",
+  "evidence": [
+    {
+      "chunk_id": 114,
+      "body_text": "In this accessible guide, author Chip Huyen discusses AI engineering: the process of building applications \nwith readily available foundation models. AI application developers will discover how to navigate \nthe AI landscape, including models, datasets, evaluation benchmarks, and the seemingly infinite number \nof application patterns. The book also introduces a practical framework for developing an AI application \nand efficiently deploying it.",
+      "page_number": null,
+      "paragraph_index": 2,
+      "chapter_id": 21,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 118,
+      "body_text": "tanding the LLM Twin Concept and Architecture\n6\n\u2022\nData storage, versioning, and retrieval\n\u2022\nLLM fine-tuning\n\u2022\nRAG\n\u2022\nContent generation evaluation\nNote that we never said not to use OpenAI\u2019s GPT API, just that the LLM framework we will pres-\nent is LLM-agnostic. Thus, if it can be manipulated programmatically and exposes a fine-tuning \ninterface, it can be integrated into the LLM Twin system we will learn to build. The key to most \nsuccessful ML products is to be data-centric and make your architecture model-agnostic. Thus, \nyou can quickly experiment with multiple models on your specific data.",
+      "page_number": null,
+      "paragraph_index": 0,
+      "chapter_id": 6,
+      "section_id": 6,
+      "book_id": 1,
+      "book_title": "LLM Engineers Handbook",
+      "book_author": "Unknown"
+    },
+    {
+      "chunk_id": 127,
+      "body_text": "Every AI engineer building real-world applications should read this book. It\u2019s a\nvital guide to end-to-end AI system design, from model development\nand evaluation to large-scale deployment and operation.\n\u2014Andrei Lopatenko, Director Search and AI, Neuron7",
+      "page_number": null,
+      "paragraph_index": 9,
+      "chapter_id": 21,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 135,
+      "body_text": "AI Engineering is an essential guide for anyone building software with Generative AI!\nIt demystifies the technology, highlights the importance of evaluation, and shares\nwhat should be done to achieve quality before starting with costly fine-tuning.\n\u2014Rafal Kawala, Senior AI Engineering Director, 16 years of\nexperience working in a Fortune 500 company",
+      "page_number": null,
+      "paragraph_index": 14,
+      "chapter_id": 21,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 164,
+      "body_text": "Planning AI Applications                                                                                               28\nUse Case Evaluation                                                                                                     29\nSetting Expectations                                                                                                     32\nMilestone Planning                                                                                                      33\nMaintenance                                                                                                                 34",
+      "page_number": null,
+      "paragraph_index": 5,
+      "chapter_id": 23,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 180,
+      "body_text": "The final thing you must understand about the FTI pattern is that the system doesn\u2019t have to \ncontain only three pipelines. In most cases, it will include more. For example, the feature pipeline \ncan be composed of a service that computes the features and one that validates the data. Also, the \ntraining pipeline can be composed of the training and evaluation components.",
+      "page_number": null,
+      "paragraph_index": 2,
+      "chapter_id": 6,
+      "section_id": 15,
+      "book_id": 1,
+      "book_title": "LLM Engineers Handbook",
+      "book_author": "Unknown"
+    },
+    {
+      "chunk_id": 185,
+      "body_text": "Exact Evaluation                                                                                                            125\nFunctional Correctness                                                                                             126\nSimilarity Measurements Against Reference Data                                                127",
+      "page_number": null,
+      "paragraph_index": 20,
+      "chapter_id": 23,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 189,
+      "body_text": "Ranking Models with Comparative Evaluation                                                        148\nChallenges of Comparative Evaluation                                                                   152\nThe Future of Comparative Evaluation                                                                  155",
+      "page_number": null,
+      "paragraph_index": 23,
+      "chapter_id": 23,
+      "section_id": null,
+      "book_id": 2,
+      "book_title": "AI Engineering",
+      "book_author": "Chip Huyen;"
+    },
+    {
+      "chunk_id": 71,
+      "body_text": "The LLM Engineer\u2019s Handbook is a comprehensive guide to applying best practices to the new \nfield of LLM engineering. Throughout the chapters, readers will find simplified key concepts, \npractical techniques, and experts tips for every stage of the LLM lifecycle. The book covers topics \nsuch as data engineering, supervised fine-tuning, model evaluation, inference optimization, and \nRetrieval-Augmented Generation (RAG) pipeline development.",
+      "page_number": null,
+      "paragraph_index": 2,
+      "chapter_id": 5,
+      "section_id": null,
+      "book_id": 1,
+      "book_title": "LLM Engineers Handbook",
+      "book_author": "Unknown"
+    }
+  ],
+  "related_concepts": [
+    "Benchmarks and datasets",
+    "Challenges",
+    "Challenges (Evaluation)",
+    "Challenges (Exact-match metrics)",
+    "Challenges (Instruction-following evaluation)",
+    "Challenges (Reference-based evaluation)",
+    "Decisioning and selection",
+    "Evaluation",
+    "Evaluation framework and process",
+    "Evaluation framework design",
+    "Evaluation metrics",
+    "Evaluation pitfalls",
+    "Information retrieval",
+    "Language model evaluation",
+    "Methods",
+    "Metrics",
+    "Natural Language Processing",
+    "Post-training effects",
+    "Preference modeling",
+    "Question answering",
+    "Reasoning error analysis",
+    "Retrieval-Augmented Generation",
+    "Specialized evaluations",
+    "Text similarity measurement"
+  ],
+  "references": [
+    {
+      "source": "AI Engineering",
+      "author": "Chip Huyen;",
+      "snippets": [
+        {
+          "chunk_id": 114,
+          "excerpt": "In this accessible guide, author Chip Huyen discusses AI engineering: the process of building applications  with readily available foundation models. AI application developers will discover how to nav"
+        },
+        {
+          "chunk_id": 127,
+          "excerpt": "Every AI engineer building real-world applications should read this book. It\u2019s a vital guide to end-to-end AI system design, from model development and evaluation to large-scale deployment and operati"
+        },
+        {
+          "chunk_id": 135,
+          "excerpt": "AI Engineering is an essential guide for anyone building software with Generative AI! It demystifies the technology, highlights the importance of evaluation, and shares what should be done to achieve"
+        },
+        {
+          "chunk_id": 164,
+          "excerpt": "Planning AI Applications                                                                                               28 Use Case Evaluation"
+        },
+        {
+          "chunk_id": 185,
+          "excerpt": "Exact Evaluation                                                                                                            125 Functional Correctness"
+        }
+      ]
+    },
+    {
+      "source": "LLM Engineers Handbook",
+      "author": "Unknown",
+      "snippets": [
+        {
+          "chunk_id": 118,
+          "excerpt": "tanding the LLM Twin Concept and Architecture 6 \u2022 Data storage, versioning, and retrieval \u2022 LLM fine-tuning \u2022 RAG \u2022 Content generation evaluation Note that we never said not to use OpenAI\u2019s GPT API, j"
+        },
+        {
+          "chunk_id": 180,
+          "excerpt": "The final thing you must understand about the FTI pattern is that the system doesn\u2019t have to  contain only three pipelines. In most cases, it will include more. For example, the feature pipeline  can"
+        },
+        {
+          "chunk_id": 71,
+          "excerpt": "The LLM Engineer\u2019s Handbook is a comprehensive guide to applying best practices to the new  field of LLM engineering. Throughout the chapters, readers will find simplified key concepts,  practical tec"
+        }
+      ]
+    }
+  ],
+  "updates": null,
+  "patch_notes": [
+    "Initial summary generated for RAG evaluation incorporating key concepts, evaluation challenges, and its role within AI and LLM engineering frameworks."
+  ]
+}
