@@ -38,10 +38,10 @@ workflow_status:
   # Phase 1: Planning
   prd: docs/PRD.md
   validate-prd: optional
-  create-design: conditional
+  create-design: docs/ux-design-specification.md
 
   # Phase 2: Solutioning
-  architecture: docs/architecture.md  # Completed 2025-11-08
+  architecture: docs/architecture.md  # Completed 2026-02-28
   validate-architecture: optional
   epic-tech-context: required  # Next: Generate technical specs from PRD+Architecture
   solutioning-gate-check: required

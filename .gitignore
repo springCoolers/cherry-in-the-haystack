@@ -38,3 +38,6 @@ logs/
 
 # claude txt files
 .claude/*.txt
+
+# gcp cloud key
+n8n-atmt-d7a9a05899be.json

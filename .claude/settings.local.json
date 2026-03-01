@@ -5,7 +5,15 @@
       "SlashCommand(/bmad:bmm:workflows:product-brief)",
       "SlashCommand(/bmad:bmm:workflows:prd)",
       "WebSearch",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "SlashCommand(/bmad:bmm:workflows:solutioning-gate-check)",
+      "SlashCommand(/bmad:bmm:workflows:epic-tech-context)",
+      "Bash(git pull:*)",
+      "SlashCommand(/bmad:bmm:workflows:architecture)",
+      "Bash(git push:*)",
+      "SlashCommand(/bmad:bmm:workflows:create-epics-and-stories)",
+      "WebFetch(domain:springcoolers.github.io)"
     ],
     "deny": [],
     "ask": []

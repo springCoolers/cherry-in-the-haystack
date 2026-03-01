@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cherry — Design Directions v4</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0a0a0f; color: #fff; }
+:root {
+  --bg:#13111A; --surface:#1C1927; --elevated:#241F32; --border:#2A2535;
+  --text:#E8E4F0; --muted:#8B849E; --cherry:#C94B6E; --cherry-soft:#2D1F26;
+  --violet:#7B5EA7; --violet-soft:#221A33; --success:#3D7A5E;
+}
+.chrome { position:fixed; top:0; left:0; right:0; z-index:200; background:#0a0a0f; border-bottom:1px solid #1a1a2e; padding:10px 20px; display:flex; align-items:center; justify-content:space-between; }
+.chrome-title { font-size:13px; font-weight:600; color:#E8E4F0; }
+.chrome-sub { font-size:11px; color:#8B849E; }
+.dir-nav { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+.dir-btn { padding:5px 12px; border-radius:5px; border:1px solid #2A2535; background:transparent; color:#8B849E; cursor:pointer; font-size:11px; font-weight:500; white-space:nowrap; transition:all .15s; }
+.dir-btn:hover { border-color:#7B5EA7; color:#E8E4F0; }
+.dir-btn.active { background:#C94B6E; border-color:#C94B6E; color:#fff; }
+.sep { color:#333; font-size:11px; padding:0 2px; }
+.frame-wrapper { padding-top:62px; }
+.direction-frame { display:none; }
+.direction-frame.active { display:block; }
+.dir-meta { padding:12px 20px; border-bottom:1px solid #1a1a2e; }
+.dir-name { font-size:14px; font-weight:700; color:#E8E4F0; }
+.dir-tagline { font-size:11px; color:#8B849E; margin-top:3px; }
+.dir-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.dir-tag { font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid #2A2535; color:#8B849E; }
+
+/* atoms */
+.badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:9px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; }
+.bc { background:var(--cherry-soft); color:var(--cherry); }
+.bv { background:var(--violet-soft); color:#A987D4; }
+.bg { background:#0A2A24; color:#5ECBA1; }
+.bm { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+.stars { color:var(--cherry); font-size:10px; }
+.kw { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:11px; border:1px solid var(--border); color:var(--muted); }
+.kw-hot { border-color:var(--cherry); color:var(--cherry); background:var(--cherry-soft); }
+.up { font-size:9px; font-weight:700; color:var(--success); }
+.kw-hot .up { color:#F48BA0; }
+
+.treemap { display:grid; border-radius:10px; overflow:hidden; gap:2px; background:var(--border); }
+.tm { padding:10px 12px; display:flex; flex-direction:column; justify-content:flex-end; cursor:pointer; }
+.tm:hover { filter:brightness(1.1); }
+.tml { font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; opacity:.8; }
+.tmv { font-size:17px; font-weight:800; margin-top:2px; }
+.tms { font-size:9px; opacity:.6; margin-top:1px; }
+.tm1 { background:#3A1828; color:#F48BA0; }
+.tm2 { background:#1E1635; color:#A987D4; }
+.tm3 { background:#0D2420; color:#5ECBA1; }
+.tm4 { background:#2A2010; color:#D4A853; }
+
+.metrics { display:flex; gap:1px; background:var(--border); border-radius:10px; overflow:hidden; }
+.metric { flex:1; padding:11px 13px; background:var(--surface); }
+.mv { font-size:19px; font-weight:800; color:var(--text); }
+.ml { font-size:9px; color:var(--muted); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }
+.md { font-size:9px; color:var(--success); margin-top:2px; }
+
+.ni { padding:11px 13px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+.ni:hover { background:var(--elevated); }
+.ni:last-child { border-bottom:none; }
+.nt { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; line-height:1.35; }
+.ns { font-size:11px; color:var(--muted); margin:4px 0; line-height:1.5; }
+.nm { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+.search-bar { display:flex; align-items:center; gap:7px; background:var(--elevated); border:1px solid var(--border); border-radius:7px; padding:6px 11px; }
+.search-bar input { background:none; border:none; outline:none; color:var(--text); font-size:12px; flex:1; }
+.search-bar input::placeholder { color:var(--muted); }
+.kbd { font-size:9px; color:var(--muted); border:1px solid var(--border); border-radius:3px; padding:1px 4px; font-family:monospace; }
+
+/* sidebar nav — section headers */
+.knav-h { padding:5px 10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); margin-top:12px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; border-radius:5px; }
+.knav-h:hover { background:var(--elevated); }
+/* sidebar nav — direct items (Digest, Basics, Advanced) */
+.knav-item { padding:5px 10px 5px 20px; border-radius:5px; font-size:12px; color:var(--muted); cursor:pointer; }
+.knav-item:hover { background:var(--elevated); color:var(--text); }
+.knav-item.active { background:var(--cherry-soft); color:var(--cherry); font-weight:600; }
+.knav-item.active-v { background:var(--violet-soft); color:#A987D4; font-weight:600; }
+/* sidebar nav — Newly Discovered sub-group labels */
+.knav-sg { padding:6px 10px 2px 14px; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--violet); margin-top:6px; }
+/* sidebar nav — Newly Discovered sub-items */
+.knav-sub { padding:4px 10px 4px 26px; border-radius:5px; font-size:11px; color:var(--muted); cursor:pointer; }
+.knav-sub:hover { background:var(--elevated); color:var(--text); }
+.knav-sub.active { background:var(--cherry-soft); color:var(--cherry); font-weight:600; }
+
+/* concept reader atoms */
+.cb { font-size:13px; line-height:1.75; color:#C8C4D8; }
+.cb strong { color:var(--text); }
+.cb code { font-family:monospace; font-size:11px; background:var(--elevated); color:#A987D4; padding:1px 5px; border-radius:3px; }
+.cc { border:1px solid var(--border); border-radius:7px; padding:9px 11px; cursor:pointer; transition:border-color .15s; }
+.cc:hover { border-color:var(--violet); }
+.cc-rel { font-size:9px; color:var(--violet); font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+.cc-name { font-size:12px; font-weight:600; color:var(--text); }
+.cc-desc { font-size:10px; color:var(--muted); margin-top:2px; }
+.ref { border-left:2px solid var(--border); padding:8px 12px; margin-bottom:8px; cursor:pointer; transition:border-left-color .15s; }
+.ref:hover { border-left-color:var(--cherry); }
+.ref.r1 { border-left-color:var(--cherry); }
+.rn { font-size:9px; font-weight:700; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.4px; }
+.rt { font-size:12px; font-weight:600; color:var(--text); margin-bottom:2px; }
+.rw { font-size:11px; color:var(--muted); }
+.ra { font-size:10px; color:var(--violet); margin-top:3px; font-style:italic; }
+
+/* patchnotes end card */
+.end-card { padding:36px 20px; text-align:center; border-top:1px solid var(--border); }
+.ec-icon { font-size:30px; margin-bottom:10px; }
+.ec-title { font-size:18px; font-weight:800; color:var(--cherry); margin-bottom:4px; }
+.ec-sub { font-size:12px; color:var(--muted); margin-bottom:18px; }
+.ec-stats { display:flex; gap:20px; justify-content:center; }
+.ec-stat strong { display:block; font-size:22px; font-weight:800; color:var(--text); }
+.ec-stat span { font-size:10px; color:var(--muted); }
+
+/* category filter tabs */
+.cat-tabs { display:flex; gap:3px; }
+.cat-tab { padding:5px 14px; border-radius:5px; font-size:11px; font-weight:500; color:var(--muted); cursor:pointer; border:1px solid transparent; transition:all .12s; }
+.cat-tab:hover { color:var(--text); background:var(--elevated); }
+.cat-tab.ct-all  { background:var(--cherry-soft); color:var(--cherry); border-color:var(--cherry); font-weight:600; }
+.cat-tab.ct-mod  { background:#3A1828; color:#F48BA0; border-color:#5C2233; font-weight:600; }
+.cat-tab.ct-biz  { background:#0A2A24; color:#5ECBA1; border-color:#1D4A3C; font-weight:600; }
+
+/* leaderboard cards */
+.lb-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:11px 13px; cursor:pointer; transition:border-color .15s; }
+.lb-card:hover { border-color:var(--violet); }
+.lb-rank { font-size:10px; color:var(--muted); font-weight:700; margin-bottom:4px; }
+.lb-company { font-size:13px; font-weight:800; color:var(--text); margin-bottom:2px; }
+.lb-score { font-size:11px; color:var(--cherry); font-weight:700; margin-bottom:4px; }
+.lb-models { font-size:10px; color:var(--muted); line-height:1.5; }
+
+/* rising star */
+.rising-star { background:var(--cherry-soft); border:1.5px solid var(--cherry); border-radius:10px; padding:16px 18px; }
+.rs-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--cherry); margin-bottom:8px; }
+.rs-name { font-size:17px; font-weight:800; color:var(--text); margin-bottom:4px; }
+.rs-sub { font-size:12px; color:#F48BA0; margin-bottom:10px; }
+.rs-body { font-size:12px; color:#C8C4D8; line-height:1.6; margin-bottom:12px; }
+.rs-stats { display:flex; gap:16px; flex-wrap:wrap; }
+.rs-stat { font-size:10px; color:var(--muted); }
+.rs-stat strong { color:#F48BA0; font-weight:700; }
+
+/* news items */
+.news-item:hover .ni-title { color:var(--cherry); }
+.ni-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:5px; line-height:1.35; transition:color .1s; }
+.ni-desc { font-size:11px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+
+/* case study article cards */
+.co-group { margin-bottom:22px; }
+.co-header { font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:.6px; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.co-header-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.art-card { border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:6px; cursor:pointer; transition:border-color .15s; }
+.art-card:hover { border-color:var(--violet); background:var(--surface); }
+.art-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; line-height:1.35; }
+.art-desc { font-size:11px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+.art-meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<!-- ═══ TOP CHROME ═══ -->
+<div class="chrome">
+  <div>
+    <div class="chrome-title">Cherry — Design Directions v4</div>
+    <div class="chrome-sub">Obsidian Night · Dir 1 ✓ · Patchnotes · Newly Discovered (Models, Case Studies) · Mobile · Concept Reader</div>
+  </div>
+  <div class="dir-nav">
+    <button class="dir-btn active" onclick="show(1,this)">1 · Dashboard ✓</button>
+    <button class="dir-btn" onclick="show('pn',this)">Patchnotes</button>
+    <span class="sep">|</span>
+    <button class="dir-btn" onclick="show('nd-models',this)">ND · Model Updates</button>
+    <button class="dir-btn" onclick="show('nd-business',this)">ND · Case Studies</button>
+    <span class="sep">|</span>
+    <button class="dir-btn" onclick="show(5,this)">5 · Mobile</button>
+    <span class="sep">|</span>
+    <button class="dir-btn" onclick="show(6,this)">6 · Concept Reader</button>
+  </div>
+</div>
+
+<div class="frame-wrapper">
+
+<!-- ═══════════════════════════════════════════════════════
+     DIR 1 — DASHBOARD HERO (This Week's Highlight)
+═══════════════════════════════════════════════════════ -->
+<div id="dir-1" class="direction-frame active">
+  <div class="dir-meta">
+    <div class="dir-name">1 · Dashboard Hero <span style="font-size:11px;color:var(--success);margin-left:6px;">✓ Approved</span></div>
+    <div class="dir-tagline">Left sidebar with all 4 nav sections. Main area = "This Week's Highlight" digest overview with treemap. No end-card here.</div>
+    <div class="dir-tags"><span class="dir-tag">Left Sidebar</span><span class="dir-tag">4-Section Nav</span><span class="dir-tag">Treemap Hero</span><span class="dir-tag">No End-Card</span></div>
+  </div>
+  <div style="background:var(--bg);display:flex;min-height:calc(100vh - 108px);">
+
+    <!-- ─── SIDEBAR ─── -->
+    <div style="width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 0;flex-shrink:0;overflow-y:auto;">
+      <div style="padding:0 12px 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+        <span style="font-size:15px;font-weight:800;color:var(--cherry);">cherry</span>
+        <div style="margin-top:10px;"><div class="search-bar" style="padding:5px 9px;"><span style="color:var(--muted);font-size:11px;">🔍</span><input placeholder="Search..." readonly><span class="kbd">⌘K</span></div></div>
+      </div>
+      <div style="padding:0 8px;">
+
+        <!-- 1. DIGEST -->
+        <div class="knav-h" style="margin-top:4px;">Digest</div>
+        <div class="knav-item active">⚡ This Week's Highlight <span style="margin-left:4px;font-size:9px;background:var(--cherry);color:#fff;border-radius:8px;padding:1px 5px;">23</span></div>
+        <div class="knav-item">📋 Patchnotes</div>
+
+        <!-- 2. BASICS -->
+        <div class="knav-h">Basics</div>
+        <div class="knav-item">Prompting Techniques</div>
+        <div class="knav-item">RAG</div>
+        <div class="knav-item">Fine-tuning</div>
+        <div class="knav-item">Agent Architectures</div>
+        <div class="knav-item">Embeddings & Vector DBs</div>
+        <div class="knav-item">Evaluation</div>
+
+        <!-- 3. ADVANCED -->
+        <div class="knav-h">Advanced</div>
+        <div class="knav-item">Chain-of-Thought</div>
+        <div class="knav-item">Multi-hop RAG</div>
+        <div class="knav-item">PEFT / LoRA / QLoRA</div>
+        <div class="knav-item">Multi-agent Systems</div>
+        <div class="knav-item">Custom Embeddings</div>
+        <div class="knav-item">Adversarial Evaluation</div>
+
+        <!-- 4. NEWLY DISCOVERED -->
+        <div class="knav-h">Newly Discovered</div>
+        <div class="knav-sg">Research & Models</div>
+        <div class="knav-sub">Model Updates</div>
+        <div class="knav-sub">Papers & Benchmarks</div>
+        <div class="knav-sg">Service & System Building</div>
+        <div class="knav-sub">Frameworks</div>
+        <div class="knav-sub">Tools</div>
+        <div class="knav-sub">Shared Resources</div>
+        <div class="knav-sg">Industry & Business <span style="color:var(--cherry);">⭐</span></div>
+        <div class="knav-sub">Case Studies</div>
+        <div class="knav-sg">Ecosystem & Governance</div>
+        <div class="knav-sub">Regulations</div>
+        <div class="knav-sub">Big Tech Trends</div>
+        <div class="knav-sub">This Week's Posts</div>
+
+        <div style="padding:0 8px;margin-top:14px;"><button style="width:100%;padding:7px;border-radius:7px;background:var(--violet-soft);border:1px solid var(--violet);color:#A987D4;font-size:11px;font-weight:600;cursor:pointer;">✦ My Feed — Paid</button></div>
+      </div>
+    </div>
+
+    <!-- ─── MAIN DASHBOARD ─── -->
+    <div style="flex:1;padding:26px 30px;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Digest · Week of Feb 24, 2026</div>
+          <h1 style="font-size:23px;font-weight:800;color:var(--text);letter-spacing:-.4px;">This Week's Highlight</h1>
+          <p style="font-size:12px;color:var(--muted);margin-top:3px;">23 items curated by the Knowledge Team</p>
+        </div>
+        <div class="cat-tabs">
+          <span class="cat-tab ct-all">All</span>
+          <span class="cat-tab">Models</span>
+          <span class="cat-tab">Frameworks</span>
+          <span class="cat-tab">Case Studies</span>
+        </div>
+      </div>
+
+      <div class="metrics" style="margin-bottom:16px;">
+        <div class="metric"><div class="mv">23</div><div class="ml">Items This Week</div><div class="md">↑ +4 vs last week</div></div>
+        <div class="metric"><div class="mv">7</div><div class="ml">Topics Covered</div></div>
+        <div class="metric"><div class="mv">42</div><div class="ml">New Keywords</div><div class="md">↑ +18% MoM</div></div>
+        <div class="metric"><div class="mv">5</div><div class="ml">Score-5 Items</div><div class="md" style="color:var(--cherry);">Must-reads</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:16px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Buzz Distribution</div>
+          <div class="treemap" style="grid-template-columns:1fr 1fr;grid-template-rows:128px 88px;">
+            <div class="tm tm1"><div class="tml">Models & Research</div><div class="tmv">38%</div><div class="tms">9 items · OpenAI, Anthropic</div></div>
+            <div class="tm tm2"><div class="tml">Frameworks & Tools</div><div class="tmv">28%</div><div class="tms">7 items · LangChain, DSPy</div></div>
+            <div class="tm tm3"><div class="tml">Business Cases</div><div class="tmv">22%</div><div class="tms">5 items</div></div>
+            <div class="tm tm4"><div class="tml">Ecosystem</div><div class="tmv">12%</div><div class="tms">3 items</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Trending Keywords</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;">
+            <span class="kw kw-hot">MCP Protocol <span class="up">+245%</span></span>
+            <span class="kw kw-hot">DSPy <span class="up">+189%</span></span>
+            <span class="kw">Reasoning <span class="up" style="color:var(--success);">+67%</span></span>
+            <span class="kw">o3-mini <span class="up" style="color:var(--success);">+54%</span></span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Must-Reads ★</div>
+          <div style="background:var(--surface);border-radius:8px;border:1px solid var(--border);overflow:hidden;">
+            <div class="ni"><div class="nt">Claude 3.7 Sonnet with extended thinking</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 25</span></div></div>
+            <div class="ni"><div class="nt">DSPy 2.6 — native MCP tool support</div><div class="nm"><span class="badge bv">Frameworks</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div></div>
+            <div class="ni"><div class="nt">How Notion built their AI assistant</div><div class="nm"><span class="badge bg">Case Studies</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 23</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">All Items This Week</div>
+      <div style="background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;">
+        <div class="ni"><div class="nt">Gemini 2.0 Flash Thinking — cost-efficient reasoning</div><div class="ns">1/10th the cost of o1. Strong on code, weaker on multi-step logic.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">Feb 25</span></div></div>
+        <div class="ni"><div class="nt">LangGraph Cloud reaches GA — managed agent deployment</div><div class="nm"><span class="badge bv">Frameworks</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div></div>
+        <div class="ni"><div class="nt">EU AI Act enforcement begins — compliance checklist</div><div class="nm"><span class="badge bm">Regulations</span><span class="stars">★★★☆☆</span><span style="font-size:9px;color:var(--muted);">Feb 23</span></div></div>
+        <div class="ni"><div class="nt">Mistral Small 3.1 — best open-source at 24B</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div></div>
+      </div>
+      <div style="padding:20px 0;text-align:center;">
+        <span style="font-size:11px;color:var(--muted);">Browse by category in Newly Discovered, or explore a concept in Basics / Advanced</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PATCHNOTES — only screen with end-card
+═══════════════════════════════════════════════════════ -->
+<div id="dir-pn" class="direction-frame">
+  <div class="dir-meta">
+    <div class="dir-name">Patchnotes — the only screen with "You're caught up"</div>
+    <div class="dir-tagline">Finite scope, linear timeline. End-card signals true completion. No end-card on any other screen.</div>
+    <div class="dir-tags"><span class="dir-tag">Finite Digest</span><span class="dir-tag">End-Card Only Here</span><span class="dir-tag">Catch-Up</span></div>
+  </div>
+  <div style="background:var(--bg);display:flex;min-height:calc(100vh - 108px);">
+
+    <!-- ─── SIDEBAR ─── -->
+    <div style="width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 0;flex-shrink:0;overflow-y:auto;">
+      <div style="padding:0 12px 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+        <span style="font-size:15px;font-weight:800;color:var(--cherry);">cherry</span>
+      </div>
+      <div style="padding:0 8px;">
+        <div class="knav-h" style="margin-top:4px;">Digest</div>
+        <div class="knav-item">⚡ This Week's Highlight</div>
+        <div class="knav-item active">📋 Patchnotes</div>
+        <div class="knav-h">Basics</div>
+        <div class="knav-item">Prompting Techniques</div>
+        <div class="knav-item">RAG</div>
+        <div class="knav-item">Fine-tuning</div>
+        <div class="knav-item">Agent Architectures</div>
+        <div class="knav-item">Embeddings & Vector DBs</div>
+        <div class="knav-item">Evaluation</div>
+        <div class="knav-h">Advanced</div>
+        <div class="knav-item">Chain-of-Thought</div>
+        <div class="knav-item">Multi-hop RAG</div>
+        <div class="knav-item">PEFT / LoRA / QLoRA</div>
+        <div class="knav-item">Multi-agent Systems</div>
+        <div class="knav-item">Custom Embeddings</div>
+        <div class="knav-item">Adversarial Evaluation</div>
+        <div class="knav-h">Newly Discovered</div>
+        <div class="knav-sg">Research & Models</div>
+        <div class="knav-sub">Model Updates</div>
+        <div class="knav-sub">Papers & Benchmarks</div>
+        <div class="knav-sg">Service & System Building</div>
+        <div class="knav-sub">Frameworks</div>
+        <div class="knav-sub">Tools</div>
+        <div class="knav-sub">Shared Resources</div>
+        <div class="knav-sg">Industry & Business <span style="color:var(--cherry);">⭐</span></div>
+        <div class="knav-sub">Case Studies</div>
+        <div class="knav-sg">Ecosystem & Governance</div>
+        <div class="knav-sub">Regulations</div>
+        <div class="knav-sub">Big Tech Trends</div>
+        <div class="knav-sub">This Week's Posts</div>
+        <div style="padding:0 8px;margin-top:14px;"><button style="width:100%;padding:7px;border-radius:7px;background:var(--violet-soft);border:1px solid var(--violet);color:#A987D4;font-size:11px;font-weight:600;cursor:pointer;">✦ My Feed — Paid</button></div>
+      </div>
+    </div>
+
+    <!-- ─── PATCHNOTES CONTENT ─── -->
+    <div style="flex:1;padding:26px 38px;max-width:740px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Digest</div>
+      <h1 style="font-size:24px;font-weight:800;color:var(--text);letter-spacing:-.4px;margin-bottom:4px;">Patchnotes</h1>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:6px;">Everything that changed in the LLM ecosystem — caught up from your last visit</p>
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--violet-soft);border-radius:6px;margin-bottom:24px;">
+        <span style="font-size:10px;color:#A987D4;font-weight:600;">Last visit: Feb 17 → Today: Feb 28 · 11 days of updates</span>
+      </div>
+      <div style="border-left:2px solid var(--border);padding-left:16px;margin-bottom:10px;position:relative;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--cherry);position:absolute;left:-5px;top:4px;"></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Feb 25 · Models</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">Claude 3.7 Sonnet released — extended thinking, matches o1 on SWE-bench</div>
+        <div style="font-size:11px;color:var(--muted);">Impact: Upgrade if you use Claude for coding. Extended thinking opt-in via API parameter.</div>
+      </div>
+      <div style="border-left:2px solid var(--border);padding-left:16px;margin-bottom:10px;position:relative;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--violet);position:absolute;left:-5px;top:4px;"></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Feb 24 · Frameworks</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">DSPy 2.6 — native MCP tool support</div>
+        <div style="font-size:11px;color:var(--muted);">Impact: One-line MCP server connections now possible. Upgrade if DSPy is in your stack.</div>
+      </div>
+      <div style="border-left:2px solid var(--border);padding-left:16px;margin-bottom:10px;position:relative;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);position:absolute;left:-5px;top:4px;"></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Feb 23 · Regulations</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">EU AI Act enforcement begins — compliance checklist published</div>
+        <div style="font-size:11px;color:var(--muted);">Impact: If you ship AI products in EU, review the checklist. High-risk classification matters.</div>
+      </div>
+      <div style="border-left:2px solid var(--border);padding-left:16px;margin-bottom:10px;position:relative;opacity:.7;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--border);position:absolute;left:-5px;top:4px;"></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Feb 20 · Models</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">Gemini 2.0 Flash Thinking — 1/10th cost of o1</div>
+      </div>
+      <!-- END CARD — only here -->
+      <div class="end-card" style="margin-top:8px;">
+        <div class="ec-icon">✓</div>
+        <div class="ec-title">You're caught up</div>
+        <div class="ec-sub">Feb 17 → Feb 28 · 11 days of LLM changes reviewed</div>
+        <div class="ec-stats">
+          <div class="ec-stat"><strong>14</strong><span>updates reviewed</span></div>
+          <div class="ec-stat"><strong>4</strong><span>areas changed</span></div>
+          <div class="ec-stat"><strong style="color:var(--cherry);">Current</strong><span>you're up to date</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     ND · MODEL UPDATES
+═══════════════════════════════════════════════════════ -->
+<div id="dir-nd-models" class="direction-frame">
+  <div class="dir-meta">
+    <div class="dir-name">ND · Model Updates — Newly Discovered / Research & Models</div>
+    <div class="dir-tagline">Company leaderboard by benchmark, rising star highlight, and all model updates this week. "Model Updates" active in sidebar.</div>
+    <div class="dir-tags"><span class="dir-tag">Leaderboard</span><span class="dir-tag">Rising Star</span><span class="dir-tag">Curated Updates</span></div>
+  </div>
+  <div style="background:var(--bg);display:flex;min-height:calc(100vh - 108px);">
+
+    <!-- ─── SIDEBAR ─── -->
+    <div style="width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 0;flex-shrink:0;overflow-y:auto;">
+      <div style="padding:0 12px 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+        <span style="font-size:15px;font-weight:800;color:var(--cherry);">cherry</span>
+        <div style="margin-top:10px;"><div class="search-bar" style="padding:5px 9px;"><span style="color:var(--muted);font-size:11px;">🔍</span><input placeholder="Search..." readonly><span class="kbd">⌘K</span></div></div>
+      </div>
+      <div style="padding:0 8px;">
+        <div class="knav-h" style="margin-top:4px;">Digest</div>
+        <div class="knav-item">⚡ This Week's Highlight</div>
+        <div class="knav-item">📋 Patchnotes</div>
+        <div class="knav-h">Basics</div>
+        <div class="knav-item">Prompting Techniques</div>
+        <div class="knav-item">RAG</div>
+        <div class="knav-item">Fine-tuning</div>
+        <div class="knav-item">Agent Architectures</div>
+        <div class="knav-item">Embeddings & Vector DBs</div>
+        <div class="knav-item">Evaluation</div>
+        <div class="knav-h">Advanced</div>
+        <div class="knav-item">Chain-of-Thought</div>
+        <div class="knav-item">Multi-hop RAG</div>
+        <div class="knav-item">PEFT / LoRA / QLoRA</div>
+        <div class="knav-item">Multi-agent Systems</div>
+        <div class="knav-item">Custom Embeddings</div>
+        <div class="knav-item">Adversarial Evaluation</div>
+        <div class="knav-h">Newly Discovered</div>
+        <div class="knav-sg">Research & Models</div>
+        <div class="knav-sub active">Model Updates</div>
+        <div class="knav-sub">Papers & Benchmarks</div>
+        <div class="knav-sg">Service & System Building</div>
+        <div class="knav-sub">Frameworks</div>
+        <div class="knav-sub">Tools</div>
+        <div class="knav-sub">Shared Resources</div>
+        <div class="knav-sg">Industry & Business <span style="color:var(--cherry);">⭐</span></div>
+        <div class="knav-sub">Case Studies</div>
+        <div class="knav-sg">Ecosystem & Governance</div>
+        <div class="knav-sub">Regulations</div>
+        <div class="knav-sub">Big Tech Trends</div>
+        <div class="knav-sub">This Week's Posts</div>
+        <div style="padding:0 8px;margin-top:14px;"><button style="width:100%;padding:7px;border-radius:7px;background:var(--violet-soft);border:1px solid var(--violet);color:#A987D4;font-size:11px;font-weight:600;cursor:pointer;">✦ My Feed — Paid</button></div>
+      </div>
+    </div>
+
+    <!-- ─── MODEL UPDATES CONTENT ─── -->
+    <div style="flex:1;padding:26px 30px;overflow-y:auto;">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Newly Discovered / Research & Models /</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.3px;">Model Updates</h1>
+            <p style="font-size:12px;color:var(--muted);margin-top:3px;">9 items · 6 companies tracked · Week of Feb 24, 2026</p>
+          </div>
+          <div class="cat-tabs">
+            <span class="cat-tab">All</span>
+            <span class="cat-tab ct-mod">Model Updates</span>
+            <span class="cat-tab">Papers & Benchmarks</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Company Leaderboard -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Major Players — GPQA Benchmark</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div class="lb-card" style="border-color:var(--cherry);background:var(--cherry-soft);">
+            <div class="lb-rank">#1</div>
+            <div class="lb-company">OpenAI <span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--cherry);color:#fff;">LEAD</span></div>
+            <div class="lb-score">92.4% GPQA</div>
+            <div class="lb-models">GPT-5, GPT-5-Codex-Max, GPT-OSS</div>
+          </div>
+          <div class="lb-card" style="border-color:#C94B6E;background:#2D1F26;">
+            <div class="lb-rank">#2 <span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:#C94B6E;color:#fff;margin-left:3px;">NEW ↑</span></div>
+            <div class="lb-company">Anthropic</div>
+            <div class="lb-score" style="color:#F48BA0;">91.0% GPQA</div>
+            <div class="lb-models">Claude 3.7 Sonnet</div>
+          </div>
+          <div class="lb-card">
+            <div class="lb-rank">#3</div>
+            <div class="lb-company">Google</div>
+            <div class="lb-score" style="color:var(--muted);">89.2% GPQA</div>
+            <div class="lb-models">Gemini 2.0 Pro, Flash Thinking</div>
+          </div>
+          <div class="lb-card">
+            <div class="lb-rank">#4</div>
+            <div class="lb-company">xAI</div>
+            <div class="lb-score" style="color:var(--muted);">87.5% GPQA</div>
+            <div class="lb-models">Grok 3, Grok 3-Mini</div>
+          </div>
+          <div class="lb-card">
+            <div class="lb-rank">#5</div>
+            <div class="lb-company">Meta</div>
+            <div class="lb-score" style="color:var(--muted);">73.7% GPQA</div>
+            <div class="lb-models">Llama 4 Scout, Maverick</div>
+          </div>
+          <div class="lb-card">
+            <div class="lb-rank">#6</div>
+            <div class="lb-company">DeepSeek</div>
+            <div class="lb-score" style="color:var(--muted);">71.5% GPQA</div>
+            <div class="lb-models">DeepSeek R2, V3</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rising Star -->
+      <div class="rising-star" style="margin-bottom:20px;">
+        <div class="rs-tag">🔥 Rising Star — This Week</div>
+        <div class="rs-name">Claude 3.7 Sonnet — Extended Thinking</div>
+        <div class="rs-sub">★★★★★ · 250,000+ mentions · +189% trend this week</div>
+        <div class="rs-body">Extended thinking mode lets Claude reason step-by-step before responding — matching o1 on SWE-bench while remaining cost-comparable to Claude 3.5. Opt-in via <code style="font-family:monospace;font-size:11px;background:#1C1927;color:#A987D4;padding:1px 5px;border-radius:3px;">thinking: {type: "enabled"}</code> API parameter.</div>
+        <div class="rs-stats">
+          <div class="rs-stat"><strong>250k+</strong> mentions in 2 weeks</div>
+          <div class="rs-stat"><strong>+189%</strong> keyword trend</div>
+          <div class="rs-stat"><strong>SWE-bench</strong> SOTA (tied o1)</div>
+          <div class="rs-stat"><strong>Same cost</strong> as 3.5 Sonnet</div>
+        </div>
+      </div>
+
+      <!-- All model updates -->
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">All Model Updates This Week</div>
+      <div style="background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;">
+        <div class="ni"><div class="nt">Claude 3.7 Sonnet — extended thinking matches o1 on SWE-bench</div><div class="ns">Opt-in via API parameter. Cost parity with Claude 3.5. Significant uplift on multi-step reasoning.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Anthropic · Feb 25</span></div></div>
+        <div class="ni"><div class="nt">GPT-5.2 multimodal reasoning — spreadsheets, slides, code, vision</div><div class="ns">Adds structured output generation across document types. 250k context. Replaces GPT-4o for complex tasks.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">OpenAI · Feb 24</span></div></div>
+        <div class="ni"><div class="nt">Gemini 2.0 Flash Thinking — 1/10th cost of o1 for reasoning</div><div class="ns">Cost-efficient reasoning model. Strong on code and math. Weaker on multi-step logic chains than o1.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">Google · Feb 24</span></div></div>
+        <div class="ni"><div class="nt">Mistral Small 3.1 — best open-source at 24B params</div><div class="ns">Outperforms Llama 3.3 70B on MMLU. Apache 2.0 license. Runs on a single A100.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★☆</span><span style="font-size:9px;color:var(--muted);">Mistral · Feb 23</span></div></div>
+        <div class="ni"><div class="nt">Llama 4 Scout — Meta's 17B MoE with 10M context</div><div class="ns">Mixture-of-experts, 10M token context window. Beats Gemma 3 27B on most benchmarks.</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★☆☆</span><span style="font-size:9px;color:var(--muted);">Meta · Feb 22</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     ND · CASE STUDIES
+═══════════════════════════════════════════════════════ -->
+<div id="dir-nd-business" class="direction-frame">
+  <div class="dir-meta">
+    <div class="dir-name">ND · Case Studies — Newly Discovered / Industry & Business</div>
+    <div class="dir-tagline">Real-world LLM deployments with architecture details, ROI data, and lessons learned. "Case Studies" active in sidebar.</div>
+    <div class="dir-tags"><span class="dir-tag">Company-Grouped</span><span class="dir-tag">Architecture Details</span><span class="dir-tag">Sourced & Scored</span></div>
+  </div>
+  <div style="background:var(--bg);display:flex;min-height:calc(100vh - 108px);">
+
+    <!-- ─── SIDEBAR ─── -->
+    <div style="width:220px;background:var(--surface);border-right:1px solid var(--border);padding:14px 0;flex-shrink:0;overflow-y:auto;">
+      <div style="padding:0 12px 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+        <span style="font-size:15px;font-weight:800;color:var(--cherry);">cherry</span>
+        <div style="margin-top:10px;"><div class="search-bar" style="padding:5px 9px;"><span style="color:var(--muted);font-size:11px;">🔍</span><input placeholder="Search..." readonly><span class="kbd">⌘K</span></div></div>
+      </div>
+      <div style="padding:0 8px;">
+        <div class="knav-h" style="margin-top:4px;">Digest</div>
+        <div class="knav-item">⚡ This Week's Highlight</div>
+        <div class="knav-item">📋 Patchnotes</div>
+        <div class="knav-h">Basics</div>
+        <div class="knav-item">Prompting Techniques</div>
+        <div class="knav-item">RAG</div>
+        <div class="knav-item">Fine-tuning</div>
+        <div class="knav-item">Agent Architectures</div>
+        <div class="knav-item">Embeddings & Vector DBs</div>
+        <div class="knav-item">Evaluation</div>
+        <div class="knav-h">Advanced</div>
+        <div class="knav-item">Chain-of-Thought</div>
+        <div class="knav-item">Multi-hop RAG</div>
+        <div class="knav-item">PEFT / LoRA / QLoRA</div>
+        <div class="knav-item">Multi-agent Systems</div>
+        <div class="knav-item">Custom Embeddings</div>
+        <div class="knav-item">Adversarial Evaluation</div>
+        <div class="knav-h">Newly Discovered</div>
+        <div class="knav-sg">Research & Models</div>
+        <div class="knav-sub">Model Updates</div>
+        <div class="knav-sub">Papers & Benchmarks</div>
+        <div class="knav-sg">Service & System Building</div>
+        <div class="knav-sub">Frameworks</div>
+        <div class="knav-sub">Tools</div>
+        <div class="knav-sub">Shared Resources</div>
+        <div class="knav-sg">Industry & Business <span style="color:var(--cherry);">⭐</span></div>
+        <div class="knav-sub active">Case Studies</div>
+        <div class="knav-sg">Ecosystem & Governance</div>
+        <div class="knav-sub">Regulations</div>
+        <div class="knav-sub">Big Tech Trends</div>
+        <div class="knav-sub">This Week's Posts</div>
+        <div style="padding:0 8px;margin-top:14px;"><button style="width:100%;padding:7px;border-radius:7px;background:var(--violet-soft);border:1px solid var(--violet);color:#A987D4;font-size:11px;font-weight:600;cursor:pointer;">✦ My Feed — Paid</button></div>
+      </div>
+    </div>
+
+    <!-- ─── CASE STUDIES CONTENT ─── -->
+    <div style="flex:1;padding:26px 30px;overflow-y:auto;">
+      <div style="margin-bottom:20px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Newly Discovered / Industry & Business /</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.3px;">Case Studies <span style="font-size:16px;">⭐</span></h1>
+            <p style="font-size:12px;color:var(--muted);margin-top:3px;">6 items · 2 company sources · Week of Feb 24, 2026</p>
+          </div>
+          <div class="cat-tabs">
+            <span class="cat-tab ct-biz">Case Studies</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="max-width:780px;">
+        <!-- OpenAI group -->
+        <div class="co-group">
+          <div class="co-header">
+            <div class="co-header-dot" style="background:#5ECBA1;"></div>
+            OpenAI — Enterprise Deployments
+            <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;margin-left:auto;">3 items</span>
+          </div>
+          <div class="art-card">
+            <div class="art-title">Enterprise AI scaling with GPT-4.1 — Netomi case study</div>
+            <div class="art-desc">Multi-tenant deployment handling 50M+ monthly conversations. Key lessons: concurrency limits at scale, model routing by task complexity, enterprise tier pricing for large deployments.</div>
+            <div class="art-meta"><span class="badge bg">Case Study</span><span class="stars">★★★☆☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">Netomi Blog</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div>
+          </div>
+          <div class="art-card">
+            <div class="art-title">HIPAA-compliant OpenAI for clinical workflows — GPT-5 BAA</div>
+            <div class="art-desc">Business associate agreement now available for healthcare orgs. Use cases: clinical note generation, diagnosis support, prior authorization automation. PHI handling and audit logging overview.</div>
+            <div class="art-meta"><span class="badge bg">Case Study</span><span class="stars">★★★☆☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">OpenAI Blog</span><span style="font-size:9px;color:var(--muted);">Feb 23</span></div>
+          </div>
+          <div class="art-card">
+            <div class="art-title">Voice-first enterprise AI with GPT-5.1 — Tolan deployment</div>
+            <div class="art-desc">Sub-200ms voice response replacing traditional IVR. GPT-5.1 outperforms Whisper+GPT-4 stack on latency. Architecture: streaming ASR → streaming LLM → streaming TTS in single pipeline.</div>
+            <div class="art-meta"><span class="badge bg">Case Study</span><span class="stars">★★★☆☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">Tolan Engineering</span><span style="font-size:9px;color:var(--muted);">Feb 22</span></div>
+          </div>
+        </div>
+
+        <!-- Google group -->
+        <div class="co-group">
+          <div class="co-header">
+            <div class="co-header-dot" style="background:#A987D4;"></div>
+            Google — Applied AI Research
+            <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;margin-left:auto;">3 items</span>
+          </div>
+          <div class="art-card">
+            <div class="art-title">GenAI for weather forecast uncertainty quantification</div>
+            <div class="art-desc">Calibrated probabilistic outputs for numerical weather prediction. Reduces systematic bias in extreme weather. Deployed at national meteorological agencies across 3 countries.</div>
+            <div class="art-meta"><span class="badge bv">Applied Research</span><span class="stars">★★★☆☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">Google AI Blog</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div>
+          </div>
+          <div class="art-card">
+            <div class="art-title">AutoBNN — automated Bayesian neural networks for time-series</div>
+            <div class="art-desc">Interpretable probabilistic forecasting with automatic architecture search. Outperforms Prophet on M4 benchmark. Uncertainty estimates calibrated — useful for financial and demand forecasting.</div>
+            <div class="art-meta"><span class="badge bv">Applied Research</span><span class="stars">★★★☆☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">Google AI Blog</span><span style="font-size:9px;color:var(--muted);">Feb 23</span></div>
+          </div>
+          <div class="art-card" style="border-color:var(--cherry);">
+            <div class="art-title">AI-assisted lung cancer screening — NHS trial results</div>
+            <div class="art-desc">Computer-aided detection improving sensitivity in low-dose CT scans by 12%. Deployed across 8 UK NHS hospitals. Radiologist-in-the-loop workflow. Key finding: AI catches early-stage nodules missed on first pass.</div>
+            <div class="art-meta"><span class="badge bg">Applied Research</span><span class="stars" style="color:var(--cherry);">★★★★☆</span><span style="font-size:10px;color:var(--muted);padding:1px 7px;border:1px solid var(--border);border-radius:8px;">Google Health</span><span style="font-size:9px;color:var(--muted);">Feb 22</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     DIR 5 — MOBILE DASHBOARD
+═══════════════════════════════════════════════════════ -->
+<div id="dir-5" class="direction-frame">
+  <div class="dir-meta">
+    <div class="dir-name">5 · Mobile Dashboard</div>
+    <div class="dir-tagline">Dir 1 adapted for mobile: treemap + metrics + keywords + ranked news. Patchnotes phone shows the only end-card.</div>
+    <div class="dir-tags"><span class="dir-tag">Mobile</span><span class="dir-tag">Treemap</span><span class="dir-tag">Dashboard</span><span class="dir-tag">Bottom Nav</span></div>
+  </div>
+  <div style="background:#14141f;display:flex;justify-content:center;align-items:flex-start;padding:24px;gap:28px;flex-wrap:wrap;min-height:calc(100vh - 108px);">
+
+    <!-- Phone 1: Dashboard -->
+    <div style="width:340px;">
+      <div style="font-size:10px;color:#8B849E;margin-bottom:8px;text-align:center;text-transform:uppercase;letter-spacing:.5px;">This Week's Highlight — mobile home</div>
+      <div style="background:var(--bg);border-radius:26px;overflow:hidden;border:1px solid #2a2535;box-shadow:0 16px 48px rgba(0,0,0,.6);">
+        <div style="background:var(--surface);padding:10px 18px 0;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);"><span>9:41</span><span>●●● 100%</span></div>
+        <div style="background:var(--surface);padding:10px 18px 13px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:14px;font-weight:800;color:var(--cherry);">cherry</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:11px;color:var(--muted);">🔍</span>
+              <span style="background:var(--cherry);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:2px 6px;">23 new</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">This Week's Highlight · Feb 24, 2026</div>
+        </div>
+        <div style="background:var(--bg);padding:12px 14px;min-height:500px;overflow-y:auto;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
+            <div style="background:var(--surface);border-radius:8px;padding:9px 11px;border:1px solid var(--border);">
+              <div style="font-size:18px;font-weight:800;color:var(--text);">23</div>
+              <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;">Items this week</div>
+              <div style="font-size:9px;color:var(--success);margin-top:2px;">↑ +4 vs last</div>
+            </div>
+            <div style="background:var(--surface);border-radius:8px;padding:9px 11px;border:1px solid var(--border);">
+              <div style="font-size:18px;font-weight:800;color:var(--text);">5</div>
+              <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;">Must-reads</div>
+              <div style="font-size:9px;color:var(--cherry);margin-top:2px;">★★★★★</div>
+            </div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;">Buzz This Week</div>
+          <div class="treemap" style="grid-template-columns:1fr 1fr;grid-template-rows:72px 52px;margin-bottom:12px;">
+            <div class="tm tm1"><div class="tml" style="font-size:8px;">Models</div><div class="tmv" style="font-size:15px;">38%</div><div class="tms">9 items</div></div>
+            <div class="tm tm2"><div class="tml" style="font-size:8px;">Frameworks</div><div class="tmv" style="font-size:15px;">28%</div><div class="tms">7 items</div></div>
+            <div class="tm tm3"><div class="tml" style="font-size:8px;">Case Studies</div><div class="tmv" style="font-size:14px;">22%</div></div>
+            <div class="tm tm4"><div class="tml" style="font-size:8px;">Ecosystem</div><div class="tmv" style="font-size:14px;">12%</div></div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;">Trending</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;">
+            <span class="kw kw-hot" style="font-size:10px;padding:3px 8px;">MCP <span class="up">+245%</span></span>
+            <span class="kw kw-hot" style="font-size:10px;padding:3px 8px;">DSPy <span class="up">+189%</span></span>
+            <span class="kw" style="font-size:10px;padding:3px 8px;">Reasoning <span class="up" style="color:var(--success);">+67%</span></span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;">Must-Reads</div>
+          <div style="background:var(--surface);border-radius:9px;border:1px solid var(--border);overflow:hidden;">
+            <div class="ni" style="padding:10px 12px;"><div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px;">Claude 3.7 Sonnet with extended thinking</div><div class="nm"><span class="badge bc">Models</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 25</span></div></div>
+            <div class="ni" style="padding:10px 12px;"><div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px;">DSPy 2.6 — native MCP tool support</div><div class="nm"><span class="badge bv">Frameworks</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 24</span></div></div>
+            <div class="ni" style="padding:10px 12px;opacity:.85;"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;">How Notion built their AI assistant</div><div class="nm"><span class="badge bg">Case Studies</span><span class="stars">★★★★★</span><span style="font-size:9px;color:var(--muted);">Feb 23</span></div></div>
+          </div>
+          <div style="text-align:center;padding:14px 0 4px;"><span style="font-size:10px;color:var(--muted);">Tap any item to read · See all 23 →</span></div>
+        </div>
+        <div style="background:var(--surface);border-top:1px solid var(--border);padding:8px 0 14px;display:flex;justify-content:space-around;">
+          <div style="text-align:center;"><div style="font-size:17px;">⚡</div><div style="font-size:9px;color:var(--cherry);font-weight:600;margin-top:2px;">Digest</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">📋</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">Patchnotes</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">📚</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">Learn</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">✦</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">My Feed</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone 2: Patchnotes with end-card -->
+    <div style="width:340px;">
+      <div style="font-size:10px;color:#8B849E;margin-bottom:8px;text-align:center;text-transform:uppercase;letter-spacing:.5px;">Patchnotes — end-card lives here</div>
+      <div style="background:var(--bg);border-radius:26px;overflow:hidden;border:1px solid #2a2535;box-shadow:0 16px 48px rgba(0,0,0,.6);">
+        <div style="background:var(--surface);padding:10px 18px 0;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);"><span>9:41</span><span>●●● 100%</span></div>
+        <div style="background:var(--surface);padding:10px 18px 13px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:14px;font-weight:800;color:var(--cherry);">cherry</span>
+            <span style="background:var(--success);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:2px 7px;">✓ caught up</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Patchnotes · Feb 17 → Feb 28</div>
+        </div>
+        <div style="background:var(--bg);padding:14px;min-height:500px;">
+          <div style="border-left:2px solid var(--border);padding-left:12px;margin-bottom:10px;position:relative;"><div style="width:7px;height:7px;border-radius:50%;background:var(--cherry);position:absolute;left:-4.5px;top:3px;"></div><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Feb 25 · Models</div><div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:2px;">Claude 3.7 Sonnet — extended thinking</div><div style="font-size:10px;color:var(--muted);">Upgrade if coding. Extended thinking opt-in via API.</div></div>
+          <div style="border-left:2px solid var(--border);padding-left:12px;margin-bottom:10px;position:relative;"><div style="width:7px;height:7px;border-radius:50%;background:var(--violet);position:absolute;left:-4.5px;top:3px;"></div><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Feb 24 · Frameworks</div><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;">DSPy 2.6 — native MCP tool support</div><div style="font-size:10px;color:var(--muted);">One-line MCP connections. Upgrade recommended.</div></div>
+          <div style="border-left:2px solid var(--border);padding-left:12px;margin-bottom:10px;position:relative;"><div style="width:7px;height:7px;border-radius:50%;background:var(--success);position:absolute;left:-4.5px;top:3px;"></div><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Feb 23 · Regulations</div><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;">EU AI Act enforcement begins</div><div style="font-size:10px;color:var(--muted);">Review checklist if shipping EU products.</div></div>
+          <div style="border-left:2px solid var(--border);padding-left:12px;margin-bottom:10px;position:relative;opacity:.65;"><div style="width:7px;height:7px;border-radius:50%;background:var(--border);position:absolute;left:-4.5px;top:3px;"></div><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Feb 20 · Models</div><div style="font-size:12px;color:var(--text);">Gemini 2.0 Flash — 1/10th cost of o1</div></div>
+          <div style="margin-top:16px;padding:20px 14px;background:var(--surface);border-radius:12px;border:1px solid var(--border);text-align:center;">
+            <div style="font-size:28px;margin-bottom:8px;">✓</div>
+            <div style="font-size:16px;font-weight:800;color:var(--cherry);margin-bottom:4px;">You're caught up</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Feb 17 → Feb 28 · 11 days reviewed</div>
+            <div style="display:flex;justify-content:space-around;">
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--text);">14</div><div style="font-size:9px;color:var(--muted);">updates</div></div>
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--text);">4</div><div style="font-size:9px;color:var(--muted);">areas</div></div>
+              <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--cherry);">Now</div><div style="font-size:9px;color:var(--muted);">current</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--surface);border-top:1px solid var(--border);padding:8px 0 14px;display:flex;justify-content:space-around;">
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">⚡</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">Digest</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;">📋</div><div style="font-size:9px;color:var(--cherry);font-weight:600;margin-top:2px;">Patchnotes</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">📚</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">Learn</div></div>
+          <div style="text-align:center;"><div style="font-size:17px;opacity:.5;">✦</div><div style="font-size:9px;color:var(--muted);margin-top:2px;">My Feed</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     DIR 6 — CONCEPT READER (sidebar matches Dir 1 nav)
+═══════════════════════════════════════════════════════ -->
+<div id="dir-6" class="direction-frame">
+  <div class="dir-meta">
+    <div class="dir-name">6 · Concept Reader — Focused + Roadmap Graph</div>
+    <div class="dir-tagline">6b focused single-column reading + roadmap learning path graph. Left nav matches Dir 1 — all 4 sections visible.</div>
+    <div class="dir-tags"><span class="dir-tag">Single Column</span><span class="dir-tag">Roadmap Graph</span><span class="dir-tag">Full 4-Section Nav</span></div>
+  </div>
+  <div style="background:var(--bg);min-height:calc(100vh - 108px);">
+
+    <!-- Top breadcrumb bar -->
+    <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 30px;display:flex;align-items:center;gap:12px;height:46px;">
+      <span style="font-size:14px;font-weight:800;color:var(--cherry);">cherry</span>
+      <span style="color:var(--border);">/</span>
+      <span style="font-size:12px;color:var(--muted);">Basics</span>
+      <span style="color:var(--border);">/</span>
+      <span style="font-size:12px;color:var(--text);">Retrieval-Augmented Generation</span>
+      <div style="margin-left:auto;"><div class="search-bar" style="width:160px;padding:4px 9px;"><input placeholder="Search..." readonly style="font-size:11px;"><span class="kbd">⌘K</span></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:220px 1fr 280px;min-height:calc(100vh - 154px);">
+
+      <!-- ─── LEFT NAV (matches Dir 1, no logo/search — those are in top bar) ─── -->
+      <div style="border-right:1px solid var(--border);padding:14px 0;overflow-y:auto;background:var(--surface);">
+        <div style="padding:0 8px;">
+          <div class="knav-h" style="margin-top:0;">Digest</div>
+          <div class="knav-item">⚡ This Week's Highlight</div>
+          <div class="knav-item">📋 Patchnotes</div>
+          <div class="knav-h">Basics</div>
+          <div class="knav-item">Prompting Techniques</div>
+          <div class="knav-item active-v">RAG</div>
+          <div class="knav-item">Fine-tuning</div>
+          <div class="knav-item">Agent Architectures</div>
+          <div class="knav-item">Embeddings & Vector DBs</div>
+          <div class="knav-item">Evaluation</div>
+          <div class="knav-h">Advanced</div>
+          <div class="knav-item">Chain-of-Thought</div>
+          <div class="knav-item">Multi-hop RAG</div>
+          <div class="knav-item">PEFT / LoRA / QLoRA</div>
+          <div class="knav-item">Multi-agent Systems</div>
+          <div class="knav-item">Custom Embeddings</div>
+          <div class="knav-item">Adversarial Evaluation</div>
+          <div class="knav-h">Newly Discovered</div>
+          <div class="knav-sg">Research & Models</div>
+          <div class="knav-sub">Model Updates</div>
+          <div class="knav-sub">Papers & Benchmarks</div>
+          <div class="knav-sg">Service & System Building</div>
+          <div class="knav-sub">Frameworks</div>
+          <div class="knav-sub">Tools</div>
+          <div class="knav-sub">Shared Resources</div>
+          <div class="knav-sg">Industry & Business <span style="color:var(--cherry);">⭐</span></div>
+          <div class="knav-sub">Case Studies</div>
+          <div class="knav-sg">Ecosystem & Governance</div>
+          <div class="knav-sub">Regulations</div>
+          <div class="knav-sub">Big Tech Trends</div>
+          <div class="knav-sub">This Week's Posts</div>
+          <div style="padding:0 8px;margin-top:14px;"><button style="width:100%;padding:7px;border-radius:7px;background:var(--violet-soft);border:1px solid var(--violet);color:#A987D4;font-size:11px;font-weight:600;cursor:pointer;">✦ My Feed — Paid</button></div>
+        </div>
+      </div>
+
+      <!-- ─── READING AREA ─── -->
+      <div style="padding:32px 44px;overflow-y:auto;">
+        <span class="badge bv" style="margin-bottom:10px;display:inline-block;">Basics</span>
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.5px;line-height:1.15;margin-bottom:10px;">Retrieval-Augmented Generation</h1>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:30px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--muted);">Updated Feb 20, 2026</span>
+          <span style="color:var(--border);">·</span>
+          <span style="font-size:11px;color:var(--muted);">12 sources</span>
+          <span style="color:var(--border);">·</span>
+          <span style="font-size:11px;color:var(--muted);">Knowledge Team verified</span>
+          <span style="color:var(--border);">·</span>
+          <span style="font-size:11px;color:var(--muted);">8 min read</span>
+        </div>
+
+        <div style="margin-bottom:30px;">
+          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;"><span>01 — OVERVIEW</span><div style="flex:1;height:1px;background:var(--border);"></div></div>
+          <div class="cb">
+            <p style="margin-bottom:12px;">RAG combines <strong>retrieval systems</strong> with <strong>generative language models</strong> to produce factually grounded responses. At inference time, relevant documents are retrieved and fed as additional context — solving hallucination and knowledge cutoff problems without fine-tuning.</p>
+            <p style="margin-bottom:12px;"><strong>Choose RAG when:</strong> factual accuracy matters, knowledge changes frequently, or domain-specific knowledge needs to be integrated cheaply without retraining.</p>
+            <p><strong>Core pipeline:</strong> Query → Embed → Retrieve top-k chunks → Stuff context → Generate. The hard parts are chunking strategy, retrieval quality, and context window management.</p>
+          </div>
+        </div>
+
+        <div style="margin-bottom:30px;">
+          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;"><span>02 — RELATED CONCEPTS</span><div style="flex:1;height:1px;background:var(--border);"></div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div class="cc"><div class="cc-rel">Subtopic →</div><div class="cc-name">Vector DBs</div><div class="cc-desc">Similarity search</div></div>
+            <div class="cc"><div class="cc-rel">Extends →</div><div class="cc-name">Hybrid Search</div><div class="cc-desc">Dense + sparse</div></div>
+            <div class="cc"><div class="cc-rel">Related →</div><div class="cc-name">Reranking</div><div class="cc-desc">Post-retrieval precision</div></div>
+            <div class="cc"><div class="cc-rel">Prerequisite ←</div><div class="cc-name">Embeddings</div><div class="cc-desc">Dense vectors</div></div>
+            <div class="cc"><div class="cc-rel">Extends →</div><div class="cc-name">Multi-hop RAG</div><div class="cc-desc">Iterative retrieval</div></div>
+            <div class="cc" style="border-color:var(--cherry);"><div class="cc-rel" style="color:var(--cherry);">⚡ New →</div><div class="cc-name">Contextual Retrieval</div><div class="cc-desc">-67% failures · Digest</div></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:30px;">
+          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;"><span>03 — PROGRESSIVE REFERENCES</span><div style="flex:1;height:1px;background:var(--border);"></div></div>
+          <div class="ref r1"><div class="rn">Start Here</div><div class="rt">RAG from scratch — LangChain tutorial</div><div class="rw">Best hands-on introduction. Full pipeline with working code.</div><div class="ra">→ Teaches: chunking, embedding, retrieval, generation loop</div></div>
+          <div class="ref"><div class="rn">Next</div><div class="rt">Lewis et al. — RAG for Knowledge-Intensive NLP (2020)</div><div class="rw">Original paper. Theoretical grounding for design choices.</div><div class="ra">→ Adds: formal definition, DPR retriever, seq2seq generator</div></div>
+          <div class="ref"><div class="rn">Deeper</div><div class="rt">Contextual Retrieval — Anthropic (2024)</div><div class="rw">Current SOTA. -67% retrieval failures. Essential for production RAG.</div><div class="ra">→ Adds: BM25 hybrid, contextual chunk headers, reranking</div></div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;padding:16px 0;border-top:1px solid var(--border);">
+          <button style="padding:7px 14px;border-radius:7px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;cursor:pointer;">← Prompting Techniques</button>
+          <button style="padding:7px 14px;border-radius:7px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;cursor:pointer;">Fine-tuning →</button>
+        </div>
+      </div>
+
+      <!-- ─── RIGHT PANEL: Roadmap graph ─── -->
+      <div style="border-left:1px solid var(--border);padding:16px 14px;background:var(--surface);overflow-y:auto;">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Learning Roadmap</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:12px;">You are here ↓</div>
+        <div style="background:var(--bg);border-radius:10px;border:1px solid var(--border);padding:12px;margin-bottom:12px;">
+          <svg width="100%" viewBox="0 0 230 560" style="display:block;">
+            <line x1="115" y1="20" x2="115" y2="540" stroke="#2A2535" stroke-width="2"/>
+            <rect x="30" y="10" width="170" height="38" rx="6" fill="#1C1927" stroke="#2A2535" stroke-width="1.5"/>
+            <text x="115" y="26" text-anchor="middle" font-size="9" fill="#8B849E" font-weight="700" letter-spacing="0.5">PREREQUISITE</text>
+            <text x="115" y="39" text-anchor="middle" font-size="11" fill="#A987D4" font-weight="600">Embeddings</text>
+            <text x="115" y="68" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <rect x="30" y="74" width="170" height="38" rx="6" fill="#1C1927" stroke="#2A2535" stroke-width="1.5"/>
+            <text x="115" y="90" text-anchor="middle" font-size="9" fill="#8B849E" font-weight="700" letter-spacing="0.5">BASICS</text>
+            <text x="115" y="103" text-anchor="middle" font-size="11" fill="#8B849E">Prompting Techniques</text>
+            <text x="115" y="132" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <rect x="18" y="138" width="194" height="44" rx="7" fill="#2D1F26" stroke="#C94B6E" stroke-width="2"/>
+            <text x="115" y="154" text-anchor="middle" font-size="9" fill="#C94B6E" font-weight="700" letter-spacing="0.5">YOU ARE HERE</text>
+            <text x="115" y="170" text-anchor="middle" font-size="13" fill="#F48BA0" font-weight="800">RAG</text>
+            <line x1="115" y1="182" x2="55" y2="215" stroke="#2A2535" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="4" y="215" width="102" height="32" rx="5" fill="#1C1927" stroke="#2A2535" stroke-width="1"/>
+            <text x="55" y="228" text-anchor="middle" font-size="8" fill="#8B849E" font-weight="600">SUBTOPIC</text>
+            <text x="55" y="240" text-anchor="middle" font-size="10" fill="#8B849E">Vector Databases</text>
+            <line x1="115" y1="182" x2="175" y2="215" stroke="#2A2535" stroke-width="1.5" stroke-dasharray="3,2"/>
+            <rect x="124" y="215" width="102" height="32" rx="5" fill="#1C1927" stroke="#2A2535" stroke-width="1"/>
+            <text x="175" y="228" text-anchor="middle" font-size="8" fill="#8B849E" font-weight="600">RELATED</text>
+            <text x="175" y="240" text-anchor="middle" font-size="10" fill="#8B849E">Reranking</text>
+            <text x="115" y="272" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <rect x="30" y="278" width="170" height="38" rx="6" fill="#1C1927" stroke="#2A2535" stroke-width="1.5"/>
+            <text x="115" y="294" text-anchor="middle" font-size="9" fill="#8B849E" font-weight="700" letter-spacing="0.5">BASICS · NEXT</text>
+            <text x="115" y="307" text-anchor="middle" font-size="11" fill="#8B849E">Fine-tuning</text>
+            <text x="115" y="336" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <rect x="30" y="342" width="170" height="38" rx="6" fill="#1C1927" stroke="#2A2535" stroke-width="1.5"/>
+            <text x="115" y="358" text-anchor="middle" font-size="9" fill="#8B849E" font-weight="700" letter-spacing="0.5">BASICS</text>
+            <text x="115" y="371" text-anchor="middle" font-size="11" fill="#8B849E">Agent Architectures</text>
+            <text x="115" y="400" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <line x1="30" y1="410" x2="200" y2="410" stroke="#2A2535" stroke-width="1" stroke-dasharray="4,3"/>
+            <text x="115" y="423" text-anchor="middle" font-size="9" fill="#7B5EA7" font-weight="700" letter-spacing="1">ADVANCED</text>
+            <rect x="30" y="430" width="170" height="38" rx="6" fill="#221A33" stroke="#7B5EA7" stroke-width="1.5"/>
+            <text x="115" y="446" text-anchor="middle" font-size="9" fill="#7B5EA7" font-weight="700" letter-spacing="0.5">ADVANCED</text>
+            <text x="115" y="459" text-anchor="middle" font-size="11" fill="#A987D4">Multi-hop RAG</text>
+            <text x="115" y="488" text-anchor="middle" font-size="12" fill="#2A2535">↓</text>
+            <rect x="30" y="494" width="170" height="38" rx="6" fill="#221A33" stroke="#7B5EA7" stroke-width="1"/>
+            <text x="115" y="510" text-anchor="middle" font-size="9" fill="#7B5EA7" font-weight="700" letter-spacing="0.5">ADVANCED</text>
+            <text x="115" y="523" text-anchor="middle" font-size="11" fill="#8B849E">PEFT / LoRA / QLoRA</text>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);"><div style="width:10px;height:10px;border-radius:2px;background:#2D1F26;border:1.5px solid var(--cherry);flex-shrink:0;"></div>Current concept</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);"><div style="width:10px;height:10px;border-radius:2px;background:#221A33;border:1.5px solid var(--violet);flex-shrink:0;"></div>Advanced level</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);"><div style="width:10px;height:10px;border-radius:2px;background:#1C1927;border:1px solid #2A2535;flex-shrink:0;"></div>Other concepts</div>
+        </div>
+        <div style="padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:9px;color:var(--cherry);font-weight:700;margin-bottom:4px;">⚡ New in Digest</div>
+          <div style="font-size:11px;color:var(--text);margin-bottom:2px;">Contextual Retrieval</div>
+          <div style="font-size:10px;color:var(--muted);">Extends RAG · -67% failures · Score 5</div>
+          <div style="font-size:10px;color:var(--cherry);margin-top:4px;cursor:pointer;">See in Digest →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- frame-wrapper -->
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.direction-frame').forEach(f => f.classList.remove('active'));
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('dir-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
