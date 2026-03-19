@@ -43,9 +43,9 @@ workflow_status:
   # Phase 2: Solutioning
   architecture: docs/architecture.md # Completed 2026-02-28
   validate-architecture: optional
-  epic-tech-context: docs/tech-spec-epic-1.md # JIT: also generated epic-2 and epic-3 specs
+  epic-tech-context: required
   solutioning-gate-check: required
 
   # Phase 3: Implementation
-  create-epics-and-stories: required  # Returning to this step — current epics are flawed and need to be redone
-  sprint-planning: required  # Reset: must re-run after epics are finalized
+  create-epics-and-stories: required 
+  sprint-planning: required  

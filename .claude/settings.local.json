@@ -68,7 +68,8 @@
       "Bash(find /c/Users/Hankeol/Desktop/Dev/cherry-in-the-haystack/docs -type f \\\\\\(-name *.md -o -name *.prisma \\\\\\))",
       "Bash(find /c/Users/Hankeol/Desktop/Dev/cherry-in-the-haystack/apps -type f \\\\\\(-name *.prisma -o -name *schema* \\\\\\))",
       "Bash(find /c/Users/Hankeol/Desktop/Dev/cherry-in-the-haystack/packages -type f -name *.prisma)",
-      "Bash(find /c/Users/Hankeol/Desktop/Dev/cherry-in-the-haystack -name *.erd*)"
+      "Bash(find /c/Users/Hankeol/Desktop/Dev/cherry-in-the-haystack -name *.erd*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
