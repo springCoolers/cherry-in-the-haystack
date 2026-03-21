@@ -1,26 +1,14 @@
 {
-  "name": "web",
-  "version": "0.1.0",
+  "name": "@cherry/web",
+  "version": "0.0.1",
   "private": true,
+  "description": "Cherry in the Haystack — Next.js + Nest.js web application (scaffold)",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "echo \"TODO: initialize Next.js/Nest.js in a later story\"",
+    "build": "echo \"TODO: build step\"",
+    "test": "vitest run",
+    "lint": "eslint src"
   },
-  "dependencies": {
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
