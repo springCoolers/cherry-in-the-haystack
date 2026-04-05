@@ -14,6 +14,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { jwtConstants } from 'src/common/constants/constants';
 import { TOKEN_EXPIRY_USER } from 'src/common/constants/auth.constants';
 import { RedisService } from 'src/common/basic-service/redis.service';
+import sendEmail, { EMAIL_TEMPLATE } from 'src/utils/resend';
 import type { AppUserEntity, AppUserRole } from './entity/app-user.entity';
 import type { SignupDto } from './input-dto/signup.dto';
 import type { SigninDto } from './input-dto/signin.dto';
@@ -106,8 +107,21 @@ export class AppUserAuthService {
       updated_at: now,
     });
 
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const loginLink = `${frontendUrl}/login?email=${encodeURIComponent(user.email)}&token=${signInToken}`;
+
+    await sendEmail(
+      user.email,
+      '로그인 링크',
+      EMAIL_TEMPLATE(
+        '로그인 링크',
+        '아래 버튼을 클릭하면 Cherry in the Haystack에 로그인됩니다.<br/>링크는 15분간 유효합니다.',
+        '로그인하기',
+        loginLink,
+      ),
+    );
+
     return {
-      signInToken,
       expiresAt: expiresAt.toISOString(),
     };
   }
