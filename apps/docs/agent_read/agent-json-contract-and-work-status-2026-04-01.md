@@ -16,7 +16,7 @@
 
 ## 2. 스키마 반영 상태
 - 반영 파일:
-- `docs/architecture/ddl-v1.0.sql`
+- `docs/architecture/ddl-v1.1.sql`
 - `apps/docs/ddl-v1.1.sql`
 - 반영 내용:
 - `content.user_article_ai_state.agent_json_raw JSONB NULL` 추가
