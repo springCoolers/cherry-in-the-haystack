@@ -11,6 +11,7 @@ import { FrameworksRankService } from 'src/modules/stats/frameworks-rank.service
 export class IngestionScheduleService {
   private readonly logger = new Logger(IngestionScheduleService.name);
   private isRunning = false;
+  private isStatsRunning = false;
 
   constructor(
     private readonly ingestionService: ArticleIngestionService,
@@ -64,6 +65,11 @@ export class IngestionScheduleService {
   @Cron('0 6 * * *')
   async runDailyStats(): Promise<void> {
     if (process.env.SCHEDULER_ENABLED !== 'true') return;
+    if (this.isStatsRunning) {
+      this.logger.warn('Daily stats already running, skipping');
+      return;
+    }
+    this.isStatsRunning = true;
     try {
       this.logger.log('Daily stats build started');
 
@@ -76,6 +82,8 @@ export class IngestionScheduleService {
       this.logger.log('Daily stats build done');
     } catch (err) {
       this.logger.error('Daily stats build error', err);
+    } finally {
+      this.isStatsRunning = false;
     }
   }
 }
