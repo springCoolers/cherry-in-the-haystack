@@ -9,7 +9,7 @@ BEGIN;
 
 DO $$
 DECLARE
-    v_user_id UUID := current_setting('cherry.seed_user_id')::UUID;
+    v_user_id UUID := '00000000-0000-0000-0000-000000000000'::UUID; -- __SYSTEM__ user
     v_aai_id  UUID;
     v_uas_id  UUID;
     seq       INT;

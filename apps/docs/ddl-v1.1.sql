@@ -54,6 +54,30 @@ CREATE DATABASE cherry_platform
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================
+-- Utility Functions
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION core.gen_uuidv7()
+RETURNS UUID
+LANGUAGE plpgsql
+VOLATILE AS $$
+DECLARE
+  unix_ms BIGINT := (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::BIGINT;
+  buf     BYTEA  := gen_random_bytes(16);
+BEGIN
+  buf = SET_BYTE(buf, 0, (unix_ms >> 40)::bit(8)::INT);
+  buf = SET_BYTE(buf, 1, (unix_ms >> 32)::bit(8)::INT);
+  buf = SET_BYTE(buf, 2, (unix_ms >> 24)::bit(8)::INT);
+  buf = SET_BYTE(buf, 3, (unix_ms >> 16)::bit(8)::INT);
+  buf = SET_BYTE(buf, 4, (unix_ms >>  8)::bit(8)::INT);
+  buf = SET_BYTE(buf, 5, (unix_ms      )::bit(8)::INT);
+  buf = SET_BYTE(buf, 6, (get_byte(buf, 6) & 15) | 112); -- version 7
+  buf = SET_BYTE(buf, 8, (get_byte(buf, 8) & 63) | 128); -- variant 10xx
+  RETURN encode(buf, 'hex')::UUID;
+END;
+$$;
+
+-- ============================================================
 -- Schemas
 -- ============================================================
 

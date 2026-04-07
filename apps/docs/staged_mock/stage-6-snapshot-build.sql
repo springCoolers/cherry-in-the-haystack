@@ -10,7 +10,7 @@ BEGIN;
 
 DO $$
 DECLARE
-    v_user_id    UUID := current_setting('cherry.seed_user_id')::UUID;
+    v_user_id    UUID := '00000000-0000-0000-0000-000000000000'::UUID; -- __SYSTEM__ user
     v_week_start DATE := '2026-03-31';
     v_week_end   DATE := '2026-04-06';
     v_page       content.entity_page_enum;

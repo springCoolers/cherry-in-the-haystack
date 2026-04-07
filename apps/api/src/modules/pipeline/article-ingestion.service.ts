@@ -62,6 +62,41 @@ export class ArticleIngestionService {
     return true;
   }
 
+  /**
+   * user_article_state가 없는 article_raw 전체를 INSERT...SELECT 단일 쿼리로 처리한다.
+   * Node.js 메모리를 사용하지 않고 DB 내부에서 완결된다.
+   *
+   * @returns 생성된 건수
+   */
+  async processAllUnprocessed(): Promise<{ created: number }> {
+    const result = await this.knex.raw<{ rowCount: number }>(`
+      INSERT INTO content.user_article_state
+        (id, user_id, article_raw_id, discovered_at,
+         representative_entity_id, side_category_id,
+         impact_score, is_high_impact, is_hidden, meta_json,
+         created_at, updated_at)
+      SELECT
+        gen_random_uuid(),
+        :systemUserId::UUID,
+        ar.id,
+        COALESCE(ar.published_at, NOW()) + INTERVAL '1 hour',
+        NULL, NULL, 0, FALSE, FALSE, NULL,
+        NOW(), NOW()
+      FROM content.article_raw ar
+      WHERE ar.storage_state = 'ACTIVE'
+        AND NOT EXISTS (
+          SELECT 1 FROM content.user_article_state uas
+          WHERE uas.article_raw_id = ar.id
+            AND uas.user_id = :systemUserId::UUID
+            AND uas.revoked_at IS NULL
+        )
+    `, { systemUserId: SYSTEM_USER_ID });
+
+    const created = result.rowCount ?? 0;
+    this.logger.log(`processAllUnprocessed done — created: ${created}`);
+    return { created };
+  }
+
   private resolveDiscoveredAt(publishedAt: Date | null): Date {
     if (!publishedAt) return new Date();
     const t = new Date(publishedAt);
