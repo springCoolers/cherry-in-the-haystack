@@ -88,9 +88,10 @@ function LoginContent() {
           {/* 이메일 입력 */}
           {step === "input" && (
             <>
-              <h2 className="text-[18px] font-bold text-[#1A1626] mb-1">로그인</h2>
+              <h2 className="text-[18px] font-bold text-[#1A1626] mb-1">로그인 / 가입</h2>
               <p className="text-[13px] text-[#7B7599] mb-6">
-                이메일을 입력하면 로그인 링크를 보내드립니다.
+                이메일을 입력하면 로그인 링크를 보내드립니다.<br />
+                처음 이용하시면 자동으로 가입됩니다.
               </p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <input
@@ -109,7 +110,7 @@ function LoginContent() {
                   className="w-full py-3 rounded-xl text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#C94B6E" }}
                 >
-                  로그인 링크 받기
+                  로그인 / 가입 링크 받기
                 </button>
               </form>
             </>
