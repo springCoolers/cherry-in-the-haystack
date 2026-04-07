@@ -55,8 +55,14 @@ export class StatsController {
   }
 
   @Get('landing')
-  @ApiOperation({ summary: '랜딩 페이지 통계 (treemap, momentum, top articles)' })
+  @ApiOperation({ summary: '랜딩 페이지 통계 (treemap, momentum)' })
   async getLanding(): Promise<any> {
     return this.landingStatService.getLanding();
+  }
+
+  @Get('landing/articles')
+  @ApiOperation({ summary: '랜딩 이번주 score 5 기사 (독립 쿼리)' })
+  async getLandingArticles(): Promise<any> {
+    return this.landingStatService.getTopArticles();
   }
 }

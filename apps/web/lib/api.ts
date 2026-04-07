@@ -183,11 +183,20 @@ export interface LandingResponse {
   weekEnd: string
   treemap: LandingTreemapItem[]
   topMomentumEntities: LandingMomentumEntity[]
-  topArticles: LandingTopArticle[]
+}
+
+export interface LandingArticlesResponse {
+  items: LandingTopArticle[]
 }
 
 export async function fetchLanding(): Promise<LandingResponse> {
   const res = await fetch(`${API_URL}/api/stats/landing`, { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch landing stats")
+  return res.json()
+}
+
+export async function fetchLandingArticles(): Promise<LandingArticlesResponse> {
+  const res = await fetch(`${API_URL}/api/stats/landing/articles`, { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch landing articles")
   return res.json()
 }

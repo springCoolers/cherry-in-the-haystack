@@ -151,25 +151,10 @@ export class LandingStatService {
   }
 
   /**
-   * 랜딩 페이지 데이터 반환
-   * - treemap (페이지별 기사 비율)
-   * - topMomentumEntities (전주 대비 성장률 top 5)
-   * - topArticles (score 5, 최근 7일, limit 5)
+   * 이번주 score 5 기사 목록 (platform_weekly_stat 무관, 직접 쿼리)
    */
-  async getLanding(): Promise<{
-    weekStart: string;
-    weekEnd: string;
-    treemap: { page: string; articleCount: number; percent: number }[];
-    topMomentumEntities: {
-      entityId: string;
-      entityName: string;
-      page: string;
-      categoryName: string;
-      thisWeekCount: number;
-      prevWeekCount: number;
-      changePct: number;
-    }[];
-    topArticles: {
+  async getTopArticles(): Promise<{
+    items: {
       id: string;
       title: string;
       oneLiner: string;
@@ -180,39 +165,11 @@ export class LandingStatService {
       page: string;
     }[];
   }> {
-    const latest = await this.knex('snapshot.platform_weekly_stat')
-      .orderBy('week_start', 'desc')
-      .limit(1)
-      .first(
-        'week_start',
-        'week_end',
-        'treemap_distribution_json',
-        'top_momentum_entities_json',
-      );
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
 
-    if (!latest) {
-      return { weekStart: '', weekEnd: '', treemap: [], topMomentumEntities: [], topArticles: [] };
-    }
-
-    const treemap = (latest.treemap_distribution_json ?? []).map((t: any) => ({
-      page: t.page,
-      articleCount: t.article_count,
-      percent: t.percent,
-    }));
-
-    const topMomentumEntities = (latest.top_momentum_entities_json ?? []).map((e: any) => ({
-      entityId: e.entity_id,
-      entityName: e.entity_name,
-      page: e.page,
-      categoryName: e.category_name,
-      thisWeekCount: e.this_week_count,
-      prevWeekCount: e.prev_week_count,
-      changePct: e.change_pct,
-    }));
-
-    // 최근 score 5 기사 5건
-    const weekStart = new Date(latest.week_start);
-    const topArticleRows = await this.knex.raw<{ rows: any[] }>(`
+    const rows = await this.knex.raw<{ rows: any[] }>(`
       SELECT
         uas.id,
         ar.title,
@@ -232,15 +189,63 @@ export class LandingStatService {
       LIMIT 5
     `, { weekStart: weekStart.toISOString().slice(0, 10) });
 
-    const topArticles = topArticleRows.rows.map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      oneLiner: r.one_liner ?? '',
-      entityName: r.entity_name,
-      categoryName: r.category_name,
-      score: Number(r.score),
-      date: new Date(r.date).toISOString().slice(0, 10),
-      page: r.page,
+    return {
+      items: rows.rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        oneLiner: r.one_liner ?? '',
+        entityName: r.entity_name,
+        categoryName: r.category_name,
+        score: Number(r.score),
+        date: new Date(r.date).toISOString().slice(0, 10),
+        page: r.page,
+      })),
+    };
+  }
+
+  /**
+   * 랜딩 페이지 데이터 반환
+   * - treemap (페이지별 기사 비율)
+   * - topMomentumEntities (전주 대비 성장률 top 5)
+   * - topArticles (score 5, 최근 7일, limit 5)
+   */
+  async getLanding(): Promise<{
+    weekStart: string;
+    weekEnd: string;
+    treemap: { page: string; articleCount: number; percent: number }[];
+    topMomentumEntities: {
+      entityId: string;
+      entityName: string;
+      page: string;
+      categoryName: string;
+      thisWeekCount: number;
+      prevWeekCount: number;
+      changePct: number;
+    }[];
+  }> {
+    const latest = await this.knex('snapshot.platform_weekly_stat')
+      .orderBy('week_start', 'desc')
+      .limit(1)
+      .first('week_start', 'week_end', 'treemap_distribution_json', 'top_momentum_entities_json');
+
+    if (!latest) {
+      return { weekStart: '', weekEnd: '', treemap: [], topMomentumEntities: [] };
+    }
+
+    const treemap = (latest.treemap_distribution_json ?? []).map((t: any) => ({
+      page: t.page,
+      articleCount: t.article_count,
+      percent: t.percent,
+    }));
+
+    const topMomentumEntities = (latest.top_momentum_entities_json ?? []).map((e: any) => ({
+      entityId: e.entity_id,
+      entityName: e.entity_name,
+      page: e.page,
+      categoryName: e.category_name,
+      thisWeekCount: e.this_week_count,
+      prevWeekCount: e.prev_week_count,
+      changePct: e.change_pct,
     }));
 
     return {
@@ -248,7 +253,6 @@ export class LandingStatService {
       weekEnd: new Date(latest.week_end).toISOString().slice(0, 10),
       treemap,
       topMomentumEntities,
-      topArticles,
     };
   }
 }

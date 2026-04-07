@@ -8,7 +8,7 @@ import { MobileSidebar } from "@/components/cherry/mobile-sidebar"
 import { PageHeader } from "@/components/cherry/page-header"
 import { CategoryTreemap } from "@/components/cherry/buzz-treemap"
 import { PatchNotesPage } from "@/components/cherry/patch-notes-page"
-import { fetchLanding, LandingResponse } from "@/lib/api"
+import { fetchLanding, fetchLandingArticles, LandingResponse, LandingTopArticle } from "@/lib/api"
 import { NDFrameworksPage } from "@/components/cherry/nd-frameworks-page"
 import { NDModelUpdatesPage } from "@/components/cherry/nd-model-updates-page"
 import { NDCaseStudiesPage } from "@/components/cherry/nd-case-studies-page"
@@ -17,15 +17,24 @@ import { HandbookPlaceholder } from "@/components/cherry/handbook-placeholder"
 
 const MOMENTUM_COLORS = ["#C94B6E", "#7B5EA7", "#2D7A5E", "#D4854A", "#0194E2"]
 
+const STATIC_MOMENTUM = [
+  { entityId: "s1", entityName: "GPT-4o", categoryName: "OpenAI Family", page: "MODEL_UPDATES", thisWeekCount: 12, prevWeekCount: 4, changePct: 200 },
+  { entityId: "s2", entityName: "LangGraph", categoryName: "Agent", page: "FRAMEWORKS", thisWeekCount: 9, prevWeekCount: 3, changePct: 200 },
+  { entityId: "s3", entityName: "Gemini 2.0", categoryName: "Google Family", page: "MODEL_UPDATES", thisWeekCount: 8, prevWeekCount: 3, changePct: 166 },
+]
+
 export default function CherryApp() {
   const [activeNav, setActiveNav] = useState("highlight")
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [landing, setLanding] = useState<LandingResponse | null>(null)
+  const [topArticles, setTopArticles] = useState<LandingTopArticle[]>([])
   const router = useRouter()
 
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("accessToken"))
+    // 통계(treemap+momentum)와 기사 목록 동시에 fetch
     fetchLanding().then(setLanding).catch(() => {})
+    fetchLandingArticles().then((r) => setTopArticles(r.items)).catch(() => {})
   }, [])
 
   const handleAuthClick = () => {
@@ -93,10 +102,13 @@ export default function CherryApp() {
                   Trending Momentum
                 </p>
                 <div className="space-y-2.5">
-                  {landing && landing.topMomentumEntities.length > 0 ? (
-                    landing.topMomentumEntities.map((e, idx) => {
+                  {(() => {
+                    const entities = landing && landing.topMomentumEntities.length > 0
+                      ? landing.topMomentumEntities
+                      : STATIC_MOMENTUM
+                    const maxPct = Math.max(...entities.map((x) => x.changePct))
+                    return entities.map((e, idx) => {
                       const color = MOMENTUM_COLORS[idx % MOMENTUM_COLORS.length]
-                      const maxPct = Math.max(...landing.topMomentumEntities.map((x) => x.changePct))
                       const barWidth = Math.round((e.changePct / maxPct) * 100)
                       return (
                         <div
@@ -128,11 +140,7 @@ export default function CherryApp() {
                         </div>
                       )
                     })
-                  ) : (
-                    <p className="text-[12px] text-text-muted py-4 text-center">
-                      {landing ? "No momentum data yet" : "Loading…"}
-                    </p>
-                  )}
+                  })()}
                 </div>
               </div>
             </div>
@@ -145,9 +153,9 @@ export default function CherryApp() {
               >
                 Top Picks This Week
               </p>
-              {landing && landing.topArticles.length > 0 ? (
+              {topArticles.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {landing.topArticles.map((article) => (
+                  {topArticles.map((article) => (
                     <article
                       key={article.id}
                       className="bg-white border border-[#E4E1EE] rounded-[12px] px-5 py-[18px] cursor-pointer hover:shadow-md transition-shadow"
