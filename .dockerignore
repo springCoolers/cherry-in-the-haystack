@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/.env
+**/.env.local
+**/.env.*.local
+**/coverage
+**/.git
+.claude
+dev
+*.md
