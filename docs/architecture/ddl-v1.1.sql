@@ -992,6 +992,7 @@ CREATE TABLE content.user_article_state (
                                             is_hidden                BOOLEAN NOT NULL DEFAULT FALSE,
 
                                             discovered_at            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                            read_at                  TIMESTAMPTZ NULL,
                                             meta_json                JSONB NULL,
 
                                             created_at               TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
