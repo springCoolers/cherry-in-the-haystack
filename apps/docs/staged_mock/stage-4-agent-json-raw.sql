@@ -151,9 +151,21 @@ FOR rec IN (
 LOOP
     i := i + 1;
 
-    v_uas_id  := ('0195f300-b' || lpad(rec.seq::TEXT, 3, '0') || '-7000-8000-000000000001')::UUID;
-    v_aai_id  := ('0195f300-c' || lpad(rec.seq::TEXT, 3, '0') || '-7000-8000-000000000001')::UUID;
     v_art_id  := ('0195f300-a' || lpad(rec.seq::TEXT, 3, '0') || '-7000-8000-000000000001')::UUID;
+
+    -- Resolve uas_id and aai_id via article_raw_id (IDs were gen_random_uuid(), not fixed)
+    SELECT uas.id INTO v_uas_id
+    FROM content.user_article_state uas
+    WHERE uas.article_raw_id = v_art_id
+      AND uas.user_id = v_user_id
+      AND uas.revoked_at IS NULL
+    LIMIT 1;
+
+    SELECT aai.id INTO v_aai_id
+    FROM content.user_article_ai_state aai
+    WHERE aai.user_article_state_id = v_uas_id
+      AND aai.ai_status = 'PENDING'
+    LIMIT 1;
 
     -- Look up published_at from article_raw
     SELECT published_at INTO v_pub_at FROM content.article_raw WHERE id = v_art_id;
@@ -216,6 +228,7 @@ LOOP
                 ),
                 'decision_reason', 'title and source strongly match tracked entity'
             ),
+            'side_category_code', rec.side_cat::TEXT,
             'ai_tags_json', v_tags,
             'ai_snippets_json', jsonb_build_object(
                 'why_it_matters', rec.why_matters,

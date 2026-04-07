@@ -154,6 +154,7 @@ ai_score                                 → 1~5 정수
 ai_classification_json.final_path
 ai_classification_json.candidates        → 빈 배열도 허용
 ai_classification_json.decision_reason
+side_category_code                       → "CASE_STUDY" | "APPLIED_RESEARCH" | null
 ai_tags_json                             → 배열 (TAG / KEYWORD 구분)
 ai_snippets_json.why_it_matters
 ai_snippets_json.key_points              → 배열
@@ -162,6 +163,69 @@ ai_evidence_json.evidence_items          → 배열
 ai_structured_extraction_json.source
 ai_structured_extraction_json.review
 ```
+
+### `agent_json_raw` 샘플
+
+```json
+{
+  "idempotency_key": "uas:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "version": "0.3",
+  "representative_entity": {
+    "id": "0195f300-1001-7000-b000-000000000002",
+    "page": "CASE_STUDIES",
+    "category_id": "0195f300-2001-7000-a000-000000000022",
+    "category_name": "Anthropic",
+    "name": "Claude 3.7 Sonnet"
+  },
+  "ai_summary": "Law firm deploys Claude 3.7 for contract analysis with 90% accuracy.",
+  "ai_score": 4,
+  "ai_classification_json": {
+    "final_path": {
+      "page": "CASE_STUDIES",
+      "category_name": "Anthropic",
+      "entity_name": "Claude 3.7 Sonnet"
+    },
+    "candidates": [
+      {
+        "page": "CASE_STUDIES",
+        "category_name": "Anthropic",
+        "entity_name": "Claude 3.7 Sonnet",
+        "confidence": 0.92
+      }
+    ],
+    "decision_reason": "article describes real-world deployment of Claude 3.7"
+  },
+  "side_category_code": "CASE_STUDY",
+  "ai_tags_json": [
+    { "kind": "TAG", "value": "claude-3.7-sonnet" },
+    { "kind": "TAG", "value": "anthropic" },
+    { "kind": "KEYWORD", "value": "case_studies", "frequency": 6, "confidence": 0.88 }
+  ],
+  "ai_snippets_json": {
+    "why_it_matters": "Shows Claude effectiveness for complex document understanding.",
+    "key_points": ["90% accuracy on contract analysis", "Production deployment validated"],
+    "risk_notes": ["Results may vary across legal domains"]
+  },
+  "ai_evidence_json": {
+    "evidence_items": [
+      {
+        "kind": "quote",
+        "text": "Law firm deploys Claude 3.7 for contract analysis with 90% accuracy.",
+        "url": "https://example.com/article-52",
+        "source_name": "Tech Blog",
+        "published_at": "2026-04-01T09:00:00+00:00"
+      }
+    ]
+  },
+  "ai_structured_extraction_json": {
+    "source": { "name": "Tech Blog", "type": "RSS" },
+    "review": { "type": "Case Study", "reviewer": null, "comment": null }
+  }
+}
+```
+
+> `side_category_code` 허용값: `"CASE_STUDY"` | `"APPLIED_RESEARCH"` | `null`
+> 해당 없으면 `null`. 백엔드 워커가 이 값으로 `content.side_category` 테이블 조회 → `user_article_state.side_category_id` 세팅.
 
 ---
 
