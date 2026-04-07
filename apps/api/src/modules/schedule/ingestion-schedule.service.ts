@@ -27,7 +27,7 @@ export class IngestionScheduleService {
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async runPipelineCycle(): Promise<void> {
-    if (process.env.SCHEDULER_ENABLED === 'false') return;
+    if (process.env.SCHEDULER_ENABLED !== 'true') return;
     if (this.isRunning) {
       this.logger.warn('Pipeline cycle already running, skipping');
       return;
@@ -63,7 +63,7 @@ export class IngestionScheduleService {
    */
   @Cron('0 6 * * *')
   async runDailyStats(): Promise<void> {
-    if (process.env.SCHEDULER_ENABLED === 'false') return;
+    if (process.env.SCHEDULER_ENABLED !== 'true') return;
     try {
       this.logger.log('Daily stats build started');
 
