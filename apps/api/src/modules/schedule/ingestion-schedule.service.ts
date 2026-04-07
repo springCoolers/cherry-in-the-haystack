@@ -23,9 +23,11 @@ export class IngestionScheduleService {
   /**
    * 10분마다: article_raw → uas → PENDING → SUCCESS 전체 사이클
    * isRunning 플래그로 중복 실행 방지
+   * SCHEDULER_ENABLED=false 이면 cron 실행 안 함 (로컬 개발용)
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async runPipelineCycle(): Promise<void> {
+    if (process.env.SCHEDULER_ENABLED === 'false') return;
     if (this.isRunning) {
       this.logger.warn('Pipeline cycle already running, skipping');
       return;
@@ -57,9 +59,11 @@ export class IngestionScheduleService {
 
   /**
    * 매일 새벽 6시: MODEL_UPDATES + FRAMEWORKS 주간 순위 집계
+   * SCHEDULER_ENABLED=false 이면 cron 실행 안 함 (로컬 개발용)
    */
   @Cron('0 6 * * *')
   async runDailyStats(): Promise<void> {
+    if (process.env.SCHEDULER_ENABLED === 'false') return;
     try {
       this.logger.log('Daily stats build started');
 

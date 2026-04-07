@@ -1,221 +1,167 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
+import {
+  fetchCaseStudies,
+  CaseStudiesCategoryGroup,
+  CaseStudyItem,
+} from "@/lib/api"
 
 /* ─────────────────────────────────────────────
-   Star rating component
+   Category color map (by code)
 ───────────────────────────────────────────── */
-function StarRating({ rating }: { rating: number }) {
+const CATEGORY_COLORS: Record<string, { dot: string; label: string }> = {
+  "cs-openai":    { dot: "#4B78F0", label: "OpenAI" },
+  "cs-google":    { dot: "#7B5EA7", label: "Google" },
+  "cs-anthropic": { dot: "#C94B6E", label: "Anthropic" },
+  "cs-microsoft": { dot: "#0194E2", label: "Microsoft" },
+}
+
+const SIDE_CAT_STYLES: Record<string, { bg: string; color: string; border: string }> = {
+  "CASE_STUDY":       { bg: "#EFF7F3", color: "#2D7A5E", border: "#A8D4BF" },
+  "APPLIED_RESEARCH": { bg: "#F3EFFA", color: "#7B5EA7", border: "#C7B8E8" },
+}
+const DEFAULT_SIDE_STYLE = { bg: "#F2F0F7", color: "#9E97B3", border: "#E4E1EE" }
+
+/* ─────────────────────────────────────────────
+   Stars
+───────────────────────────────────────────── */
+function Stars({ count }: { count: number }) {
   return (
-    <span className="text-[12px] text-cherry tracking-tight">
-      {Array.from({ length: 5 }, (_, i) => (i < rating ? "★" : "☆")).join("")}
+    <span className="text-[12px] tracking-tight" style={{ color: "#C94B6E" }}>
+      {Array.from({ length: 5 }, (_, i) => (i < count ? "★" : "☆")).join("")}
     </span>
   )
 }
 
 /* ─────────────────────────────────────────────
-   Badge component
+   Side Category Tag
 ───────────────────────────────────────────── */
-function Badge({ 
-  type 
-}: { 
-  type: "case-study" | "applied-research" | "models" | "frameworks" 
-}) {
-  const styles = {
-    "case-study": { bg: "#EFF7F3", text: "#2D7A5E", border: "#A8D4BF" },
-    "applied-research": { bg: "#F3EFFA", text: "#7B5EA7", border: "#C7B8E8" },
-    "models": { bg: "#FDF0F3", text: "#C94B6E", border: "#F2C4CE" },
-    "frameworks": { bg: "#F3EFFA", text: "#7B5EA7", border: "#C7B8E8" },
-  }
-  const labels = {
-    "case-study": "Case Study",
-    "applied-research": "Applied Research",
-    "models": "Models",
-    "frameworks": "Frameworks",
-  }
-  const s = styles[type]
+function SideTag({ code, name }: { code: string | null; name: string | null }) {
+  if (!name) return null
+  const s = (code && SIDE_CAT_STYLES[code]) ?? DEFAULT_SIDE_STYLE
   return (
-    <span 
-      className="inline-flex px-2 py-1 rounded-[10px] text-[10px] font-bold uppercase"
-      style={{ backgroundColor: s.bg, color: s.text, border: `1px solid ${s.border}` }}
+    <span
+      className="inline-flex px-2 py-0.5 rounded-[8px] text-[10px] font-bold uppercase"
+      style={{ backgroundColor: s.bg, color: s.color, border: `1px solid ${s.border}` }}
     >
-      {labels[type]}
+      {name}
     </span>
   )
 }
 
 /* ─────────────────────────────────────────────
-   Main Page Component
+   Article Card
+───────────────────────────────────────────── */
+function ArticleCard({ item }: { item: CaseStudyItem }) {
+  return (
+    <div
+      className="bg-white rounded-[10px] p-4 mb-2.5 cursor-pointer transition-all duration-150 hover:bg-[#FAFAFA]"
+      style={{ border: "1px solid #E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#7B5EA7" }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E4E1EE" }}
+    >
+      <h3 className="text-[15px] font-semibold text-[#1A1626] leading-[1.4] mb-1.5">
+        {item.title}
+      </h3>
+      <p className="text-[13px] text-[#9E97B3] leading-[1.55] mb-2.5 line-clamp-2">
+        {item.oneLiner}
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <SideTag code={item.sideCategoryCode} name={item.sideCategory} />
+        <Stars count={item.score} />
+        <span
+          className="px-2 py-0.5 rounded-[8px] text-[11px] text-[#9E97B3]"
+          style={{ border: "1px solid #E4E1EE" }}
+        >
+          {item.entityName}
+        </span>
+        <span className="text-[10px] text-[#9E97B3]">{item.date}</span>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   Category Group
+───────────────────────────────────────────── */
+function CategoryGroup({ group }: { group: CaseStudiesCategoryGroup }) {
+  const meta = CATEGORY_COLORS[group.code] ?? { dot: "#9E97B3", label: group.name }
+  return (
+    <div className="mb-8">
+      <div
+        className="flex items-center gap-2.5 pb-2 mb-3"
+        style={{ borderBottom: "1px solid #E4E1EE" }}
+      >
+        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: meta.dot }} />
+        <span className="text-[13px] font-bold uppercase tracking-[0.5px] text-[#1A1626]">
+          {group.name}
+        </span>
+        <span className="text-[11px] text-[#9E97B3] ml-auto">{group.items.length} items</span>
+      </div>
+      {group.items.map((item) => (
+        <ArticleCard key={item.id} item={item} />
+      ))}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   Main Page
 ───────────────────────────────────────────── */
 export function NDCaseStudiesPage() {
+  const [groups, setGroups] = useState<CaseStudiesCategoryGroup[]>([])
+  const [total, setTotal] = useState(0)
+  const [period, setPeriod] = useState<{ from: string; to: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchCaseStudies()
+      .then((data) => {
+        setGroups(data.groups)
+        setTotal(data.total)
+        setPeriod(data.period)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const periodLabel = period?.from
+    ? `${period.from} – ${period.to}`
+    : ""
+
   return (
     <div className="flex h-full">
-      {/* ───────── Main Content ───────── */}
-      <div 
-        className="flex-1 overflow-y-auto"
-        style={{ padding: "28px 32px", maxWidth: 900 }}
-      >
-        {/* Header row */}
+      <div style={{ padding: "28px 32px", maxWidth: 900, width: "100%" }}>
+        {/* Header */}
         <div className="flex items-end justify-between flex-wrap gap-3 mb-6">
           <div>
-            <h1 
-              className="font-extrabold text-text-primary leading-tight"
+            <h1
+              className="font-extrabold text-[#1A1626] leading-tight"
               style={{ fontSize: "26px", letterSpacing: "-0.3px" }}
             >
               Case Studies
             </h1>
-            <p className="text-[13px] text-text-muted mt-1.5">
-              6 items · 2 company sources · Week of Feb 24, 2026
+            <p className="text-[13px] text-[#9E97B3] mt-1.5">
+              {loading ? "Loading…" : `${total} items · ${groups.length} sources · ${periodLabel}`}
             </p>
           </div>
-          <button
+          <span
             className="px-4 py-1.5 rounded-[6px] text-[12px] font-semibold"
             style={{ backgroundColor: "#EFF7F3", color: "#2D7A5E", border: "1px solid #A8D4BF" }}
           >
             Case Studies
-          </button>
+          </span>
         </div>
 
-        {/* ───────── Company Group 1: OpenAI ───────── */}
-        <div className="mb-8">
-          <div 
-            className="flex items-center gap-2.5 pb-2 mb-3"
-            style={{ borderBottom: "1px solid #E4E1EE" }}
-          >
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#5ECBA1" }} />
-            <span className="text-[13px] font-bold uppercase tracking-[0.5px] text-text-primary">
-              OpenAI — Enterprise Deployments
-            </span>
-            <span className="text-[11px] text-text-muted ml-auto">3 items</span>
-          </div>
-
-          {/* Card A */}
-          <ArticleCard
-            title="Enterprise AI scaling with GPT-4.1 — Netomi case study"
-            desc="Multi-tenant deployment handling 50M+ monthly conversations. Key lessons: concurrency limits at scale, model routing by task complexity, enterprise tier pricing for large deployments."
-            badge="case-study"
-            rating={3}
-            source="Netomi Blog"
-            date="Feb 24"
-          />
-
-          {/* Card B */}
-          <ArticleCard
-            title="HIPAA-compliant OpenAI for clinical workflows — GPT-5 BAA"
-            desc="Business associate agreement now available for healthcare orgs. Use cases: clinical note generation, diagnosis support, prior authorization automation. PHI handling and audit logging overview."
-            badge="case-study"
-            rating={3}
-            source="OpenAI Blog"
-            date="Feb 23"
-          />
-
-          {/* Card C */}
-          <ArticleCard
-            title="Voice-first enterprise AI with GPT-5.1 — Tolan deployment"
-            desc="Sub-200ms voice response replacing traditional IVR. GPT-5.1 outperforms Whisper+GPT-4 stack on latency. Architecture: streaming ASR → streaming LLM → streaming TTS in single pipeline."
-            badge="case-study"
-            rating={3}
-            source="Tolan Engineering"
-            date="Feb 22"
-          />
-        </div>
-
-        {/* ───────── Company Group 2: Google ───────── */}
-        <div className="mb-8">
-          <div 
-            className="flex items-center gap-2.5 pb-2 mb-3"
-            style={{ borderBottom: "1px solid #E4E1EE" }}
-          >
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#A987D4" }} />
-            <span className="text-[13px] font-bold uppercase tracking-[0.5px] text-text-primary">
-              Google — Applied AI Research
-            </span>
-            <span className="text-[11px] text-text-muted ml-auto">3 items</span>
-          </div>
-
-          {/* Card D */}
-          <ArticleCard
-            title="GenAI for weather forecast uncertainty quantification"
-            desc="Calibrated probabilistic outputs for numerical weather prediction. Reduces systematic bias in extreme weather. Deployed at national meteorological agencies across 3 countries."
-            badge="applied-research"
-            rating={3}
-            source="Google AI Blog"
-            date="Feb 24"
-          />
-
-          {/* Card E */}
-          <ArticleCard
-            title="AutoBNN — automated Bayesian neural networks for time-series"
-            desc="Interpretable probabilistic forecasting with automatic architecture search. Outperforms Prophet on M4 benchmark. Uncertainty estimates calibrated — useful for financial and demand forecasting."
-            badge="applied-research"
-            rating={3}
-            source="Google AI Blog"
-            date="Feb 23"
-          />
-
-          {/* Card F */}
-          <ArticleCard
-            title="AI-assisted lung cancer screening — NHS trial results"
-            desc="Computer-aided detection improving sensitivity in low-dose CT scans by 12%. Deployed across 8 UK NHS hospitals. Radiologist-in-the-loop workflow. Key finding: AI catches early-stage nodules missed on first pass."
-            badge="applied-research"
-            rating={4}
-            source="Google Health"
-            date="Feb 22"
-          />
-        </div>
+        {loading ? (
+          <div className="text-[13px] text-[#9E97B3] py-12 text-center">Loading…</div>
+        ) : groups.length === 0 ? (
+          <div className="text-[13px] text-[#9E97B3] py-12 text-center">No case studies found</div>
+        ) : (
+          groups.map((g) => <CategoryGroup key={g.id} group={g} />)
+        )}
       </div>
     </div>
   )
 }
-
-/* ────────────────────────────��────────────────
-   Article Card component
-───────────────────────────────────────────── */
-function ArticleCard({
-  title,
-  desc,
-  badge,
-  rating,
-  source,
-  date,
-}: {
-  title: string
-  desc: string
-  badge: "case-study" | "applied-research"
-  rating: number
-  source: string
-  date: string
-}) {
-  return (
-    <div 
-      className="bg-white rounded-[10px] p-4 mb-2.5 cursor-pointer transition-all duration-150 hover:bg-[#FAFAFA]"
-      style={{ border: "1px solid #E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "#7B5EA7"
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "#E4E1EE"
-      }}
-    >
-      <h3 className="text-[15px] font-semibold text-text-primary leading-[1.4] mb-1.5">
-        {title}
-      </h3>
-      <p className="text-[13px] text-text-muted leading-[1.55] mb-2.5">
-        {desc}
-      </p>
-      <div className="flex items-center gap-2">
-        <Badge type={badge} />
-        <StarRating rating={rating} />
-        <span 
-          className="px-2 py-0.5 rounded-[8px] text-[11px] text-text-muted"
-          style={{ border: "1px solid #E4E1EE" }}
-        >
-          {source}
-        </span>
-        <span className="text-[10px] text-text-muted">{date}</span>
-      </div>
-    </div>
-  )
-}
-
-

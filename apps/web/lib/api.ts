@@ -117,3 +117,36 @@ export async function fetchFrameworks(): Promise<FrameworksResponse> {
   if (!res.ok) throw new Error("Failed to fetch frameworks")
   return res.json()
 }
+
+export interface CaseStudyItem {
+  id: string
+  articleStateId: string
+  title: string
+  oneLiner: string
+  entityName: string
+  categoryName: string
+  categoryCode: string
+  sideCategory: string | null
+  sideCategoryCode: string | null
+  score: number
+  date: string
+}
+
+export interface CaseStudiesCategoryGroup {
+  id: string
+  code: string
+  name: string
+  items: CaseStudyItem[]
+}
+
+export interface CaseStudiesResponse {
+  groups: CaseStudiesCategoryGroup[]
+  total: number
+  period: { from: string; to: string }
+}
+
+export async function fetchCaseStudies(): Promise<CaseStudiesResponse> {
+  const res = await fetch(`${API_URL}/api/patch-notes/case-studies`, { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch case studies")
+  return res.json()
+}
