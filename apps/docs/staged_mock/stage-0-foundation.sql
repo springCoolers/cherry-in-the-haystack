@@ -33,7 +33,8 @@ INSERT INTO content.source (id, type, name, url_handle, frequency, language, cou
 ('0195f300-0001-7000-a000-000000000007', 'RSS',     'The Verge AI',       'https://theverge.com/ai/rss',           'DAILY', 'en', 'US'),
 ('0195f300-0001-7000-a000-000000000008', 'RSS',     'Meta AI Blog',       'https://ai.meta.com/blog/rss',          'DAILY', 'en', 'US'),
 ('0195f300-0001-7000-a000-000000000009', 'RSS',     'DeepMind Blog',      'https://deepmind.google/blog/rss',      'DAILY', 'en', 'GB'),
-('0195f300-0001-7000-a000-00000000000a', 'RSS',     'AI Korea News',      'https://aikorea.kr/rss',                'DAILY', 'ko', 'KR');
+('0195f300-0001-7000-a000-00000000000a', 'RSS',     'AI Korea News',      'https://aikorea.kr/rss',                'DAILY', 'ko', 'KR')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- 2. TRACKED ENTITIES (40)
@@ -85,7 +86,8 @@ INSERT INTO content.tracked_entity (id, name, description, is_active, is_feature
 -- Big tech / Regulations (3)
 ('0195f300-1001-7000-b000-000000000060', 'EU AI Act',         'European AI regulation',        TRUE, TRUE),
 ('0195f300-1001-7000-b000-000000000061', 'NIST AI RMF',       'US AI risk management framework', TRUE, TRUE),
-('0195f300-1001-7000-b000-000000000062', 'MCP Protocol',      'Model Context Protocol by Anthropic', TRUE, TRUE);
+('0195f300-1001-7000-b000-000000000062', 'MCP Protocol',      'Model Context Protocol by Anthropic', TRUE, TRUE)
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- 3. ENTITY CATEGORIES (25, across 9 pages)
@@ -131,7 +133,8 @@ INSERT INTO content.entity_category (id, entity_page, code, name, sort_order) VA
 ('0195f300-2001-7000-a000-000000000071', 'BIG_TECH_TRENDS', 'startup', 'Startup', 2),
 -- THIS_WEEKS_POSTS (2)
 ('0195f300-2001-7000-a000-000000000080', 'THIS_WEEKS_POSTS', 'community', 'Community', 1),
-('0195f300-2001-7000-a000-000000000081', 'THIS_WEEKS_POSTS', 'blog',      'Blog',      2);
+('0195f300-2001-7000-a000-000000000081', 'THIS_WEEKS_POSTS', 'blog',      'Blog',      2)
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- 4. TRACKED ENTITY PLACEMENTS (entity -> page/category mapping)
@@ -199,7 +202,8 @@ INSERT INTO content.tracked_entity_placement (id, tracked_entity_id, entity_page
 ('0195f300-3001-7000-b000-000000000089', '0195f300-1001-7000-b000-000000000010', 'THIS_WEEKS_POSTS','0195f300-2001-7000-a000-000000000080'), -- LangChain -> TWP:Community
 ('0195f300-3001-7000-b000-00000000008a', '0195f300-1001-7000-b000-000000000001', 'THIS_WEEKS_POSTS','0195f300-2001-7000-a000-000000000081'), -- GPT-5.4 -> TWP:Blog
 ('0195f300-3001-7000-b000-00000000008b', '0195f300-1001-7000-b000-000000000018', 'THIS_WEEKS_POSTS','0195f300-2001-7000-a000-000000000080'), -- Ollama -> TWP:Community
-('0195f300-3001-7000-b000-00000000008c', '0195f300-1001-7000-b000-00000000001c', 'THIS_WEEKS_POSTS','0195f300-2001-7000-a000-000000000081'); -- RAGFlow -> TWP:Blog
+('0195f300-3001-7000-b000-00000000008c', '0195f300-1001-7000-b000-00000000001c', 'THIS_WEEKS_POSTS','0195f300-2001-7000-a000-000000000081') -- RAGFlow -> TWP:Blog
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- 5. SIDE CATEGORIES (CASE_STUDY, APPLIED_RESEARCH)

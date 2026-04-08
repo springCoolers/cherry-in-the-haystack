@@ -76,6 +76,7 @@ VALUES
 ('0195f300-a147-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000005', 'Mistral Large 2 Tool Calling Update',                 'https://example.com/article-147', '2026-03-31T09:00:00+09:00', 'seed-147-' || md5('Mistral Large 2 Tool Calling Update'),                 'en'),
 ('0195f300-a148-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000005', 'Mistral NeMo 12B Fine-Tuning Results',                'https://example.com/article-148', '2026-03-29T09:00:00+09:00', 'seed-148-' || md5('Mistral NeMo 12B Fine-Tuning Results'),                'en'),
 ('0195f300-a149-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000005', 'Le Chat: Mistral Consumer App Launch',                'https://example.com/article-149', '2026-03-27T09:00:00+09:00', 'seed-149-' || md5('Le Chat: Mistral Consumer App Launch'),                'en'),
-('0195f300-a150-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000005', 'Mistral Large 2 Coding Benchmark Results',            'https://example.com/article-150', '2026-03-26T09:00:00+09:00', 'seed-150-' || md5('Mistral Large 2 Coding Benchmark Results'),            'en');
+('0195f300-a150-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000005', 'Mistral Large 2 Coding Benchmark Results',            'https://example.com/article-150', '2026-03-26T09:00:00+09:00', 'seed-150-' || md5('Mistral Large 2 Coding Benchmark Results'),            'en')
+ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

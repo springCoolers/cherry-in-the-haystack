@@ -162,7 +162,8 @@ LOOP
         v_pub_at,
         'seed-' || rec.seq || '-' || md5(rec.title),
         v_lang
-    );
+    )
+    ON CONFLICT (id) DO NOTHING;
 
 END LOOP;
 

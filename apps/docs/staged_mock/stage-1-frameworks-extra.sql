@@ -88,6 +88,7 @@ VALUES
 -- =================== Prompt Engineering (2개) ===================
 -- DSPy (2)
 ('0195f300-b249-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000006', 'DSPy 2.5 MIPROv2 Optimizer for Automated Prompt Tuning',      'https://example.com/fw-249', '2026-04-05T09:00:00+09:00', 'seed-fw-249-' || md5('DSPy 2.5 MIPROv2 Optimizer for Automated Prompt Tuning'),      'en'),
-('0195f300-b250-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000006', 'DSPy vs Manual Prompting: Benchmark Results on GPT-5',        'https://example.com/fw-250', '2026-03-30T09:00:00+09:00', 'seed-fw-250-' || md5('DSPy vs Manual Prompting: Benchmark Results on GPT-5'),        'en');
+('0195f300-b250-7000-8000-000000000001', '0195f300-0001-7000-a000-000000000006', 'DSPy vs Manual Prompting: Benchmark Results on GPT-5',        'https://example.com/fw-250', '2026-03-30T09:00:00+09:00', 'seed-fw-250-' || md5('DSPy vs Manual Prompting: Benchmark Results on GPT-5'),        'en')
+ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

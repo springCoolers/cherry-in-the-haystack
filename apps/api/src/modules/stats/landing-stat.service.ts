@@ -13,7 +13,7 @@ export class LandingStatService {
   /**
    * 오늘 기준 platform_weekly_stat UPSERT
    * - treemap_distribution_json: 페이지별 기사 비율 (이번 7일)
-   * - top_momentum_entities_json: 전주 대비 기사 수 증가율 top 5 (크로스 페이지)
+   * - top_momentum_entities_json: 전주 대비 기사 수 증가율 top 3 (크로스 페이지)
    */
   async buildDailyStat(): Promise<{ upserted: number }> {
     const today = new Date();
@@ -110,7 +110,7 @@ export class LandingStatService {
       })
       .filter((e) => e.change_pct !== null && e.change_pct > 0)
       .sort((a, b) => (b.change_pct as number) - (a.change_pct as number))
-      .slice(0, 5);
+      .slice(0, 3);
 
     // ── 3. Upsert platform_weekly_stat ────────────────────────
     const itemsThisWeek = total;
@@ -206,7 +206,7 @@ export class LandingStatService {
   /**
    * 랜딩 페이지 데이터 반환
    * - treemap (페이지별 기사 비율)
-   * - topMomentumEntities (전주 대비 성장률 top 5)
+   * - topMomentumEntities (전주 대비 성장률 top 3)
    * - topArticles (score 5, 최근 7일, limit 5)
    */
   async getLanding(): Promise<{
@@ -238,7 +238,7 @@ export class LandingStatService {
       percent: t.percent,
     }));
 
-    const topMomentumEntities = (latest.top_momentum_entities_json ?? []).map((e: any) => ({
+    const topMomentumEntities = (latest.top_momentum_entities_json ?? []).slice(0, 3).map((e: any) => ({
       entityId: e.entity_id,
       entityName: e.entity_name,
       page: e.page,

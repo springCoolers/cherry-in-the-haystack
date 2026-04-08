@@ -80,7 +80,7 @@ export class AgentJsonParserService {
           WHEN aai.ai_score = 3 THEN (40 + random() * 20)::NUMERIC
           ELSE                       (20 + random() * 20)::NUMERIC
         END,
-        is_high_impact = (aai.ai_score >= 4),
+        is_high_impact = COALESCE(aai.ai_score >= 4, FALSE),
         updated_at = NOW()
       FROM content.user_article_ai_state aai
       LEFT JOIN content.side_category sc
