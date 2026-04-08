@@ -31,6 +31,15 @@ const BADGE_STYLES: Record<BadgeKey, { bg: string; text: string; border: string 
 }
 
 /* ─────────────────────────────────────────────
+   Skeleton bar — shimmer sweep (opacity pulse 없음)
+───────────────────────────────────────────── */
+function Bone({ w = "w-full", h = "h-3" }: { w?: string; h?: string }) {
+  return (
+    <span className={cn("inline-block rounded-md", w, h)} style={{ backgroundColor: "transparent" }} />
+  )
+}
+
+/* ─────────────────────────────────────────────
    Stars Component
 ───────────────────────────────────────────── */
 function Stars({ count, color = "#C94B6E" }: { count: number; color?: string }) {
@@ -44,71 +53,100 @@ function Stars({ count, color = "#C94B6E" }: { count: number; color?: string }) 
 }
 
 /* ─────────────────────────────────────────────
-   Timeline Item
+   Timeline Item (real + skeleton)
 ───────────────────────────────────────────── */
 function TimelineItem({
   item,
   index,
   total,
   onRead,
+  loading = false,
+  skeletonWidths,
 }: {
-  item: PatchNoteItem
+  item?: PatchNoteItem
   index: number
   total: number
   onRead: (id: string) => void
+  loading?: boolean
+  skeletonWidths?: { title: string; summary: string }
 }) {
-  const badgeKey = PAGE_BADGE[item.page] ?? "muted"
+  const badgeKey = item ? (PAGE_BADGE[item.page] ?? "muted") : "muted"
   const badgeStyle = BADGE_STYLES[badgeKey]
   const FADE_START = 10
-  const opacity = index < FADE_START ? 1 : Math.max(0.3, 1 - ((index - FADE_START + 1) / (total - FADE_START)) * 0.7)
+  const opacity = !loading && item
+    ? (index < FADE_START ? 1 : Math.max(0.3, 1 - ((index - FADE_START + 1) / (total - FADE_START)) * 0.7))
+    : 1
 
   return (
     <div
       className="relative pl-6 cursor-pointer"
       style={{ opacity }}
-      onClick={() => !item.isRead && onRead(item.articleStateId)}
+      onClick={() => item && !item.isRead && onRead(item.articleStateId)}
     >
       {/* Dot */}
       <span
         className="absolute left-0 top-[7px] w-[10px] h-[10px] rounded-full border-2 border-card"
-        style={{ backgroundColor: item.dotColor }}
+        style={{ backgroundColor: loading ? "#E4E1EE" : (item?.dotColor ?? "#E4E1EE") }}
       />
 
-      {/* Content */}
       <div className="pb-5">
-        <p className="text-[12px] text-text-muted mb-1">
-          {item.date} · {item.area}
-          {item.isRead && (
-            <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-semibold" style={{ color: "#C94B6E" }}>
-              <Check className="w-2.5 h-2.5" /> read
-            </span>
+        {/* Date · Area */}
+        <div className="text-[12px] text-text-muted mb-1.5 h-4 flex items-center gap-1">
+          {loading ? <Bone w="w-28" h="h-3" /> : (
+            <>
+              {item!.date} · {item!.area}
+              {item!.isRead && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-semibold" style={{ color: "#C94B6E" }}>
+                  <Check className="w-2.5 h-2.5" /> read
+                </span>
+              )}
+            </>
           )}
-        </p>
-        <p className="text-[15px] font-bold text-[#1A1626] mb-1 leading-snug">
-          {item.title}
-        </p>
-        {item.oneLiner && (
-          <p className="text-[13px] text-text-muted mb-2">{item.oneLiner}</p>
-        )}
+        </div>
+
+        {/* Title */}
+        <div className="mb-1.5">
+          {loading ? (
+            <Bone w={skeletonWidths?.title ?? "w-[65%]"} h="h-[18px]" />
+          ) : (
+            <p className="text-[15px] font-bold text-[#1A1626] leading-snug">{item!.title}</p>
+          )}
+        </div>
+
+        {/* One-liner */}
+        <div className="mb-2">
+          {loading ? (
+            <Bone w={skeletonWidths?.summary ?? "w-[75%]"} h="h-3" />
+          ) : item!.oneLiner ? (
+            <p className="text-[13px] text-text-muted">{item!.oneLiner}</p>
+          ) : null}
+        </div>
+
+        {/* Badges + stars */}
         <div className="flex items-center gap-2">
-          <span
-            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border"
-            style={{
-              backgroundColor: badgeStyle.bg,
-              color: badgeStyle.text,
-              borderColor: badgeStyle.border,
-            }}
-          >
-            {item.area}
-          </span>
-          {item.sideCategory && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border"
-              style={{ backgroundColor: "#EFF7F3", color: "#2D7A5E", borderColor: "#A8D4C0" }}
-            >
-              {item.sideCategory === "CASE_STUDY" ? "Case Study" : "Applied Research"}
-            </span>
+          {loading ? (
+            <>
+              <Bone w="w-16" h="h-5" />
+              <Bone w="w-12" h="h-3" />
+            </>
+          ) : (
+            <>
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+                style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.text, borderColor: badgeStyle.border }}
+              >
+                {item!.area}
+              </span>
+              {item!.sideCategory && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+                  style={{ backgroundColor: "#EFF7F3", color: "#2D7A5E", borderColor: "#A8D4C0" }}
+                >
+                  {item!.sideCategory === "CASE_STUDY" ? "Case Study" : "Applied Research"}
+                </span>
+              )}
+              {item!.score > 0 && <Stars count={item!.score} />}
+            </>
           )}
-          {item.score > 0 && <Stars count={item.score} />}
         </div>
       </div>
     </div>
@@ -119,6 +157,20 @@ function TimelineItem({
    Filters
 ───────────────────────────────────────────── */
 const FILTER_OPTIONS = ["All", "Models", "Frameworks", "Case Study", "Research", "Tools", "Big Tech", "Posts", "Regulations"]
+
+const SKELETON_COUNT = 8
+
+// 항목마다 제목·요약 폭을 다르게 — 실제 텍스트 길이 분포 모사
+const SKELETON_WIDTHS = [
+  { title: "w-[72%]",  summary: "w-[85%]" },
+  { title: "w-[55%]",  summary: "w-[70%]" },
+  { title: "w-[80%]",  summary: "w-[60%]" },
+  { title: "w-[48%]",  summary: "w-[78%]" },
+  { title: "w-[68%]",  summary: "w-[55%]" },
+  { title: "w-[75%]",  summary: "w-[82%]" },
+  { title: "w-[52%]",  summary: "w-[65%]" },
+  { title: "w-[63%]",  summary: "w-[74%]" },
+]
 
 /* ─────────────────────────────────────────────
    Main Page
@@ -138,12 +190,9 @@ export function PatchNotesPage() {
     await markArticleRead(articleStateId)
     setData((prev) =>
       prev
-        ? {
-            ...prev,
-            items: prev.items.map((item) =>
-              item.articleStateId === articleStateId ? { ...item, isRead: true } : item
-            ),
-          }
+        ? { ...prev, items: prev.items.map((item) =>
+            item.articleStateId === articleStateId ? { ...item, isRead: true } : item
+          )}
         : prev
     )
   }
@@ -153,23 +202,7 @@ export function PatchNotesPage() {
   )
 
   const unreadCount = (data?.items ?? []).filter((i) => !i.isRead).length
-  const isAllRead = unreadCount === 0
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-text-muted text-[14px]">Loading patch notes...</p>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-text-muted text-[14px]">Failed to load patch notes.</p>
-      </div>
-    )
-  }
+  const isAllRead = !loading && unreadCount === 0
 
   return (
     <div>
@@ -181,19 +214,25 @@ export function PatchNotesPage() {
         >
           Patch Notes
         </h1>
-        <p className="text-[15px] text-text-muted leading-relaxed">
-          {data.period.from} → {data.period.to} &nbsp;·&nbsp; Weekly changelog
-        </p>
+        <div className="text-[15px] text-text-muted leading-relaxed h-6 flex items-center">
+          {loading ? <Bone w="w-48" h="h-4" /> : (
+            <>{data!.period.from} → {data!.period.to} &nbsp;·&nbsp; Weekly changelog</>
+          )}
+        </div>
       </div>
 
       {/* Two-column layout */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT: Timeline */}
         <div className="w-full lg:flex-[0_0_65%] min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-text-muted mb-4">
-            {data.stats.totalUpdates} UPDATES · {data.areas} AREAS
-            {unreadCount > 0 && ` · ${unreadCount} UNREAD`}
-          </p>
+          <div className="text-[10px] font-bold uppercase tracking-[0.8px] text-text-muted mb-4 h-4 flex items-center">
+            {loading ? <Bone w="w-40" h="h-3" /> : (
+              <>
+                {data!.stats.totalUpdates} UPDATES · {data!.areas} AREAS
+                {unreadCount > 0 && ` · ${unreadCount} UNREAD`}
+              </>
+            )}
+          </div>
 
           <div className="relative">
             {/* Vertical line */}
@@ -202,7 +241,11 @@ export function PatchNotesPage() {
               style={{ backgroundColor: "#E4E1EE" }}
             />
 
-            {filteredItems.length === 0 ? (
+            {loading ? (
+              Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+                <TimelineItem key={i} index={i} total={SKELETON_COUNT} onRead={() => {}} loading skeletonWidths={SKELETON_WIDTHS[i]} />
+              ))
+            ) : filteredItems.length === 0 ? (
               <div className="pl-6 text-[13px] text-text-muted py-8">No items in this area.</div>
             ) : (
               filteredItems.map((item, index) => (
@@ -211,36 +254,38 @@ export function PatchNotesPage() {
             )}
 
             {/* End card */}
-            <div className="relative pl-6 pt-2">
-              <div
-                className="bg-card border border-border rounded-[16px] p-7 text-center"
-                style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-              >
+            {!loading && (
+              <div className="relative pl-6 pt-2">
                 <div
-                  className="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                  style={{ backgroundColor: isAllRead ? "#FDF0F3" : "#F3EFFA" }}
+                  className="bg-card border border-border rounded-[16px] p-7 text-center"
+                  style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                 >
-                  <Check className="w-6 h-6" style={{ color: isAllRead ? "#C94B6E" : "#7B5EA7" }} />
-                </div>
-                <p className="text-[18px] font-extrabold mb-1" style={{ color: isAllRead ? "#C94B6E" : "#7B5EA7" }}>
-                  {isAllRead ? "You're caught up" : `${unreadCount} left to read`}
-                </p>
-                <p className="text-[13px] text-text-muted mb-4">
-                  {data.period.from} → {data.period.to} · {isAllRead ? "All read" : `${data.stats.totalUpdates - unreadCount} / ${data.stats.totalUpdates} read`}
-                </p>
-                <div className="flex items-center justify-center gap-6">
-                  {[
-                    { label: `${data.stats.totalUpdates} updates`, color: "#1A1626" },
-                    { label: `${data.areas} areas`, color: "#1A1626" },
-                    { label: isAllRead ? "Current" : "In progress", color: isAllRead ? "#C94B6E" : "#7B5EA7" },
-                  ].map((stat) => (
-                    <div key={stat.label} className="text-[12px] font-semibold" style={{ color: stat.color }}>
-                      {stat.label}
-                    </div>
-                  ))}
+                  <div
+                    className="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-3"
+                    style={{ backgroundColor: isAllRead ? "#FDF0F3" : "#F3EFFA" }}
+                  >
+                    <Check className="w-6 h-6" style={{ color: isAllRead ? "#C94B6E" : "#7B5EA7" }} />
+                  </div>
+                  <p className="text-[18px] font-extrabold mb-1" style={{ color: isAllRead ? "#C94B6E" : "#7B5EA7" }}>
+                    {isAllRead ? "You're caught up" : `${unreadCount} left to read`}
+                  </p>
+                  <p className="text-[13px] text-text-muted mb-4">
+                    {data!.period.from} → {data!.period.to} · {isAllRead ? "All read" : `${data!.stats.totalUpdates - unreadCount} / ${data!.stats.totalUpdates} read`}
+                  </p>
+                  <div className="flex items-center justify-center gap-6">
+                    {[
+                      { label: `${data!.stats.totalUpdates} updates`, color: "#1A1626" },
+                      { label: `${data!.areas} areas`,                color: "#1A1626" },
+                      { label: isAllRead ? "Current" : "In progress", color: isAllRead ? "#C94B6E" : "#7B5EA7" },
+                    ].map((stat) => (
+                      <div key={stat.label} className="text-[12px] font-semibold" style={{ color: stat.color }}>
+                        {stat.label}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -277,16 +322,21 @@ export function PatchNotesPage() {
             <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-text-muted mb-3">
               This Period
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
-                { label: "Total updates",  value: String(data.stats.totalUpdates), color: "#1A1626" },
-                { label: "Score 5 items",  value: String(data.stats.score5Items),  color: "#C94B6E" },
-                { label: "New frameworks", value: String(data.stats.newFrameworks), color: "#1A1626" },
-                { label: "Regulatory",     value: String(data.stats.regulatory),   color: "#1A1626" },
+                { label: "Total updates",  key: "totalUpdates",  color: "#1A1626" },
+                { label: "Score 5 items",  key: "score5Items",   color: "#C94B6E" },
+                { label: "New frameworks", key: "newFrameworks",  color: "#1A1626" },
+                { label: "Regulatory",     key: "regulatory",    color: "#1A1626" },
               ].map((stat) => (
                 <div key={stat.label} className="flex items-center justify-between text-[13px]">
                   <span className="text-text-secondary">{stat.label}</span>
-                  <span className="font-bold" style={{ color: stat.color }}>{stat.value}</span>
+                  {loading
+                    ? <Bone w="w-6" h="h-4" />
+                    : <span className="font-bold" style={{ color: stat.color }}>
+                        {String((data!.stats as any)[stat.key])}
+                      </span>
+                  }
                 </div>
               ))}
             </div>

@@ -185,9 +185,9 @@ export class FrameworksRankService {
       )
       .join('content.entity_category as ec', 'ec.id', 'r.entity_category_id');
 
-    // 라이징스타: 신규 진입 우선, 없으면 change_pct 최고
+    // 라이징스타: 신규 진입 우선, 없으면 change_pct 최고 (아티클 0개 제외)
     const candidates = [
-      ...rows.filter((r) => r.prev_rank === null),
+      ...rows.filter((r) => r.prev_rank === null && Number(r.article_count) > 0),
       ...rows
         .filter((r) => r.prev_rank !== null && r.change_pct !== null && Number(r.change_pct) > 0)
         .sort((a, b) => Number(b.change_pct) - Number(a.change_pct)),

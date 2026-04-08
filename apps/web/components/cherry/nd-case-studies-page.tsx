@@ -137,8 +137,8 @@ export function NDCaseStudiesPage() {
         <div className="flex items-end justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1
-              className="font-extrabold text-[#1A1626] leading-tight"
-              style={{ fontSize: "26px", letterSpacing: "-0.3px" }}
+              className="font-extrabold text-[#1A1626] leading-tight text-[22px] lg:text-[30px]"
+              style={{ letterSpacing: "-0.5px" }}
             >
               Case Studies
             </h1>

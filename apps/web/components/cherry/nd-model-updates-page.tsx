@@ -26,6 +26,29 @@ const DEFAULT_STYLE = { color: "#9E97B3", bg: "#FFFFFF", border: "#E4E1EE", trac
 const getCat = (name: string) => CATEGORY_COLORS[name] ?? DEFAULT_STYLE
 
 /* ─────────────────────────────────────────────
+   Skeleton placeholder data
+───────────────────────────────────────────── */
+const SKELETON_RANKS: ModelUpdatesRankItem[] = [
+  { rank: 1, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "OpenAI Family" },
+  { rank: 2, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "Anthropic Family" },
+  { rank: 3, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "Google Family" },
+  { rank: 4, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "Meta Family" },
+  { rank: 5, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "xAI Family" },
+  { rank: 6, prev_rank: null, article_count: 0, prev_article_count: 0, change_pct: null, top_entities_json: [], category_name: "Mistral Family" },
+]
+
+const SKELETON_STAR: ModelUpdatesRisingstar = {
+  categoryName: "OpenAI Family", isNew: false, changePct: null, articleCount: 0, topEntities: [],
+}
+
+const SKELETON_ARTICLES: PatchNoteItem[] = Array.from({ length: 5 }, (_, i) => ({
+  id: `sk-${i}`, articleStateId: `sk-${i}`, date: "Apr 7", page: "MODEL_UPDATES",
+  area: "Models", categoryName: "OpenAI Family", dotColor: "#4B78F0",
+  entityName: "GPT-5", title: "Placeholder title for skeleton", oneLiner: "One liner placeholder text",
+  score: 4, isRead: false, sideCategory: null,
+}))
+
+/* ─────────────────────────────────────────────
    Stars
 ───────────────────────────────────────────── */
 function Stars({ count, color = "#C94B6E" }: { count: number; color?: string }) {
@@ -50,15 +73,13 @@ function ProgressBar({ value, color, trackColor = "#EEF2FD" }: { value: number; 
 }
 
 /* ─────────────────────────────────────────────
-   Sparkline SVG (상승 곡선)
+   Sparkline SVG
 ───────────────────────────────────────────── */
 function Sparkline({ color = "#C94B6E" }: { color?: string }) {
   const points = "10,70 40,62 70,54 100,44 130,32 160,20 190,12"
   return (
     <div className="rounded-[8px] border p-3" style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE" }}>
-      <p className="text-[9px] font-bold uppercase tracking-[0.6px] text-[#9E97B3] mb-2">
-        2-week momentum
-      </p>
+      <p className="text-[9px] font-bold uppercase tracking-[0.6px] text-[#9E97B3] mb-2">2-week momentum</p>
       <svg viewBox="0 0 200 80" className="w-full h-16">
         <defs>
           <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
@@ -78,24 +99,24 @@ function Sparkline({ color = "#C94B6E" }: { color?: string }) {
 /* ─────────────────────────────────────────────
    Rank Card
 ───────────────────────────────────────────── */
-function RankCard({ item, maxCount, isLead }: { item: ModelUpdatesRankItem; maxCount: number; isLead: boolean }) {
+function RankCard({ item, maxCount, isLead, loading }: { item: ModelUpdatesRankItem; maxCount: number; isLead: boolean; loading?: boolean }) {
   const style = getCat(item.category_name)
-  const barWidth = maxCount > 0 ? Math.round((item.article_count / maxCount) * 100) : 0
+  const barWidth = !loading && maxCount > 0 ? Math.round((item.article_count / maxCount) * 100) : 0
   const topEntity = item.top_entities_json[0]
   const pct = item.change_pct !== null ? Number(item.change_pct) : null
+  const txt = loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
 
   return (
     <div
       className={`rounded-[10px] border p-4 transition-shadow hover:shadow-md ${isLead ? "lg:col-span-3" : ""}`}
       style={{ backgroundColor: style.bg, borderColor: style.border, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[11px] font-bold text-[#9E97B3]">#{item.rank}</span>
-        {item.prev_rank === null ? (
+      <div className="flex items-center gap-2 mb-1 h-5">
+        <span className={`text-[11px] font-bold text-[#9E97B3] ${txt}`}>#{item.rank}</span>
+        {!loading && item.prev_rank === null ? (
           <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold" style={{ backgroundColor: "#C94B6E", color: "#FFF" }}>NEW</span>
-        ) : pct !== null && pct !== 0 ? (
-          <span
-            className="px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+        ) : !loading && pct !== null && pct !== 0 ? (
+          <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${txt}`}
             style={{ backgroundColor: pct > 0 ? "#EFF7F3" : "#FDF0F3", color: pct > 0 ? "#2D7A5E" : "#C94B6E" }}
           >
             {pct > 0 ? "↑" : "↓"} {Math.abs(pct)}%
@@ -103,21 +124,19 @@ function RankCard({ item, maxCount, isLead }: { item: ModelUpdatesRankItem; maxC
         ) : null}
       </div>
 
-      <p className={`font-bold text-[#1A1626] mb-1 ${isLead ? "text-[16px]" : "text-[14px]"}`}>
+      <p className={`font-bold text-[#1A1626] mb-1 ${isLead ? "text-[16px]" : "text-[14px]"} ${txt}`}>
         {item.category_name.replace(" Family", "")}
       </p>
 
-      <p className={`font-bold mb-2 ${isLead ? "text-[22px]" : "text-[18px]"}`} style={{ color: style.color }}>
-        {item.article_count} articles
+      <p className={`font-bold mb-2 ${isLead ? "text-[22px]" : "text-[18px]"} ${txt}`} style={{ color: style.color }}>
+        {loading ? "—" : `${item.article_count} articles`}
       </p>
 
       <ProgressBar value={barWidth} color={style.color} trackColor={style.track} />
 
-      <div className="flex items-center justify-between mt-2">
-        {topEntity && (
-          <p className="text-[11px] text-[#9E97B3] truncate">{topEntity.name}</p>
-        )}
-        {item.prev_article_count > 0 && (
+      <div className={`flex items-center justify-between mt-2 ${txt}`}>
+        {topEntity && <p className="text-[11px] text-[#9E97B3] truncate">{topEntity.name}</p>}
+        {!loading && item.prev_article_count > 0 && (
           <p className="text-[10px] text-[#9E97B3] flex-shrink-0 ml-2">prev {item.prev_article_count}</p>
         )}
       </div>
@@ -126,45 +145,43 @@ function RankCard({ item, maxCount, isLead }: { item: ModelUpdatesRankItem; maxC
 }
 
 /* ─────────────────────────────────────────────
-   Rising Star Card (원본 디자인 유지)
+   Rising Star Card
 ───────────────────────────────────────────── */
-function RisingStarCard({ star }: { star: ModelUpdatesRisingstar }) {
+function RisingStarCard({ star, loading }: { star: ModelUpdatesRisingstar; loading?: boolean }) {
   const style = getCat(star.categoryName)
   const topEntity = star.topEntities[0]
   const pct = star.changePct !== null ? Number(star.changePct) : null
+  const txt = loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
 
   return (
     <div
       className="flex flex-col lg:flex-row items-start gap-6 rounded-[10px] border p-5"
       style={{ backgroundColor: "#FFF8EF", borderColor: "#F0D8B0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      {/* Left */}
       <div className="flex-1 min-w-0">
-        <span
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border mb-2"
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border mb-2 ${txt}`}
           style={{ backgroundColor: "#FEF3E2", color: "#D4854A", borderColor: "#F0D8B0" }}
         >
           {star.isNew ? "New Entry" : "Rising Star"} — This Week
         </span>
 
-        <h3 className="text-[16px] font-bold text-[#1A1626] mb-1">
+        <h3 className={`text-[16px] font-bold text-[#1A1626] mb-1 ${txt}`}>
           {topEntity?.name ?? star.categoryName}
         </h3>
 
-        <p className="text-[13px] text-[#9E97B3] mb-1">{star.categoryName}</p>
+        <p className={`text-[13px] text-[#9E97B3] mb-1 ${txt}`}>{star.categoryName}</p>
 
-        <p className="text-[13px] leading-relaxed mt-2 mb-4" style={{ color: "#3D3652" }}>
+        <p className={`text-[13px] leading-relaxed mt-2 mb-4 ${txt}`} style={{ color: "#3D3652" }}>
           {topEntity
             ? `${topEntity.article_count} articles this week featuring ${topEntity.name}. ${star.isNew ? "First time in rankings." : pct && pct > 0 ? `Up ${pct}% from last week.` : ""}`
-            : `${star.articleCount} articles this week in ${star.categoryName}.`
-          }
+            : `${star.articleCount} articles this week in ${star.categoryName}.`}
         </p>
 
-        <div className="flex items-center gap-4">
+        <div className={`flex items-center gap-4 ${txt}`}>
           {[
             { num: String(star.articleCount), label: "articles" },
             pct !== null ? { num: `${pct > 0 ? "+" : ""}${pct}%`, label: "vs prev week" } : null,
-            { num: star.isNew ? "NEW" : `#1`, label: star.isNew ? "entry" : "rank" },
+            { num: star.isNew ? "NEW" : "#1", label: star.isNew ? "entry" : "rank" },
           ].filter(Boolean).map((s) => s && (
             <div key={s.label}>
               <p className="text-[16px] font-bold text-[#1A1626]">{s.num}</p>
@@ -174,7 +191,6 @@ function RisingStarCard({ star }: { star: ModelUpdatesRisingstar }) {
         </div>
       </div>
 
-      {/* Right sparkline */}
       <div className="w-full lg:w-[200px] lg:flex-shrink-0">
         <Sparkline color={style.color} />
       </div>
@@ -183,33 +199,31 @@ function RisingStarCard({ star }: { star: ModelUpdatesRisingstar }) {
 }
 
 /* ─────────────────────────────────────────────
-   Article Item (patch notes 스타일)
+   Article Item
 ───────────────────────────────────────────── */
-function ArticleItem({ item }: { item: PatchNoteItem }) {
+function ArticleItem({ item, loading }: { item: PatchNoteItem; loading?: boolean }) {
   const style = getCat(item.categoryName)
   const initials = item.categoryName
     ? item.categoryName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
     : item.entityName.slice(0, 2).toUpperCase()
+  const txt = loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
 
   return (
     <div
       className="bg-white rounded-[10px] border border-[#E4E1EE] p-4 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow"
       style={{ borderLeft: `3px solid ${style.color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      {/* Avatar */}
       <div
         className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 border"
         style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
       >
-        {initials}
+        <span className={txt}>{initials}</span>
       </div>
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-bold text-[#1A1626] mb-1 leading-snug">{item.title}</p>
-        <p className="text-[13px] text-[#9E97B3] leading-relaxed mb-2 line-clamp-2">{item.oneLiner}</p>
-        <div className="flex items-center gap-2">
-          <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+        <p className={`text-[15px] font-bold text-[#1A1626] mb-1 leading-snug ${txt}`}>{item.title}</p>
+        <p className={`text-[13px] text-[#9E97B3] leading-relaxed mb-2 line-clamp-2 ${txt}`}>{item.oneLiner}</p>
+        <div className={`flex items-center gap-2 ${txt}`}>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border"
             style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
           >
             {(item.categoryName || item.area).replace(" Family", "")}
@@ -240,68 +254,51 @@ export function NDModelUpdatesPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const maxCount = rankData ? Math.max(...rankData.ranks.map((r) => r.article_count)) : 1
-  const topStar = rankData?.risingStars[0] ?? null
+  const displayRanks = loading ? SKELETON_RANKS : (rankData?.ranks ?? SKELETON_RANKS)
+  const displayStar  = loading ? SKELETON_STAR  : (rankData?.risingStars[0] ?? null)
+  const displayArticles = loading ? SKELETON_ARTICLES : articles
+  const maxCount = loading ? 1 : (rankData ? Math.max(...rankData.ranks.map((r) => r.article_count)) : 1)
 
   return (
     <div className="max-w-[900px]">
       {/* Header */}
-      <h1
-        className="font-extrabold text-[#1A1626] mb-2 leading-tight text-[20px] lg:text-[26px]"
-        style={{ letterSpacing: "-0.3px" }}
-      >
+      <h1 className="font-extrabold text-[#1A1626] mb-2 leading-tight text-[22px] lg:text-[30px]" style={{ letterSpacing: "-0.5px" }}>
         Model Updates
       </h1>
-      <p className="text-[13px] text-[#9E97B3] mb-6">
-        {loading ? "Loading..." : rankData
+      <p className={`text-[13px] text-[#9E97B3] mb-6 transition-opacity duration-300 ${loading ? "opacity-0" : "opacity-100"}`}>
+        {rankData
           ? `${rankData.ranks.reduce((s, r) => s + r.article_count, 0)} releases this week · ${rankData.weekStart} – ${rankData.weekEnd}`
-          : "—"
-        }
+          : "—"}
       </p>
 
-      {loading && (
-        <div className="text-[13px] text-[#9E97B3] py-12 text-center">Loading…</div>
-      )}
+      {/* ── Section 1: Leaderboard ── */}
+      <div className="mb-6">
+        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
+          Major Players — Article Count This Week
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[10px]">
+          {displayRanks.map((item, i) => (
+            <RankCard key={item.category_name} item={item} maxCount={maxCount} isLead={i === 0} loading={loading} />
+          ))}
+        </div>
+      </div>
 
-      {!loading && rankData && (
-        <>
-          {/* ── Section 1: Leaderboard ── */}
-          <div className="mb-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
-              Major Players — Article Count This Week
-            </p>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-[10px]">
-              {rankData.ranks.map((item, i) => (
-                <RankCard key={item.category_name} item={item} maxCount={maxCount} isLead={i === 0} />
-              ))}
-            </div>
-          </div>
+      {/* ── Section 2: Rising Star ── */}
+      <div className="mb-6">
+        <RisingStarCard star={displayStar ?? SKELETON_STAR} loading={loading || !displayStar} />
+      </div>
 
-          {/* ── Section 2: Rising Star (1개만) ── */}
-          {topStar && (
-            <div className="mb-6">
-              <RisingStarCard star={topStar} />
-            </div>
-          )}
-
-          {/* ── Section 3: All Model Updates ── */}
-          <div className="mb-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
-              All Model Updates This Week
-            </p>
-
-            {articles.length === 0 ? (
-              <div className="text-[13px] text-[#9E97B3] py-6 text-center">No articles found</div>
-            ) : (
-              <div className="flex flex-col gap-[10px]">
-                {articles.map((item) => (
-                  <ArticleItem key={item.id} item={item} />
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+      {/* ── Section 3: Articles ── */}
+      <div className="mb-8">
+        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
+          All Model Updates This Week
+        </p>
+        <div className="flex flex-col gap-[10px]">
+          {displayArticles.map((item, i) => (
+            <ArticleItem key={loading ? `sk-${i}` : item.id} item={item} loading={loading} />
+          ))}
+        </div>
+      </div>
 
       <div className="h-8" aria-hidden />
     </div>
