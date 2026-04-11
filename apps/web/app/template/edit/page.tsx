@@ -6,6 +6,7 @@ import { ChevronLeft, Search, Plus, Check, Clock, Trash2, Loader2 } from "lucide
 import Link from "next/link"
 import {
   fetchTemplates,
+  updateTemplate as apiUpdateTemplate,
   updateVersion as apiUpdateVersion,
   activateVersion as apiActivateVersion,
   deleteVersion as apiDeleteVersion,
@@ -27,6 +28,83 @@ const TYPE_FILTERS = [
   { value: "ARTICLE_AI", label: "Article AI" },
   { value: "NEWSLETTER", label: "Newsletter" },
 ]
+
+/* ─────────────────────────────────────────────
+   톤 편집기
+───────────────────────────────────────────── */
+function ToneEditor({
+  templateId,
+  toneText,
+  onSaved,
+}: {
+  templateId: string
+  toneText: string
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(toneText)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setValue(toneText)
+    setEditing(false)
+  }, [toneText])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await apiUpdateTemplate(templateId, { tone_text: value })
+      onSaved()
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-[#E4E1EE] bg-[#F7F6F9] px-4 py-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3]">
+          톤 / 방향
+        </span>
+        {!editing ? (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-[11px] text-[#9E97B3] transition-colors hover:text-[#C94B6E]"
+          >
+            편집
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => { setValue(toneText); setEditing(false) }}
+              className="text-[11px] text-[#9E97B3] transition-colors hover:text-[#1A1626]"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || value === toneText}
+              className="text-[11px] font-semibold text-[#C94B6E] transition-colors hover:opacity-80 disabled:opacity-40"
+            >
+              {saving ? "저장 중..." : "저장"}
+            </button>
+          </div>
+        )}
+      </div>
+      {!editing ? (
+        <p className="mt-0.5 text-[13px] leading-relaxed text-[#3D3652]">{toneText}</p>
+      ) : (
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          rows={3}
+          className="mt-1 w-full resize-none rounded-lg border border-[#E4E1EE] bg-white px-3 py-2 text-[13px] leading-relaxed text-[#1A1626] outline-none focus:border-[#C94B6E]"
+        />
+      )}
+    </div>
+  )
+}
 
 /* ─────────────────────────────────────────────
    버전 편집기
@@ -366,27 +444,19 @@ export default function TemplateEditPage() {
           <>
           {/* 템플릿 정보 바 */}
           <div className="shrink-0 border-b border-[#E4E1EE] bg-white px-6 py-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[16px] font-bold">{selected.name}</h1>
-                  {!selected.is_active && <span className="text-[11px] text-[#9E97B3]">비활성</span>}
-                </div>
-                <p className="mt-0.5 font-mono text-[11px] text-[#9E97B3]">
-                  {TYPE_LABEL[selected.type] ?? selected.type} · {selected.scope} · {selected.code}
-                </p>
-                {selected.description && (
-                  <p className="mt-2 text-[13px] leading-relaxed text-[#6B6480]">{selected.description}</p>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-[16px] font-bold">{selected.name}</h1>
+              {!selected.is_active && <span className="text-[11px] text-[#9E97B3]">비활성</span>}
             </div>
+            {selected.description && (
+              <p className="mt-1 text-[13px] leading-relaxed text-[#6B6480]">{selected.description}</p>
+            )}
 
-            <div className="mt-3 rounded-lg border border-[#E4E1EE] bg-[#F7F6F9] px-4 py-2.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3]">
-                톤 / 방향
-              </span>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-[#3D3652]">{selected.tone_text}</p>
-            </div>
+            <ToneEditor
+              templateId={selected.id}
+              toneText={selected.tone_text}
+              onSaved={loadTemplates}
+            />
           </div>
 
           {/* 탭 */}
@@ -568,6 +638,8 @@ export default function TemplateEditPage() {
               </div>
             )}
           </div>
+          </>
+          )}
         </main>
       </div>
     </div>
