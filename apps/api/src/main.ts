@@ -29,6 +29,7 @@ async function bootstrap() {
       'Authorization',
       'X-Admin-Impersonation',
       'X-Requested-With',
+      'X-Api-Key',
       'Accept',
     ],
     exposedHeaders: ['Authorization'],
@@ -47,6 +48,10 @@ async function bootstrap() {
       .addBearerAuth(
           { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
           'access-token',
+      )
+      .addApiKey(
+          { type: 'apiKey', name: 'X-Api-Key', in: 'header' },
+          'agent-api-key',
       )
       .build();
   const document = SwaggerModule.createDocument(app, config);

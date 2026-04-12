@@ -7,6 +7,7 @@ import { AppScheduleModule } from './modules/schedule/schedule.module';
 import { PatchNotesModule } from './modules/patch_notes/patch-notes.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { PromptTemplateModule } from './modules/prompt_template/prompt-template.module';
+import { AgentCommModule } from './modules/agent_comm/agent-comm.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PromptTemplateModule } from './modules/prompt_template/prompt-template.
     PatchNotesModule,
     StatsModule,
     PromptTemplateModule,
+    AgentCommModule,
   ],
   controllers: [],
   providers: [],
