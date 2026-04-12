@@ -229,7 +229,7 @@ export default function CherryApp() {
                 className="px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
                 style={{ backgroundColor: "#C94B6E" }}
               >
-                Manage
+                Admin
               </Link>
             )}
             <button
@@ -250,7 +250,7 @@ export default function CherryApp() {
               className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: "#C94B6E" }}
             >
-              Manage
+              Admin
             </Link>
           )}
           <button
