@@ -69,6 +69,12 @@ class OperatorRSS(OperatorBase):
                 print(f"[fetch_articles] Stop pulling, reached count: {count}")
                 break
 
+            article_raw = ""
+            try:
+                article_raw = utils.load_web(link, validate=True, min_length=200) or ""
+            except Exception:
+                article_raw = ""
+
             # Extract relevant information from each entry
             title = entry.title
             link = entry.link
@@ -96,19 +102,26 @@ class OperatorRSS(OperatorBase):
 
             print(f"[fetch_articles] pulled_cnt: {pulled_cnt}, list_name: {list_name}, title: {title}, published: {created_time}, article_id: {article_id}, hash_key: [{hash_key}]")
 
-            # Create a dictionary representing an article
+            # Create a dictionary representing an article 
+            # article = {
+            #     "id": article_id,
+            #     'source': "RSS",
+            #     'list_name': list_name,
+            #     'title': title,
+            #     'url': link,
+            #     'created_time': created_time,
+            #     "summary": entry.get("summary") or "",
+            #     "content": "",
+            #     "tags": entry.get("tags") or [],
+            #     "published": published,
+            #     "published_key": published_key,
+            # }
+
             article = {
-                "id": article_id,
-                'source': "RSS",
-                'list_name': list_name,
-                'title': title,
-                'url': link,
-                'created_time': created_time,
-                "summary": entry.get("summary") or "",
-                "content": "",
-                "tags": entry.get("tags") or [],
-                "published": published,
-                "published_key": published_key,
+                "url": link,
+                "title": title,
+                "article_raw": article_raw,
+                "published_at": created_time, 
             }
 
             # Add the article to the list
