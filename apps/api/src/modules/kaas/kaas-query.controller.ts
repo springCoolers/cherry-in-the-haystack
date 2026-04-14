@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Logger, NotFoundException, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Logger, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import OpenAI from 'openai';
 import { ZodValidationPipe } from 'src/middleware/zod-validation.pipe';
@@ -254,5 +254,65 @@ ${catalogCtx}
       this.logger.error(`LLM chat error: ${err.message}`);
       return { reply: `오류: ${err.message}`, error: true };
     }
+  }
+
+  /** 대시보드 모달용 — 에이전트가 보낸 리포트 JSON을 동기 반환 */
+  @Get('agents/:id/self-report')
+  @ApiOperation({ summary: '에이전트에게 self-report 요청 (결과를 동기 반환)' })
+  async selfReport(@Param('id') agentId: string) {
+    try {
+      const report = await this.wsGateway.requestSelfReport(agentId);
+      return { ok: true, report };
+    } catch (err: any) {
+      return {
+        ok: false,
+        error: err.message,
+        hint: 'MCP stdio 클라이언트가 실행 중이어야 합니다. (Claude Code + cherry-kaas MCP 연결)',
+      };
+    }
+  }
+
+  /** DB 기반 Knowledge Diff — 에이전트 연결 안 됐을 때 fallback */
+  @Get('agents/:id/knowledge-diff')
+  @ApiOperation({ summary: 'DB 기반 지식 이력 (fallback)' })
+  async knowledgeDiff(
+    @Param('id') agentId: string,
+    @Query('limit') limitRaw?: string,
+  ) {
+    const limit = Math.min(Math.max(parseInt(limitRaw ?? '5', 10) || 5, 1), 20);
+    const agent = await this.agentService.findById(agentId);
+    if (!agent) throw new NotFoundException({ code: 'AGENT_NOT_FOUND', message: `Agent ${agentId} not found` });
+
+    const logs: any[] = await this.knowledge.findQueryHistoryByAgent(agentId, limit);
+    const timeline = await Promise.all(
+      logs.map(async (log: any) => {
+        const concept = log.concept_id ? await this.knowledge.findByIdWithContent(log.concept_id) : null;
+        const txHash = log.provenance_hash ?? '';
+        const chain = log.chain ?? 'mock';
+        const explorerUrl = txHash
+          ? chain === 'near' ? `https://testnet.nearblocks.io/txns/${txHash}`
+          : chain === 'status' ? `https://sepoliascan.status.network/tx/${txHash}`
+          : '' : '';
+        return {
+          at: log.created_at, action: log.action_type, conceptId: log.concept_id,
+          conceptTitle: concept?.title ?? log.concept_id,
+          conceptSummary: concept?.summary ?? '', contentMd: concept?.contentMd ?? '',
+          evidence: (concept?.evidence ?? []).map((e: any) => ({
+            source: e.source, summary: e.summary, curator: e.curator, curatorTier: e.curatorTier, comment: e.comment,
+          })),
+          qualityScore: concept?.qualityScore ?? 0,
+          creditsConsumed: log.credits_consumed,
+          chain, txHash, explorerUrl,
+          onChainFailed: chain === 'failed' || !txHash,
+        };
+      }),
+    );
+    const knowledge = (() => {
+      try { const raw = (agent as any).knowledge; return typeof raw === 'string' ? JSON.parse(raw) : Array.isArray(raw) ? raw : []; } catch { return []; }
+    })();
+    const totalSpent = logs.reduce((s: number, l: any) => s + (l.credits_consumed ?? 0), 0);
+    const byAction = logs.reduce((acc: Record<string, number>, l: any) => { acc[l.action_type] = (acc[l.action_type] ?? 0) + 1; return acc; }, {});
+    const byChain = logs.reduce((acc: Record<string, number>, l: any) => { acc[l.chain ?? 'mock'] = (acc[l.chain ?? 'mock'] ?? 0) + 1; return acc; }, {});
+    return { agentId, agentName: (agent as any).name, currentKnowledge: knowledge, timeline, summary: { limit, totalEvents: logs.length, totalSpent, byAction, byChain } };
   }
 }

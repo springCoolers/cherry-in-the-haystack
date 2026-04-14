@@ -63,6 +63,14 @@ export class KaasKnowledgeService {
     return this.mapConcept(row, evidence);
   }
 
+  /** 에이전트의 최근 구매/팔로우 이력 (knowledge diff 용) */
+  async findQueryHistoryByAgent(agentId: string, limit = 5): Promise<any[]> {
+    return this.knex('kaas.query_log')
+      .where({ agent_id: agentId })
+      .orderBy('created_at', 'desc')
+      .limit(limit);
+  }
+
   /** ID로 조회 (구매용 — content_md 포함) */
   async findByIdWithContent(id: string): Promise<ConceptWithContent | null> {
     const row = await this.knex('kaas.concept')

@@ -447,6 +447,20 @@ export async function fetchHistory(apiKey: string) {
   return res.json()
 }
 
+/** 에이전트 Self-Report (대시보드 모달용) — 에이전트가 WebSocket으로 보낸 리포트 JSON 수신 */
+export async function fetchAgentSelfReport(agentId: string) {
+  const res = await fetch(`${KAAS_BASE}/agents/${agentId}/self-report`)
+  if (!res.ok) throw new Error("Failed to request self-report")
+  return res.json()
+}
+
+/** DB 기반 Knowledge Diff — 에이전트 연결 안 됐을 때 모달 fallback */
+export async function fetchKnowledgeDiff(agentId: string, limit = 5) {
+  const res = await fetch(`${KAAS_BASE}/agents/${agentId}/knowledge-diff?limit=${limit}`)
+  if (!res.ok) throw new Error("Failed to fetch knowledge diff")
+  return res.json()
+}
+
 /** LLM 프록시 — 에이전트가 구매한 지식으로 대화 (privacy_mode 지원) */
 export async function chatWithAgent(apiKey: string, contentMd: string, question: string, privacyMode?: boolean) {
   const res = await fetch(`${KAAS_BASE}/llm/chat`, {

@@ -120,6 +120,7 @@ type Message =
   | { role: "agent-chat"; reply: string; privacy?: boolean }
   | { role: "kaas-chat"; reply: string; privacy?: boolean }
   | { role: "agent-done"; hash: string }
+  | { role: "agent-report"; reporter: string; pid: number; uptime: number; knowledgeCount: number; eventsCount: number; creditsSpent: number; chainsUsed: string[]; triggeredBy: string; events: Array<{ at: string; action: string; conceptId: string; conceptTitle: string; creditsConsumed: number; chain: string; txHash: string; explorerUrl: string; onChain: boolean; evidenceCount: number; qualityScore: number }> }
 
 /* ═══════════════════════════════════════════════
    Mock engine
@@ -343,6 +344,64 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
   const scrollToBottom = () => {
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
   }
+
+  // WebSocket — 에이전트가 리포트 push 시 콘솔에 실시간 표시
+  useEffect(() => {
+    if (!currentAgent?.id || !currentApiKey) return
+    let cancelled = false
+    let socketInstance: any = null
+    ;(async () => {
+      try {
+        const { io } = await import("socket.io-client")
+        const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/api.*$/, "")
+        socketInstance = io(`${base}/kaas`, {
+          auth: { api_key: currentApiKey },
+          transports: ["websocket"],
+          reconnection: true,
+        })
+        socketInstance.on("connect", () => { console.log("[Console WS] connected") })
+        socketInstance.on("agent_report_pushed", (evt: any) => {
+          if (cancelled) return
+          if (evt?.agentId !== currentAgent.id) return // 내 에이전트 리포트만
+          const r = evt.report ?? {}
+          const events = (r.recent_events ?? []).map((e: any) => ({
+            at: e.at,
+            action: e.action,
+            conceptId: e.conceptId,
+            conceptTitle: e.conceptTitle,
+            creditsConsumed: e.creditsConsumed,
+            chain: e.chain,
+            txHash: e.txHash,
+            onChain: e.onChain,
+            evidenceCount: e.evidenceCount ?? 0,
+            qualityScore: e.qualityScore ?? 0,
+            explorerUrl: e.txHash
+              ? e.chain === "near" ? `https://testnet.nearblocks.io/txns/${e.txHash}`
+              : e.chain === "status" ? `https://sepoliascan.status.network/tx/${e.txHash}`
+              : "" : "",
+          }))
+          setMessages((m) => [...m, {
+            role: "agent-report",
+            reporter: r.reporter ?? "cherry-kaas-mcp-stdio",
+            pid: r.session_pid ?? 0,
+            uptime: r.uptime_seconds ?? 0,
+            knowledgeCount: r.summary?.total_knowledge ?? 0,
+            eventsCount: r.summary?.recent_events ?? 0,
+            creditsSpent: r.summary?.credits_spent ?? 0,
+            chainsUsed: r.summary?.chains_used ?? [],
+            triggeredBy: r.triggered_by ?? "request",
+            events,
+          }])
+          setOpen(true)
+          setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
+        })
+      } catch (e) { console.warn("[Console WS] init failed:", e) }
+    })()
+    return () => {
+      cancelled = true
+      try { socketInstance?.disconnect() } catch { /* ignore */ }
+    }
+  }, [currentAgent?.id, currentApiKey])
 
   const executeQuery = useCallback((question: string, act: Action, directConceptId?: string) => {
     if (loading || !currentApiKey) return
@@ -665,6 +724,65 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
               </div>
             )
             case "agent-done": return <AgentDoneMsg key={i} hash={msg.hash} />
+            case "agent-report": return (
+              <div key={i} className="mb-2">
+                <p className="text-[10px] text-[#27C93F] font-semibold mb-1 flex items-center gap-1.5">
+                  {currentAgent?.name ?? "Agent"} · self-report
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#27C93F] text-black uppercase tracking-wide">
+                    ✓ agent-signed
+                  </span>
+                </p>
+                <div className="bg-[#0D1017] border-l-2 border-[#27C93F] rounded-lg px-3 py-2 max-w-[95%] font-mono text-[10px] leading-relaxed">
+                  <p className="text-[#A8B3C1] mb-1">📤 Self-report submitted</p>
+                  <p className="text-[#7C8490]">reporter: <span className="text-[#C7A7FF]">{msg.reporter}</span> · pid: <span className="text-[#8B9AB5]">{msg.pid}</span> · uptime: <span className="text-[#8B9AB5]">{msg.uptime}s</span></p>
+                  <p className="text-[#7C8490]">triggered_by: <span className="text-[#FFBD2E]">{msg.triggeredBy}</span> · knowledge: {msg.knowledgeCount} · events: {msg.eventsCount} · spent: <span className="text-[#D4854A]">{msg.creditsSpent}cr</span></p>
+
+                  {(msg.events?.length ?? 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-[#2A2F3B]">
+                      <p className="text-[#A8B3C1] mb-1">Recent events ({msg.events?.length ?? 0}):</p>
+                      {(msg.events ?? []).map((e, ei) => (
+                        <div key={ei} className="pl-2 mt-1.5">
+                          <p>
+                            <span className={cn(
+                              "text-[9px] px-1 rounded uppercase font-bold",
+                              e.action === "purchase" ? "bg-[#27C93F]/20 text-[#27C93F]" : "bg-[#FFBD2E]/20 text-[#FFBD2E]",
+                            )}>{e.action}</span>
+                            {" "}
+                            <span className="text-[#D0D7E0] font-semibold">{e.conceptTitle}</span>
+                          </p>
+                          <p className="text-[#7C8490] pl-2 text-[9px]">
+                            ├─ {new Date(e.at).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            {" · "}
+                            <span className="text-[#D4854A]">{e.creditsConsumed}cr</span>
+                            {" · ★ "}{e.qualityScore}
+                            {" · evidence "}{e.evidenceCount}
+                          </p>
+                          <p className="text-[#7C8490] pl-2 text-[9px]">
+                            └─
+                            {e.onChain && e.explorerUrl ? (
+                              <>
+                                <span className={cn(
+                                  "ml-1 px-1 rounded uppercase font-bold",
+                                  e.chain === "status" ? "bg-[#27C93F]/20 text-[#27C93F]" :
+                                  e.chain === "near" ? "bg-[#C7A7FF]/20 text-[#C7A7FF]" :
+                                  "bg-[#7C8490]/20 text-[#7C8490]",
+                                )}>{e.chain}</span>
+                                {" · "}
+                                <a href={e.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[#6B9CE8] underline">
+                                  {e.txHash.slice(0, 12)}...{e.txHash.slice(-4)}
+                                </a>
+                              </>
+                            ) : (
+                              <span className="ml-1 text-[#FFBD2E]">⚠ on-chain failed</span>
+                            )}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
           }
         })}
 

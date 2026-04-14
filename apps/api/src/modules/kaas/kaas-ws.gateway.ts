@@ -72,6 +72,16 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket.emit('knowledge_saved', { count: topics.length });
   }
 
+  /** 에이전트가 self-report 제출 (tool call 또는 request 응답) → 모든 웹 클라이언트에 broadcast */
+  @SubscribeMessage('submit_self_report')
+  handleAgentReport(@ConnectedSocket() socket: Socket, @MessageBody() report: any) {
+    const agentId = socket.data?.agentId;
+    if (!agentId) return;
+    this.logger.log(`Self-report pushed from agent=${agentId} (${report?.reporter ?? 'unknown'}, triggered_by=${report?.triggered_by ?? 'request'})`);
+    // 네임스페이스 전체에 broadcast. 웹은 agentId 일치 확인 후 수신.
+    this.server?.emit('agent_report_pushed', { agentId, report });
+  }
+
   /** 웹에서 Compare 요청 → 연결된 에이전트에게 지식 요청 → gap 분석 반환 */
   async requestKnowledgeAndCompare(agentId: string): Promise<{
     upToDate: any[]; outdated: any[]; gaps: any[]; recommendations: any[]; agentName: string;
@@ -126,6 +136,32 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket.emit('submit_knowledge', knowledge);
     this.logger.log(`Knowledge push → agent=${agentId}, topics=${knowledge.length}: [${knowledge.map((k) => k.topic).join(', ')}]`);
   }
+
+  /** 에이전트에게 self-report 요청 → 에이전트 프로세스에서 직접 생성한 JSON 리포트 수신
+   *  (대시보드 모달용: 응답을 기다려서 반환) */
+  async requestSelfReport(agentId: string): Promise<any> {
+    const socket = this.agentSockets.get(agentId);
+    if (!socket) {
+      throw new Error('에이전트가 WebSocket으로 연결되지 않았습니다. (MCP stdio 클라이언트 실행 필요)');
+    }
+
+    const report = await new Promise<any>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Self-report request timed out (15s)')), 15000);
+      socket.emit('request_self_report', {
+        requested_at: new Date().toISOString(),
+        requested_by: 'cherry-kaas-server',
+        scope: 'last 5 events',
+      });
+      socket.once('submit_self_report', (data: any) => {
+        clearTimeout(timeout);
+        resolve(data);
+      });
+    });
+
+    this.logger.log(`Self-report received from agent=${agentId}: ${JSON.stringify(report).length} bytes`);
+    return report;
+  }
+
 
   /** 웹 채팅 → 에이전트에게 메시지 전달 → 응답 반환 (10초 타임아웃) */
   async chatWithAgent(agentId: string, message: string): Promise<{ reply: string; agentName: string }> {

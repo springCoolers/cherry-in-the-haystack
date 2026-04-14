@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import {
   Coins, ExternalLink, Shield, Wallet, ArrowUpRight, ArrowDownRight,
-  Copy, Check, Globe, UserPlus, Plus,
+  Copy, Check, Globe, UserPlus, Plus, X,
 } from "lucide-react"
 import { KnowledgeCurationPanel } from "./kaas-admin-page"
 import { TemplateEditorBody } from "@/app/template/edit/page"
@@ -92,6 +92,298 @@ function ChainSelector() {
           <span className="text-[9px] font-medium opacity-70">L1 Testnet</span>
         </span>
       </button>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   Agent Self-Report (Git-style diff)
+   — 에이전트가 자기 지식 상태를 점검해서 생성한 리포트
+   — 터미널 스타일 output으로 "학습 증거" 명확히
+═══════════════════════════════════════════════ */
+function KnowledgeDiffModal({ agentId, agentName, onClose }: { agentId: string; agentName: string; onClose: () => void }) {
+  const [data, setData] = useState<any>(null)
+  const [error, setError] = useState("")
+  const [generatedAt, setGeneratedAt] = useState<string>("")
+
+  const [source, setSource] = useState<"agent" | "none">("none")
+
+  const loadReport = () => {
+    setData(null)
+    setError("")
+    setSource("none")
+    // self-report(에이전트 프로세스 경유) 시도 — MCP 연결 필수
+    import("@/lib/api").then(({ fetchAgentSelfReport }) =>
+      fetchAgentSelfReport(agentId)
+        .then((r: any) => {
+          if (r.ok) {
+            // 에이전트가 직접 보낸 리포트 → 모달 기존 포맷에 매핑
+            const rpt = r.report
+            setData({
+              agentName: rpt.agent?.name ?? agentName,
+              currentKnowledge: rpt.current_knowledge ?? [],
+              timeline: (rpt.recent_events ?? []).map((e: any) => ({
+                at: e.at,
+                action: e.action,
+                conceptId: e.conceptId,
+                conceptTitle: e.conceptTitle,
+                contentMd: "",
+                contentSize: e.contentSize,
+                contentPreview: e.contentPreview ?? "",
+                evidence: e.evidence ?? [],
+                qualityScore: e.qualityScore,
+                creditsConsumed: e.creditsConsumed,
+                chain: e.chain,
+                txHash: e.txHash,
+                explorerUrl: e.txHash
+                  ? e.chain === "near" ? `https://testnet.nearblocks.io/txns/${e.txHash}`
+                  : e.chain === "status" ? `https://sepoliascan.status.network/tx/${e.txHash}`
+                  : "" : "",
+                onChainFailed: !e.onChain,
+              })),
+              summary: {
+                limit: rpt.recent_events?.length ?? 0,
+                totalEvents: rpt.summary?.recent_events ?? 0,
+                totalSpent: rpt.summary?.credits_spent ?? 0,
+                byAction: (rpt.recent_events ?? []).reduce((acc: any, e: any) => { acc[e.action] = (acc[e.action] ?? 0) + 1; return acc }, {}),
+                byChain: (rpt.recent_events ?? []).reduce((acc: any, e: any) => { acc[e.chain ?? "mock"] = (acc[e.chain ?? "mock"] ?? 0) + 1; return acc }, {}),
+              },
+              _meta: {
+                reporter: rpt.reporter,
+                reportedAt: rpt.reported_at,
+                uptime: rpt.uptime_seconds,
+                pid: rpt.session_pid,
+                signature: rpt.signature,
+              },
+            })
+            setSource("agent")
+            setGeneratedAt(rpt.reported_at ?? new Date().toISOString())
+          } else {
+            setError(`${r.error}\n\n💡 ${r.hint ?? ""}`)
+          }
+        })
+        .catch((e: any) => setError(e.message || "Self-report 요청 실패"))
+    )
+  }
+
+  useEffect(() => { loadReport() }, [agentId])
+
+  // ─── 데이터 조합: added / modified / unchanged ───
+  const addedTopics = new Set<string>(
+    (data?.timeline ?? []).filter((t: any) => t.action === "purchase").map((t: any) => t.conceptId),
+  )
+  const modifiedTopics = new Set<string>(
+    (data?.timeline ?? []).filter((t: any) => t.action === "follow").map((t: any) => t.conceptId),
+  )
+  const allKnowledge: Array<{ topic: string; lastUpdated: string }> = data?.currentKnowledge ?? []
+  const unchanged = allKnowledge.filter(
+    (k) => !addedTopics.has(k.topic) && !modifiedTopics.has(k.topic),
+  )
+
+  // Category 판정 (id에 기반한 간단 분류)
+  const categoryOf = (id: string) => {
+    if (["rag", "embeddings", "chain-of-thought"].includes(id)) return "basics"
+    if (["multi-agent", "agent-architectures", "fine-tuning"].includes(id)) return "advanced"
+    if (["evaluation", "prompt-engineering"].includes(id)) return "core"
+    return "misc"
+  }
+
+  const fmtTime = (iso: string) => {
+    if (!iso) return ""
+    return new Date(iso).toLocaleString("ko-KR", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    })
+  }
+
+  const timelineByConcept = new Map<string, any>()
+  ;(data?.timeline ?? []).forEach((t: any) => {
+    if (!timelineByConcept.has(t.conceptId)) timelineByConcept.set(t.conceptId, t)
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+      <div
+        className="relative bg-[#0D1017] text-[#D0D7E0] rounded-xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col font-mono"
+        onClick={(e) => e.stopPropagation()}
+        style={{ fontFamily: "'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace" }}
+      >
+        {/* Title bar (terminal style) */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1F2B] border-b border-[#2A2F3B] rounded-t-xl">
+          <div className="flex gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#27C93F]" />
+          </div>
+          <span className="text-[11px] text-[#7C8490] flex-1 text-center">agent-self-report.log</span>
+          <button onClick={loadReport} className="text-[10px] text-[#7C8490] hover:text-[#D0D7E0] px-2 py-0.5 rounded cursor-pointer">↻ refresh</button>
+          <button onClick={onClose} className="p-1 hover:bg-[#2A2F3B] rounded cursor-pointer">
+            <X size={12} className="text-[#7C8490]" />
+          </button>
+        </div>
+
+        {/* Terminal body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 text-[12px] leading-[1.65]">
+          {error && (
+            <div className="space-y-1">
+              <p className="text-[#FFBD2E]">⚠ Agent self-report unavailable</p>
+              <p className="text-[#FF6B6B] text-[11px] whitespace-pre-wrap">{error}</p>
+              <p className="text-[#7C8490] text-[11px] mt-2">
+                이 리포트는 에이전트 프로세스(MCP stdio)가 직접 생성합니다.{'\n'}
+                에이전트가 연결되어 있지 않으면 리포트를 받을 수 없습니다.
+              </p>
+              <button onClick={loadReport} className="mt-2 text-[10px] text-[#6B9CE8] hover:underline cursor-pointer">
+                $ retry
+              </button>
+            </div>
+          )}
+          {!data && !error && <p className="text-[#7C8490]">$ requesting self-report from agent via WebSocket...</p>}
+
+          {data && (
+            <>
+              {/* Header */}
+              <div className="text-[#7C8490]">
+                <p>{'='.repeat(64)}</p>
+                <p className="text-[#A8B3C1] flex items-center gap-2">
+                  📝 AGENT SELF-REPORT
+                  {source === "agent" && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#27C93F] text-black font-bold uppercase">
+                      ✓ agent-signed
+                    </span>
+                  )}
+                </p>
+                <p>{'='.repeat(64)}</p>
+                <p><span className="text-[#6B7280]">agent:       </span><span className="text-[#C7A7FF]">{agentName}</span></p>
+                <p><span className="text-[#6B7280]">agent_id:    </span><span className="text-[#8B9AB5]">{agentId}</span></p>
+                <p><span className="text-[#6B7280]">generated:   </span><span className="text-[#8B9AB5]">{fmtTime(generatedAt)}</span></p>
+                <p><span className="text-[#6B7280]">scope:       </span><span className="text-[#8B9AB5]">last {data.summary?.limit ?? 5} events</span></p>
+                {data._meta && (
+                  <>
+                    <p><span className="text-[#6B7280]">reporter:    </span><span className="text-[#C7A7FF]">{data._meta.reporter}</span></p>
+                    <p><span className="text-[#6B7280]">pid:         </span><span className="text-[#8B9AB5]">{data._meta.pid}</span> <span className="text-[#6B7280]">uptime: {data._meta.uptime}s</span></p>
+                  </>
+                )}
+              </div>
+
+              {/* Added */}
+              {addedTopics.size > 0 && (
+                <div className="mt-4">
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  <p className="text-[#27C93F]">+ ADDED ({addedTopics.size} files)</p>
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  {[...addedTopics].map((topic) => {
+                    const t = timelineByConcept.get(topic)
+                    if (!t) return null
+                    return (
+                      <div key={topic} className="mt-2 pl-1">
+                        <p className="text-[#27C93F]">+ <span className="text-[#A8B3C1]">{categoryOf(topic)}/</span><span className="font-bold">{topic}.md</span></p>
+                        <div className="pl-6 text-[11px]">
+                          <p><span className="text-[#6B7280]">topic:     </span>{t.conceptTitle}</p>
+                          <p><span className="text-[#6B7280]">size:      </span>{t.contentMd?.length ?? 0} chars</p>
+                          <p><span className="text-[#6B7280]">sources:   </span>{t.evidence?.length ?? 0} evidence</p>
+                          <p><span className="text-[#6B7280]">quality:   </span>★ {t.qualityScore}</p>
+                          <p><span className="text-[#6B7280]">acquired:  </span>{fmtTime(t.at)} via <span className="text-[#F59E6A]">{t.action}</span> ({t.creditsConsumed}cr)</p>
+                          {t.onChainFailed ? (
+                            <p><span className="text-[#6B7280]">on-chain:  </span><span className="text-[#FFBD2E]">⚠ failed</span></p>
+                          ) : (
+                            <p>
+                              <span className="text-[#6B7280]">on-chain:  </span>
+                              <span className={cn(t.chain === "status" ? "text-[#27C93F]" : "text-[#C7A7FF]")}>{t.chain}</span>
+                              {" · "}
+                              <a href={t.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[#6B9CE8] underline">
+                                {t.txHash.slice(0, 12)}...{t.txHash.slice(-6)}
+                              </a>
+                            </p>
+                          )}
+                          {t.evidence?.length > 0 && (
+                            <div className="mt-1">
+                              <p className="text-[#6B7280]">evidence:</p>
+                              {t.evidence.map((e: any, ei: number) => (
+                                <p key={ei} className="pl-4 text-[10px]">
+                                  <span className="text-[#6B7280]">  ├─ </span>
+                                  <span className="text-[#C7A7FF]">{e.source}</span>
+                                  {e.curator && <span className="text-[#6B7280]"> ({e.curator}/{e.curatorTier})</span>}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Modified */}
+              {modifiedTopics.size > 0 && (
+                <div className="mt-4">
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  <p className="text-[#FFBD2E]">~ MODIFIED ({modifiedTopics.size} files)</p>
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  {[...modifiedTopics].map((topic) => {
+                    const t = timelineByConcept.get(topic)
+                    if (!t) return null
+                    return (
+                      <div key={topic} className="mt-2 pl-1">
+                        <p className="text-[#FFBD2E]">~ <span className="text-[#A8B3C1]">{categoryOf(topic)}/</span><span className="font-bold">{topic}.md</span> <span className="text-[#6B7280]">(follow subscription)</span></p>
+                        <div className="pl-6 text-[11px]">
+                          <p><span className="text-[#6B7280]">updated:   </span>{fmtTime(t.at)}</p>
+                          <p><span className="text-[#6B7280]">credits:   </span>{t.creditsConsumed}cr</p>
+                          {!t.onChainFailed && t.explorerUrl && (
+                            <p>
+                              <span className="text-[#6B7280]">on-chain:  </span>
+                              <a href={t.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[#6B9CE8] underline">
+                                {t.txHash.slice(0, 12)}...
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Unchanged */}
+              {unchanged.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  <p className="text-[#6B7280]">= UNCHANGED ({unchanged.length} files, from earlier)</p>
+                  <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                  {unchanged.map((k) => (
+                    <p key={k.topic} className="text-[#6B7280]">
+                      = <span className="text-[#8B9AB5]">{categoryOf(k.topic)}/</span>{k.topic}.md <span className="text-[#4A5160]">(last_updated: {k.lastUpdated})</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary */}
+              <div className="mt-4">
+                <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                <p className="text-[#A8B3C1]">SUMMARY</p>
+                <p className="text-[#7C8490]">{'─'.repeat(64)}</p>
+                <p><span className="text-[#6B7280]">total_files:     </span>{allKnowledge.length} <span className="text-[#27C93F]">(+{addedTopics.size} new)</span></p>
+                <p><span className="text-[#6B7280]">credits_spent:   </span>{data.summary?.totalSpent ?? 0}cr</p>
+                <p>
+                  <span className="text-[#6B7280]">on-chain_txs:    </span>
+                  {Object.entries(data.summary?.byChain ?? {}).map(([k, v]) => (
+                    <span key={k} className="mr-3">
+                      <span className={cn(k === "status" ? "text-[#27C93F]" : k === "near" ? "text-[#C7A7FF]" : "text-[#6B7280]")}>{k}</span>:{v as number}
+                    </span>
+                  ))}
+                </p>
+                <p className="text-[#7C8490] mt-2">{'='.repeat(64)}</p>
+              </div>
+
+              {/* Verification hint */}
+              <p className="mt-4 text-[#4A5160] text-[11px]">
+                $ <span className="text-[#7C8490]">verify: click any tx link above to inspect on-chain record</span>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -337,6 +629,7 @@ function AgentPanel({
   const [cmdCopied, setCmdCopied] = useState(false)
   const [removeCopied, setRemoveCopied] = useState(false)
   const [mcpConnected, setMcpConnected] = useState(false)
+  const [diffOpen, setDiffOpen] = useState(false)
 
   // MCP 서버 가동 상태 실시간 폴링 (10초마다)
   // — /mcp/sessions 엔드포인트 도달 가능 여부로 서버 alive 체크
@@ -491,12 +784,23 @@ function AgentPanel({
         </div>
 
         <button
+          onClick={() => setDiffOpen(true)}
+          className="w-full text-[12px] font-semibold py-2 rounded-lg border border-[#7B5EA7] text-[#7B5EA7] hover:bg-[#F3EFFA] cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+        >
+          📚 학습 이력 보기 (Knowledge Diff)
+        </button>
+
+        <button
           onClick={() => { if (confirm(`"${selected.name}" 에이전트를 삭제할까요?`)) onDelete(selected.id) }}
           className="w-full text-[11px] text-[#999] hover:text-red-400 py-2 cursor-pointer transition-colors"
         >
           에이전트 삭제
         </button>
       </div>
+
+      {diffOpen && (
+        <KnowledgeDiffModal agentId={selected.id} agentName={selected.name} onClose={() => setDiffOpen(false)} />
+      )}
     </div>
   )
 }
@@ -781,17 +1085,6 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
     <div className="flex flex-col gap-4">
       <h3 className="text-[15px] font-bold text-[#1A1626]">Wallet & Rewards</h3>
 
-      {/* 결제 체인 선택 */}
-      <div className="rounded-lg border border-[#E4E1EE] bg-white p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">결제 방식</p>
-            <p className="text-[10px] text-[#9E97B3] mt-0.5">구매 시 온체인 영수증이 기록될 체인을 선택하세요</p>
-          </div>
-          <ChainSelector />
-        </div>
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2.5">
         <div className="rounded-lg border border-[#E4E1EE] bg-white p-3">
@@ -817,6 +1110,17 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
           </div>
           <p className="text-[20px] font-extrabold text-[#1A1626]">{pendingAmount} <span className="text-[12px] font-semibold text-[#6B727E]">cr</span></p>
           <p className="text-[11px] text-[#6B727E] mt-0.5">{rewardData.rewards.filter((r: any) => !r.withdrawn).length} to withdraw</p>
+        </div>
+      </div>
+
+      {/* 결제 체인 선택 */}
+      <div className="rounded-lg border border-[#E4E1EE] bg-white p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">결제 방식</p>
+            <p className="text-[10px] text-[#9E97B3] mt-0.5">구매 시 온체인 영수증이 기록될 체인을 선택하세요</p>
+          </div>
+          <ChainSelector />
         </div>
       </div>
 
