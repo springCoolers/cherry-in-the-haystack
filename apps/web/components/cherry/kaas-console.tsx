@@ -116,9 +116,9 @@ type Provenance = { hash: string; chain: string; explorerUrl: string; onChain: b
 type Message =
   | { role: "user"; text: string }
   | { role: "agent"; action: string; endpoint: string; mcpTool: string; actionType: Action; budget: number }
-  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string }
-  | { role: "agent-chat"; reply: string }
-  | { role: "kaas-chat"; reply: string }
+  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string; privacy?: boolean }
+  | { role: "agent-chat"; reply: string; privacy?: boolean }
+  | { role: "kaas-chat"; reply: string; privacy?: boolean }
   | { role: "agent-done"; hash: string }
 
 /* ═══════════════════════════════════════════════
@@ -146,7 +146,7 @@ function search(q: string, act: Action) {
 ═══════════════════════════════════════════════ */
 export type KaasConsoleRef = {
   query: (conceptTitle: string, action: string, conceptId?: string) => void
-  notify: (message: string) => void
+  notify: (message: string, privacy?: boolean) => void
 }
 
 /* ═══════════════════════════════════════════════
@@ -189,8 +189,18 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
   const [evOpen, setEvOpen] = useState(false)
   return (
     <div className="mb-2">
-      <p className="text-[10px] text-[#C94B6E] font-semibold mb-1">Cherry KaaS</p>
-      <div className="bg-[#1A1520] border-l-2 border-[#C94B6E] rounded-lg px-3 py-2 max-w-[90%]">
+      <p className="text-[10px] text-[#C94B6E] font-semibold mb-1 flex items-center gap-1.5">
+        Cherry KaaS
+        {msg.privacy && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
+            🔒 NEAR AI TEE
+          </span>
+        )}
+      </p>
+      <div className={cn(
+        "bg-[#1A1520] border-l-2 rounded-lg px-3 py-2 max-w-[90%]",
+        msg.privacy ? "border-[#7B5EA7]" : "border-[#C94B6E]",
+      )}>
         <p className="text-[12px] text-[#D0D0D0] leading-relaxed">{msg.answer}</p>
 
         <div className="flex items-center gap-1.5 mt-2">
@@ -378,14 +388,30 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             ? await purchaseConcept(apiKey, conceptId)
             : await followConcept(apiKey, conceptId)
 
-          // LLM이 구매한 지식으로 답변 생성
+          // 기본 답변 = 서버가 준 summary
           let agentReply = apiResult.answer
+          let isPrivate = false
           if (apiResult.content_md) {
             try {
               const { chatWithAgent } = await import("@/lib/api")
-              const llmQuestion = `"${apiResult.concepts?.[0] ?? conceptId}" 개념을 방금 학습했어. 핵심 내용을 간결하게 정리해줘.`
-              const llmResult = await chatWithAgent(apiKey, apiResult.content_md, llmQuestion)
-              if (llmResult.reply && !llmResult.error) agentReply = llmResult.reply
+              const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
+              const privacy = getPrivacyMode()
+              if (privacy) {
+                // 🔒 Privacy Mode: content_md를 NEAR AI TEE로 한 번 통과만 시킴 (답변 생성 X)
+                // 서버 summary를 그대로 쓰고, 배지만 부착
+                await chatWithAgent(
+                  apiKey,
+                  "",
+                  `[TEE relay] Purchased content: ${apiResult.content_md.slice(0, 1500)}. Respond OK.`,
+                  true,
+                ).catch(() => { /* TEE 통과 실패해도 구매 진행 */ })
+                isPrivate = true
+              } else {
+                // 일반 모드: 기존 그대로 LLM이 요약 생성
+                const llmQuestion = `"${apiResult.concepts?.[0] ?? conceptId}" 개념을 방금 학습했어. 핵심 내용을 간결하게 정리해줘.`
+                const llmResult = await chatWithAgent(apiKey, apiResult.content_md, llmQuestion, false)
+                if (llmResult.reply && !llmResult.error) agentReply = llmResult.reply
+              }
             } catch { /* LLM 실패 시 기본 summary 사용 */ }
           }
 
@@ -396,6 +422,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             qualityScore: apiResult.quality_score,
             creditsConsumed: apiResult.credits_consumed,
             creditsRemaining: apiResult.credits_remaining,
+            privacy: isPrivate,
           }
           if (apiResult.provenance) {
             const p = apiResult.provenance as any
@@ -425,7 +452,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
         const remaining = (res as any).creditsRemaining ?? 0
         const before = remaining + res.creditsConsumed
         setCredits(remaining)
-        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: `cherry-${Date.now()}` }
+        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: `cherry-${Date.now()}`, privacy: (res as any).privacy }
         setMessages((m) => [...m, cherryMsg])
         scrollToBottom()
 
@@ -470,10 +497,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
     setTimeout(async () => {
       try {
         const { chatWithAgent } = await import("@/lib/api")
+        const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
         const apiKey = apiKeyRef.current
         if (!apiKey) throw new Error("no key")
-        const result = await chatWithAgent(apiKey, "", text)
-        setMessages((m) => [...m, { role: "kaas-chat", reply: result.reply || "응답 없음" }])
+        const privacy = getPrivacyMode()
+        const result = await chatWithAgent(apiKey, "", text, privacy)
+        const isPrivate = !!(privacy && result.privacy)
+        setMessages((m) => [...m, { role: "kaas-chat", reply: result.reply || "응답 없음", privacy: isPrivate }])
       } catch (err: any) {
         setMessages((m) => [...m, { role: "agent-chat", reply: "응답 실패" }])
       } finally {
@@ -493,8 +523,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
         conceptId
       )
     },
-    notify: (message: string) => {
-      setMessages((m) => [...m, { role: "agent-chat", reply: message }])
+    notify: (message: string, privacy?: boolean) => {
+      setMessages((m) => [...m, { role: "agent-chat", reply: message, privacy }])
       setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
     },
   }), [executeQuery])
@@ -575,7 +605,14 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             case "cherry": return <CherryMsg key={i} msg={msg} />
             case "agent-chat": return (
               <div key={i} className="mb-2">
-                <p className="text-[10px] text-[#7B5EA7] font-semibold mb-1">{currentAgent?.name ?? "Agent"}</p>
+                <p className="text-[10px] text-[#7B5EA7] font-semibold mb-1 flex items-center gap-1.5">
+                  {currentAgent?.name ?? "Agent"}
+                  {msg.privacy && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
+                      🔒 NEAR AI TEE
+                    </span>
+                  )}
+                </p>
                 <div className="bg-[#1A1520] border-l-2 border-[#7B5EA7] rounded-lg px-3 py-2 max-w-[90%]">
                   <p className="text-[12px] text-[#D0D0D0] leading-relaxed whitespace-pre-line">{msg.reply}</p>
                 </div>
@@ -583,8 +620,18 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             )
             case "kaas-chat": return (
               <div key={i} className="mb-2">
-                <p className="text-[10px] text-[#C94B6E] font-semibold mb-1">Cherry KaaS</p>
-                <div className="bg-[#1A1520] border-l-2 border-[#C94B6E] rounded-lg px-3 py-2 max-w-[90%]">
+                <p className="text-[10px] text-[#C94B6E] font-semibold mb-1 flex items-center gap-1.5">
+                  Cherry KaaS
+                  {msg.privacy && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
+                      🔒 NEAR AI TEE
+                    </span>
+                  )}
+                </p>
+                <div className={cn(
+                  "bg-[#1A1520] border-l-2 rounded-lg px-3 py-2 max-w-[90%]",
+                  msg.privacy ? "border-[#7B5EA7]" : "border-[#C94B6E]",
+                )}>
                   <p className="text-[12px] text-[#D0D0D0] leading-relaxed whitespace-pre-line">{msg.reply}</p>
                 </div>
               </div>

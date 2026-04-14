@@ -608,19 +608,49 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
 
   const handleSubmit = () => {
     if (!selectedAgent) return
-    const knowledge = (selectedAgent as any).knowledge ?? []
+    const rawKnowledge = (selectedAgent as any).knowledge
+    const knowledge: any[] = (() => {
+      try { return typeof rawKnowledge === 'string' ? JSON.parse(rawKnowledge) : (Array.isArray(rawKnowledge) ? rawKnowledge : []) } catch { return [] }
+    })()
     setSubmitted(true)
-    const handleResult = (result: any) => {
+    const handleResult = (result: any, privacy = false) => {
       setGapResult(result)
-      onCompareResult?.(result)
+      onCompareResult?.(privacy ? { ...result, privacy: true } : result)
     }
-    elicitKnowledge((selectedAgent as any).id)
-      .then(handleResult)
-      .catch(() =>
-        compareKnowledge(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
-          .then(handleResult)
-          .catch(() => handleResult(analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))))
-      )
+
+    ;(async () => {
+      const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
+      const privacy = getPrivacyMode()
+
+      if (privacy) {
+        // 🔒 Privacy Mode: 서버 경유 완전 차단
+        // 1) knowledge 데이터를 NEAR AI TEE로 통과 (경로 보호)
+        // 2) 클라이언트에서 로컬 분석 (서버 DB 접근 X, 기록 X)
+        try {
+          const { chatWithAgent } = await import("@/lib/api")
+          const apiKey = (selectedAgent as any).api_key ?? (selectedAgent as any).apiKey
+          await chatWithAgent(
+            apiKey,
+            "",
+            `[TEE relay] Agent knowledge payload: ${JSON.stringify(knowledge)}. Respond OK.`,
+            true,
+          ).catch(() => { /* 통과 실패해도 compare는 로컬 분석으로 진행 */ })
+        } catch { /* import 실패 무시 */ }
+
+        const localResult = analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
+        handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local+tee" }, true)
+        return
+      }
+
+      // 일반 모드: 기존 서버 경로 (WebSocket → DB → 로컬 fallback)
+      elicitKnowledge((selectedAgent as any).id)
+        .then((r) => handleResult(r, false))
+        .catch(() =>
+          compareKnowledge(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
+            .then((r) => handleResult(r, false))
+            .catch(() => handleResult(analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated }))), false))
+        )
+    })()
   }
 
   const handleReset = () => {

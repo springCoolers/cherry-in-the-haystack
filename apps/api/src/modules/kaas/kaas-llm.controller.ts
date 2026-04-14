@@ -12,7 +12,7 @@ export class KaasLlmController {
   @HttpCode(200)
   @ApiOperation({ summary: 'LLM 프록시 — 에이전트가 구매한 지식으로 대화' })
   async chat(
-    @Body() body: { api_key?: string; content_md: string; question: string },
+    @Body() body: { api_key?: string; content_md: string; question: string; privacy_mode?: boolean },
   ) {
     // 에이전트 조회 → LLM provider + key 가져오기
     let llmProvider = 'claude';
@@ -26,7 +26,15 @@ export class KaasLlmController {
       llmApiKey = (agent as any).llm_api_key ?? '';
     }
 
-    if (!llmApiKey) {
+    // 🔒 Privacy Mode: NEAR AI TEE로 강제 라우팅 (에이전트 provider 무시)
+    if (body.privacy_mode) {
+      llmProvider = 'near';
+      llmModel = 'Qwen/Qwen3-30B-A3B-Instruct-2507'; // 기본 모델
+      llmApiKey = process.env.NEAR_AI_KEY ?? '';
+      if (!llmApiKey) {
+        return { reply: '', provider: 'near', error: 'NEAR_AI_KEY not configured on server' };
+      }
+    } else if (!llmApiKey) {
       return { reply: body.content_md.slice(0, 500), provider: llmProvider, error: 'No LLM API key configured' };
     }
 
@@ -87,6 +95,28 @@ ${body.content_md}
         const data = await res.json();
         const reply = data.choices?.[0]?.message?.content ?? data.error?.message ?? 'No response';
         return { reply, provider: 'gpt' };
+      }
+
+      if (llmProvider === 'near') {
+        // NEAR AI Cloud — OpenAI SDK 호환 드롭인. TEE 기반 추론으로 입력/출력이 운영자에게 비공개.
+        const res = await fetch('https://cloud-api.near.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${llmApiKey}`,
+          },
+          body: JSON.stringify({
+            model: llmModel || 'Qwen/Qwen3-30B-A3B-Instruct-2507',
+            max_tokens: 512,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: body.question },
+            ],
+          }),
+        });
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content ?? data.error?.message ?? 'No response';
+        return { reply, provider: 'near', privacy: 'TEE-attested (NEAR AI Cloud)' };
       }
 
       return { reply: body.content_md.slice(0, 500), provider: llmProvider };

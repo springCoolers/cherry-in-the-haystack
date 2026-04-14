@@ -447,12 +447,12 @@ export async function fetchHistory(apiKey: string) {
   return res.json()
 }
 
-/** LLM 프록시 — 에이전트가 구매한 지식으로 대화 */
-export async function chatWithAgent(apiKey: string, contentMd: string, question: string) {
+/** LLM 프록시 — 에이전트가 구매한 지식으로 대화 (privacy_mode 지원) */
+export async function chatWithAgent(apiKey: string, contentMd: string, question: string, privacyMode?: boolean) {
   const res = await fetch(`${KAAS_BASE}/llm/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: apiKey, content_md: contentMd, question }),
+    body: JSON.stringify({ api_key: apiKey, content_md: contentMd, question, privacy_mode: privacyMode ?? false }),
   })
   if (!res.ok) throw new Error("LLM chat failed")
   return res.json()

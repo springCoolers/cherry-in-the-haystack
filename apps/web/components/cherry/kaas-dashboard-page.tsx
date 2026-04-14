@@ -10,6 +10,156 @@ import { KnowledgeCurationPanel } from "./kaas-admin-page"
 import { TemplateEditorBody } from "@/app/template/edit/page"
 
 /* ═══════════════════════════════════════════════
+   Privacy Mode Toggle (NEAR AI TEE)
+   — localStorage 기반, window 이벤트로 크로스-컴포넌트 동기화
+═══════════════════════════════════════════════ */
+const PRIVACY_MODE_KEY = "kaas-privacy-mode"
+const PRIVACY_MODE_EVENT = "kaas-privacy-mode-changed"
+
+export function getPrivacyMode(): boolean {
+  if (typeof window === "undefined") return false
+  return window.localStorage.getItem(PRIVACY_MODE_KEY) === "true"
+}
+
+function setPrivacyMode(value: boolean) {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(PRIVACY_MODE_KEY, value ? "true" : "false")
+  window.dispatchEvent(new CustomEvent(PRIVACY_MODE_EVENT, { detail: value }))
+}
+
+function CompactPrivacyToggle() {
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    setEnabled(getPrivacyMode())
+    const handler = (e: Event) => setEnabled((e as CustomEvent).detail)
+    window.addEventListener(PRIVACY_MODE_EVENT, handler)
+    return () => window.removeEventListener(PRIVACY_MODE_EVENT, handler)
+  }, [])
+  const toggle = () => {
+    const next = !enabled
+    setEnabled(next)
+    setPrivacyMode(next)
+  }
+  return (
+    <button
+      onClick={toggle}
+      role="switch"
+      aria-checked={enabled}
+      className={cn(
+        "flex items-center gap-2.5 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex-shrink-0 mb-1.5",
+        enabled
+          ? "border-[#7B5EA7] bg-[#F3EFFA]"
+          : "border-[#E4E1EE] bg-white hover:border-[#C7B8E8]",
+      )}
+    >
+      <div className={cn(
+        "w-7 h-7 rounded-md flex items-center justify-center text-[14px] flex-shrink-0",
+        enabled ? "bg-[#7B5EA7] text-white" : "bg-[#F3EFFA] text-[#7B5EA7]",
+      )}>
+        🔒
+      </div>
+      <div className="text-left leading-tight" style={{ width: 120 }}>
+        <p className={cn(
+          "text-[12px] font-bold",
+          enabled ? "text-[#5B3D87]" : "text-[#1A1626]",
+        )}>
+          Privacy Mode
+        </p>
+        <p className="text-[10px] text-[#6B727E] mt-0.5 whitespace-nowrap">
+          {enabled ? "NEAR AI TEE 경유 중" : "민감 지식 보호 경유"}
+        </p>
+      </div>
+      <span
+        className={cn(
+          "relative rounded-full transition-colors flex-shrink-0 ml-1",
+          enabled ? "bg-[#7B5EA7]" : "bg-[#D5CFE2]",
+        )}
+        style={{ width: 36, height: 20 }}
+      >
+        <span
+          className="absolute bg-white rounded-full shadow-sm transition-transform"
+          style={{
+            width: 16,
+            height: 16,
+            top: 2,
+            left: 2,
+            transform: enabled ? "translateX(16px)" : "translateX(0)",
+          }}
+        />
+      </span>
+    </button>
+  )
+}
+
+function PrivacyModeToggle() {
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    setEnabled(getPrivacyMode())
+    const handler = (e: Event) => setEnabled((e as CustomEvent).detail)
+    window.addEventListener(PRIVACY_MODE_EVENT, handler)
+    return () => window.removeEventListener(PRIVACY_MODE_EVENT, handler)
+  }, [])
+  const toggle = () => {
+    const next = !enabled
+    setEnabled(next)
+    setPrivacyMode(next)
+  }
+  return (
+    <div className={cn(
+      "mb-4 rounded-xl border p-3 flex items-center justify-between transition-all",
+      enabled
+        ? "border-[#7B5EA7] bg-gradient-to-r from-[#F3EFFA] to-[#EDE5F9]"
+        : "border-[#E4E1EE] bg-white",
+    )}>
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          "w-9 h-9 rounded-lg flex items-center justify-center text-[18px] transition-colors",
+          enabled ? "bg-[#7B5EA7] text-white" : "bg-[#F3EFFA] text-[#7B5EA7]",
+        )}>
+          🔒
+        </div>
+        <div>
+          <p className="text-[13px] font-bold text-[#1A1626] flex items-center gap-1.5">
+            Privacy Mode
+            {enabled && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
+                TEE Active
+              </span>
+            )}
+          </p>
+          <p className="text-[11px] text-[#6B727E] mt-0.5">
+            {enabled
+              ? "LLM 추론이 NEAR AI Cloud의 TEE로 라우팅됩니다. 입력/출력이 운영자에게 비공개."
+              : "민감한 지식 소비 시 프라이버시 보호를 위해 켜세요. NEAR AI TEE 경유."}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={toggle}
+        role="switch"
+        aria-checked={enabled}
+        className={cn(
+          "relative rounded-full transition-colors cursor-pointer flex-shrink-0",
+          enabled ? "bg-[#7B5EA7]" : "bg-[#D5CFE2]",
+        )}
+        style={{ width: 48, height: 28 }}
+      >
+        <span
+          className="absolute bg-white rounded-full shadow-sm transition-transform"
+          style={{
+            width: 24,
+            height: 24,
+            top: 2,
+            left: 2,
+            transform: enabled ? "translateX(20px)" : "translateX(0)",
+          }}
+        />
+      </button>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════
    Types
 ═══════════════════════════════════════════════ */
 type AgentKnowledge = { topic: string; lastUpdated: string }
@@ -765,21 +915,24 @@ export function KaasDashboardPage({ isAdmin = false }: { isAdmin?: boolean }) {
           Dashboard
         </h2>
         {tabs.length > 1 && (
-          <div className="flex gap-0 overflow-x-auto">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={cn(
-                  "border-b-2 px-3 lg:px-4 py-2 lg:py-2.5 text-[12px] lg:text-[13px] font-semibold transition-colors whitespace-nowrap",
-                  activeTab === t.key
-                    ? "border-[var(--cherry)] text-[#1A1626]"
-                    : "border-transparent text-[#9E97B3] hover:text-[#3D3652]",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex gap-0 overflow-x-auto">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={cn(
+                    "border-b-2 px-3 lg:px-4 py-2 lg:py-2.5 text-[12px] lg:text-[13px] font-semibold transition-colors whitespace-nowrap",
+                    activeTab === t.key
+                      ? "border-[var(--cherry)] text-[#1A1626]"
+                      : "border-transparent text-[#9E97B3] hover:text-[#3D3652]",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <CompactPrivacyToggle />
           </div>
         )}
       </div>

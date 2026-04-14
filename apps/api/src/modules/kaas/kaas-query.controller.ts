@@ -183,9 +183,7 @@ export class KaasQueryController {
   @Post('llm/chat')
   @HttpCode(200)
   @ApiOperation({ summary: 'KaaS 지식 기반 GPT 채팅' })
-  async llmChat(@Body() body: { question: string; content_md?: string; api_key?: string }) {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+  async llmChat(@Body() body: { question: string; content_md?: string; api_key?: string; privacy_mode?: boolean }) {
     // 카탈로그 개념들을 컨텍스트로 활용
     const concepts = await this.knowledge.findAll();
     const catalogCtx = concepts.slice(0, 10)
@@ -206,6 +204,39 @@ ${catalogCtx}
 - 직접 상세한 기술 설명은 하지 말고, 카탈로그 구매로 연결해
 - 한국어로 간결하게 2-3문장으로 답해`;
 
+    // 🔒 Privacy Mode: NEAR AI Cloud (TEE) 경유
+    if (body.privacy_mode) {
+      const nearKey = process.env.NEAR_AI_KEY;
+      if (!nearKey) {
+        return { reply: 'NEAR_AI_KEY not configured', error: true };
+      }
+      try {
+        const res = await fetch('https://cloud-api.near.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${nearKey}`,
+          },
+          body: JSON.stringify({
+            model: 'Qwen/Qwen3-30B-A3B-Instruct-2507',
+            max_tokens: 512,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: body.question },
+            ],
+          }),
+        });
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content ?? data.error?.message ?? '응답 없음';
+        return { reply, provider: 'near', privacy: 'TEE-attested (NEAR AI Cloud)' };
+      } catch (err: any) {
+        this.logger.error(`NEAR AI error: ${err.message}`);
+        return { reply: `NEAR AI 오류: ${err.message}`, error: true };
+      }
+    }
+
+    // 기본: OpenAI
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     try {
       const response = await openai.chat.completions.create({
         model: 'gpt-4.1-nano',
@@ -216,7 +247,7 @@ ${catalogCtx}
         ],
       });
       const reply = response.choices[0]?.message?.content ?? '응답 없음';
-      return { reply };
+      return { reply, provider: 'gpt' };
     } catch (err: any) {
       this.logger.error(`LLM chat error: ${err.message}`);
       return { reply: `오류: ${err.message}`, error: true };
