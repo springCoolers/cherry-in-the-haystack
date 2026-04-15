@@ -291,7 +291,7 @@ ${catalogCtx}
         const chain = log.chain ?? 'mock';
         const explorerUrl = txHash
           ? chain === 'near' ? `https://testnet.nearblocks.io/txns/${txHash}`
-          : chain === 'status' ? `https://sepoliascan.status.network/tx/${txHash}`
+          : chain === 'status' ? `${(process.env.STATUS_EXPLORER_URL || 'https://sepoliascan.status.network').replace(/\/$/, '')}/tx/${txHash}`
           : '' : '';
         return {
           at: log.created_at, action: log.action_type, conceptId: log.concept_id,

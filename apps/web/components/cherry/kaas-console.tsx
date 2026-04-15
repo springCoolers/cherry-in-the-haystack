@@ -119,8 +119,9 @@ type Message =
   | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string; privacy?: boolean }
   | { role: "agent-chat"; reply: string; privacy?: boolean }
   | { role: "kaas-chat"; reply: string; privacy?: boolean }
-  | { role: "agent-done"; hash: string }
+  | { role: "agent-done"; hash: string; blocked?: boolean }
   | { role: "agent-report"; reporter: string; pid: number; uptime: number; knowledgeCount: number; eventsCount: number; creditsSpent: number; chainsUsed: string[]; triggeredBy: string; events: Array<{ at: string; action: string; conceptId: string; conceptTitle: string; creditsConsumed: number; chain: string; txHash: string; explorerUrl: string; onChain: boolean; evidenceCount: number; qualityScore: number }> }
+  | { role: "room"; from: "user" | "claude" | "cherry"; to: "user" | "claude" | "cherry"; content: string; ts: string }
 
 /* ═══════════════════════════════════════════════
    Mock engine
@@ -253,9 +254,9 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
             </div>
           ) : msg.provenance && !msg.provenance.onChain ? (
             <div className="flex items-center gap-1.5 text-[10px] text-[#D4854A]">
-              <span>⚠ On-chain 기록 실패</span>
+              <span>{msg.provenance.chain === "blocked" ? "🛑 Purchase blocked" : "⚠ On-chain recording failed"}</span>
               {msg.provenance.error && <span className="text-[#666] truncate max-w-[200px]" title={msg.provenance.error}>— {msg.provenance.error}</span>}
-              <span className="text-[#D4854A] ml-auto">{msg.creditsBefore}→{msg.creditsBefore - msg.creditsConsumed}cr</span>
+              <span className="text-[#D4854A] ml-auto">no charge</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-[10px] text-[#555]">
@@ -269,17 +270,19 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
   )
 }
 
-function AgentDoneMsg({ hash }: { hash: string }) {
+function AgentDoneMsg({ hash, blocked }: { hash: string; blocked?: boolean }) {
   return (
     <div className="mb-2">
       <div className="bg-[#1E1E2E] border border-[#333] rounded-lg px-3 py-2 max-w-[90%]">
-        {hash ? (
+        {blocked ? (
+          <p className="text-[11px] text-[#D4854A]">🛑 Purchase blocked — already owned. No charge applied.</p>
+        ) : hash ? (
           <>
             <p className="text-[11px] text-[#2D7A5E]">Purchase complete. Provenance recorded on-chain.</p>
             <p className="text-[10px] text-[#555] font-mono mt-0.5">{hash.slice(0, 18)}...</p>
           </>
         ) : (
-          <p className="text-[11px] text-[#D4854A]">Purchase complete. On-chain 기록은 실패했습니다.</p>
+          <p className="text-[11px] text-[#D4854A]">Purchase complete. On-chain recording failed.</p>
         )}
       </div>
     </div>
@@ -345,7 +348,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
   }
 
-  // WebSocket — 에이전트가 리포트 push 시 콘솔에 실시간 표시
+  // WebSocket — 리포트 push + 3자 대화 room
+  const roomSocketRef = useRef<any>(null)
   useEffect(() => {
     if (!currentAgent?.id || !currentApiKey) return
     let cancelled = false
@@ -355,11 +359,25 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
         const { io } = await import("socket.io-client")
         const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/api.*$/, "")
         socketInstance = io(`${base}/kaas`, {
-          auth: { api_key: currentApiKey },
+          auth: { api_key: currentApiKey, role: "user" },  // ← web은 user role
           transports: ["websocket"],
           reconnection: true,
         })
+        roomSocketRef.current = socketInstance
         socketInstance.on("connect", () => { console.log("[Console WS] connected") })
+        // 3자 대화 room 메시지 수신
+        socketInstance.on("room_message", (msg: any) => {
+          if (cancelled) return
+          setMessages((m) => [...m, {
+            role: "room",
+            from: msg.from,
+            to: msg.to,
+            content: msg.content,
+            ts: msg.timestamp ?? new Date().toISOString(),
+          }])
+          setOpen(true)
+          setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
+        })
         socketInstance.on("agent_report_pushed", (evt: any) => {
           if (cancelled) return
           if (evt?.agentId !== currentAgent.id) return // 내 에이전트 리포트만
@@ -429,15 +447,15 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
 
       // 3. Cherry response — API 호출 시도, 실패 시 목 데이터 fallback
       setTimeout(async () => {
-        let res: { answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number }
+        let res: { answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsRemaining?: number; privacy?: boolean }
         let provData: Provenance | null = null
 
         try {
           const apiKey = apiKeyRef.current
-          if (!apiKey) throw new Error("에이전트를 선택해주세요")
+          if (!apiKey) throw new Error("Please select an agent")
           // concept_id: 직접 전달된 것 우선, 없으면 질문에서 추출
           const conceptId = directConceptId || question.toLowerCase()
-            .replace(/를? (구매|팔로우|purchase|follow).*$/, "")
+            .replace(/를? (구매|팔로우|purchase|follow|buy|subscribe).*$/, "")
             .replace(/\s+/g, "-")
             .replace(/[^a-z0-9-]/g, "")
             .replace(/-+/g, "-")
@@ -489,7 +507,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
                 isPrivate = true
               } else {
                 // 일반 모드: 기존 그대로 LLM이 요약 생성
-                const llmQuestion = `"${apiResult.concepts?.[0] ?? conceptId}" 개념을 방금 학습했어. 핵심 내용을 간결하게 정리해줘.`
+                const llmQuestion = `I just learned the "${apiResult.concepts?.[0] ?? conceptId}" concept. Please summarize the core points concisely.`
                 const llmResult = await chatWithAgent(apiKey, apiResult.content_md, llmQuestion, false)
                 if (llmResult.reply && !llmResult.error) agentReply = llmResult.reply
               }
@@ -518,11 +536,17 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             }
           }
         } catch (err: any) {
-          // API 실패 시 목 데이터 fallback (가짜 provenance 생성 X — provData는 null 유지)
-          try {
-            res = search(question, act)
-          } catch {
+          // ALREADY_OWNED — 사용자가 Compare 안 하고 이미 보유한 지식을 사려고 한 경우
+          if (err?.code === 'ALREADY_OWNED' || /already.*owned|이미 보유/i.test(err?.message ?? '')) {
+            const friendly = `⚠ Purchase blocked — this knowledge is already in your agent's memory. Run Compare in the catalog to see what you already own.`
+            res = { answer: friendly, concepts: [], evidence: [], qualityScore: 0, creditsConsumed: 0 }
+            // 실패 상태 명시 → 스피너 안 돌고 "blocked" 표시
+            provData = { hash: "", chain: "blocked", explorerUrl: "", onChain: false, error: "Already owned" }
+            setMessages((m) => [...m, { role: "agent-chat", reply: `🛑 ${err.message ?? "Already owned"}` }])
+          } else {
+            // 기타 실패 — 진짜 실패 표시
             res = { answer: err.message || "Purchase failed", concepts: [], evidence: [], qualityScore: 0, creditsConsumed: 0 }
+            provData = { hash: "", chain: "failed", explorerUrl: "", onChain: false, error: err.message || "Purchase failed" }
           }
         }
 
@@ -539,7 +563,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
 
         // Agent done (1.5s later)
         setTimeout(() => {
-            setMessages((m) => [...m, { role: "agent-done", hash: prov?.hash ?? "" }])
+            setMessages((m) => [...m, { role: "agent-done", hash: prov?.hash ?? "", blocked: prov?.chain === "blocked" }])
             setLoading(false)
             scrollToBottom()
             // 잔액 + knowledge 갱신
@@ -590,9 +614,9 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
         const privacy = getPrivacyMode()
         const result = await chatWithAgent(apiKey, "", text, privacy)
         const isPrivate = !!(privacy && result.privacy)
-        setMessages((m) => [...m, { role: "kaas-chat", reply: result.reply || "응답 없음", privacy: isPrivate }])
-      } catch (err: any) {
-        setMessages((m) => [...m, { role: "agent-chat", reply: "응답 실패" }])
+        setMessages((m) => [...m, { role: "kaas-chat", reply: result.reply || "No response", privacy: isPrivate }])
+      } catch {
+        setMessages((m) => [...m, { role: "agent-chat", reply: "Response failed" }])
       } finally {
         setLoading(false)
         scrollToBottom()
@@ -605,7 +629,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
     query: (conceptTitle: string, act: string, conceptId?: string) => {
       const validAction = (["purchase", "follow"].includes(act) ? act : "purchase") as Action
       executeQuery(
-        validAction === "purchase" ? `${conceptTitle} 구매해줘` : `${conceptTitle} 팔로우해줘`,
+        validAction === "purchase" ? `Purchase ${conceptTitle}` : `Follow ${conceptTitle}`,
         validAction,
         conceptId
       )
@@ -616,9 +640,17 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
     },
   }), [executeQuery])
 
+  // IME 조합 중 Enter 문제 — keydown.isComposing 체크로 조합 중엔 무시
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && open) handleSend()
+      if (e.key !== "Enter" || e.shiftKey || !open) return
+      // 한글 IME 조합 중(isComposing) 또는 keyCode 229(IE/구 Chromium) 무시
+      if ((e as any).isComposing || e.keyCode === 229) return
+      // 포커스가 콘솔의 input에 있을 때만 동작하도록 target 체크
+      const target = e.target as HTMLElement | null
+      if (!target || target.tagName !== "INPUT") return
+      e.preventDefault()
+      handleSend()
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
@@ -681,7 +713,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Cherry size={28} className="text-[#C94B6E] mb-2" />
-            <p className="text-[12px] text-[#888]">카탈로그에서 지식을 구매하면 여기에 대화가 표시됩니다</p>
+            <p className="text-[12px] text-[#888]">Purchase knowledge from the catalog to see conversations here</p>
           </div>
         )}
 
@@ -723,7 +755,29 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
                 </div>
               </div>
             )
-            case "agent-done": return <AgentDoneMsg key={i} hash={msg.hash} />
+            case "agent-done": return <AgentDoneMsg key={i} hash={msg.hash} blocked={msg.blocked} />
+            case "room": {
+              // 3자 대화 메시지 — from/to 색상으로 구분
+              const labelOf = (p: string) => p === "user" ? "Me" : p === "claude" ? "Claude" : "Cherry"
+              const colorOf = (p: string) => p === "user" ? "#D4854A" : p === "claude" ? "#7B5EA7" : "#C94B6E"
+              const bgOf = (p: string) => p === "user" ? "#1A1520" : p === "claude" ? "#1A1520" : "#1A1520"
+              const isSelf = msg.from === "user"
+              return (
+                <div key={i} className={cn("mb-2", isSelf && "flex flex-col items-end")}>
+                  <p className="text-[10px] font-semibold mb-1 flex items-center gap-1" style={{ color: colorOf(msg.from) }}>
+                    <span>{labelOf(msg.from)}</span>
+                    <span className="text-[#555]">→</span>
+                    <span style={{ color: colorOf(msg.to), opacity: 0.7 }}>{labelOf(msg.to)}</span>
+                  </p>
+                  <div
+                    className="border-l-2 rounded-lg px-3 py-2 max-w-[85%]"
+                    style={{ backgroundColor: bgOf(msg.from), borderColor: colorOf(msg.from) }}
+                  >
+                    <p className="text-[12px] text-[#D0D0D0] leading-relaxed whitespace-pre-line">{msg.content}</p>
+                  </div>
+                </div>
+              )
+            }
             case "agent-report": return (
               <div key={i} className="mb-2">
                 <p className="text-[10px] text-[#27C93F] font-semibold mb-1 flex items-center gap-1.5">
@@ -801,7 +855,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef>(function KaasConsole(_, re
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="에이전트에게 지시하세요..."
+            placeholder="Cherry에게 메시지..."
             disabled={loading}
             className="flex-1 px-2.5 py-1.5 text-[12px] rounded-lg bg-[#1A1520] border border-[#333] text-[#E0E0E0] placeholder:text-[#555] focus:outline-none focus:border-[#D4854A] disabled:opacity-50"
           />

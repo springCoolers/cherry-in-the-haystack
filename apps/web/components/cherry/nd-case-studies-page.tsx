@@ -114,7 +114,7 @@ function ArticleCard({ item }: { item: CaseStudyItem }) {
    SideCategory Group (헤더)
 ───────────────────────────────────────────── */
 function SideCatGroupSection({ group }: { group: SideCatGroup }) {
-  const style = (group.code && SIDE_CAT_STYLES[group.code]) ?? DEFAULT_SIDE_STYLE
+  const style = (group.code ? SIDE_CAT_STYLES[group.code] : undefined) ?? DEFAULT_SIDE_STYLE
   const displayName = group.name ?? "기타"
 
   return (

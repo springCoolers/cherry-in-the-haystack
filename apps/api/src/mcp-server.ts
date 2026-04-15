@@ -329,6 +329,65 @@ server.tool(
   },
 );
 
+// --- Tool: get_room_history ---
+// Claude가 최근 대화 내용을 조회 (컨텍스트 파악용)
+server.tool(
+  'get_room_history',
+  'Get the recent chat history from the Cherry KaaS web console room. Use this before replying to understand context. Returns last N messages (from/to/content).',
+  {
+    limit: z.number().optional().describe('Max messages to return (default 10, max 20)'),
+  },
+  async ({ limit }) => {
+    const history = (global as any).__getRoomHistory?.() ?? [];
+    const n = Math.min(Math.max(limit ?? 10, 1), 20);
+    const recent = history.slice(-n);
+    if (recent.length === 0) {
+      return { content: [{ type: 'text', text: '(no messages yet)' }] };
+    }
+    const formatted = recent.map((m: any) =>
+      `[${m.timestamp ?? ''}] ${m.from} → ${m.to}: ${m.content}`
+    ).join('\n');
+    return { content: [{ type: 'text', text: `Recent room messages (${recent.length}):\n\n${formatted}` }] };
+  },
+);
+
+// --- Tool: reply_to_room ---
+// Claude Code 사용자가 Claude에게 "답해" 지시 → Claude가 이 tool을 호출해 웹 콘솔에 메시지 전달
+// 3자 대화 (user ↔ claude ↔ cherry) 에서 Claude가 응답하는 유일한 경로
+server.tool(
+  'reply_to_room',
+  'Send a reply message to the Cherry KaaS web console chat room. Use this when the user asks you to respond to a message from the room (user or cherry). The reply will appear in the web console chat.',
+  {
+    content: z.string().describe('The reply message content (what Claude wants to say)'),
+    to: z.enum(['user', 'cherry']).optional().describe('Recipient (default: reply to the last sender)'),
+  },
+  async ({ content, to }) => {
+    const pending = (global as any).__pendingRoomMessage?.();
+    const recipient = to ?? pending?.from ?? 'user';
+
+    if (!wsSocket || !wsSocket.connected) {
+      return { content: [{ type: 'text', text: '⚠ WebSocket not connected. Cannot send reply.' }], isError: true };
+    }
+
+    const msg = {
+      from: 'claude',
+      to: recipient,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+    wsSocket.emit('room_message', msg);
+    (global as any).__appendRoomHistory?.(msg); // Claude 자신의 응답도 히스토리에
+    (global as any).__clearPendingRoomMessage?.();
+
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Reply sent to room (to=${recipient}, ${content.length} chars). Visible on the web console.`,
+      }],
+    };
+  },
+);
+
 // --- Tool: generate_self_report ---
 // 사용자가 Claude에게 "내 상태 리포트 대시보드에 올려줘"라고 하면 이 툴이 호출됨.
 // Claude Code 채팅에 tool call이 시각적으로 표시됨 → "Claude가 직접 했다"는 증거.
@@ -659,6 +718,47 @@ function connectWebSocket(apiKey: string) {
       wsSocket!.emit('submit_self_report', { error: err.message });
     }
   });
+
+  // 3자 대화 Chat Room: to=claude 메시지 수신 시
+  // Claude Code CLI는 MCP Sampling 미지원 → MCP logging notification으로 Claude Code에 알림
+  // → 사용자가 Claude에게 "답해" 지시 → Claude가 reply_to_room tool 호출
+  // Claude가 맥락을 알도록 최근 room 메시지 히스토리도 유지
+  const roomHistory: any[] = []; // 최대 20개 유지 (메모리)
+  let pendingRoomMessage: any = null;
+
+  // 자기 자신의 메시지도 히스토리에 기록 (reply_to_room에서 사용)
+  (global as any).__appendRoomHistory = (m: any) => {
+    roomHistory.push(m);
+    if (roomHistory.length > 20) roomHistory.shift();
+  };
+
+  wsSocket.on('room_message', async (msg: any) => {
+    if (!msg) return;
+    // 히스토리 누적 (모든 메시지)
+    roomHistory.push(msg);
+    if (roomHistory.length > 20) roomHistory.shift();
+
+    if (msg.to !== 'claude' || msg.from === 'claude') return;
+    console.error(`[WS room] ${msg.from} → claude: ${msg.content?.slice(0, 60)}`);
+    pendingRoomMessage = msg;
+    try {
+      // 최근 대화 컨텍스트 포함
+      const recentCtx = roomHistory.slice(-8).map((m: any) =>
+        `  ${m.from} → ${m.to}: ${String(m.content).slice(0, 120)}`
+      ).join('\n');
+      await server.server.sendLoggingMessage({
+        level: 'notice',
+        logger: 'cherry-kaas-room',
+        data: `💬 새 메시지 ${msg.from} → claude: "${msg.content}"\n\n[최근 대화]\n${recentCtx}\n\n👉 이어서 답하려면 Claude에게 "reply_to_room tool로 답해"라고 말하세요.`,
+      }).catch(() => {});
+    } catch (e: any) {
+      console.error(`[WS room] notification failed: ${e.message}`);
+    }
+  });
+
+  (global as any).__pendingRoomMessage = () => pendingRoomMessage;
+  (global as any).__clearPendingRoomMessage = () => { pendingRoomMessage = null; };
+  (global as any).__getRoomHistory = () => roomHistory.slice();
 
   wsSocket.on('chat_request', async (data: { message: string }) => {
     console.error(`[WS] chat_request: ${data.message}`);

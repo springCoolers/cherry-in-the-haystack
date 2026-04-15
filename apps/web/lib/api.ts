@@ -394,6 +394,25 @@ export async function fetchAgents() {
   return res.json()
 }
 
+/** Live onchain Karma read from Status Network */
+export interface OnchainKarma {
+  walletAddress: string | null
+  tier: "Bronze" | "Silver" | "Gold" | "Platinum"
+  balance: number
+  onchainTierId?: number
+  onchainTierName?: string
+  txPerEpoch?: number
+  chain: string
+  karmaContract: string | null
+  karmaTiersContract: string | null
+}
+
+export async function fetchAgentKarma(agentId: string): Promise<OnchainKarma> {
+  const res = await fetch(`${KAAS_BASE}/agents/${agentId}/karma`, { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch onchain karma")
+  return res.json()
+}
+
 /** 크레딧 잔액 */
 export async function fetchBalance(apiKey: string) {
   const res = await fetch(`${KAAS_BASE}/credits/balance?api_key=${apiKey}`)

@@ -50,4 +50,21 @@ export class KaasAgentController {
     await this.agentService.updateModel(id, body.llm_model);
     return { success: true };
   }
+
+  @Get(':id/karma')
+  @ApiOperation({ summary: 'Read agent Karma tier from Status Network onchain (live)' })
+  async getKarma(@Param('id') id: string) {
+    const result = await this.agentService.refreshKarmaFromOnchain(id);
+    return {
+      walletAddress: result.walletAddress,
+      tier: result.tier,                       // Legacy 4-tier (Bronze/Silver/Gold/Platinum)
+      balance: result.balance,                 // Karma balance (KARMA, 18-decimal)
+      onchainTierId: result.onchainTierId,     // 0..10
+      onchainTierName: result.onchainTierName, // 'none' | 'entry' | ... | 'legendary'
+      txPerEpoch: result.txPerEpoch,           // Gasless tx allowance at this tier
+      chain: 'Status Network Hoodi',
+      karmaContract: process.env.STATUS_KARMA_ADDRESS ?? null,
+      karmaTiersContract: process.env.STATUS_KARMA_TIERS_ADDRESS ?? null,
+    };
+  }
 }

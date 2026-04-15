@@ -60,8 +60,8 @@ function EvidenceForm({
         <div><label className={labelCls}>Comment</label><input value={comment} onChange={(e) => setComment(e.target.value)} className={cn(inputBase, "mt-1")} /></div>
       </div>
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className={btnSecondary}>취소</button>
-        <button onClick={() => onSave({ source, summary, curator, curator_tier: tier, comment })} disabled={!source || !summary || !curator} className={cn(btnPrimary, "disabled:opacity-40")} className={cn(btnPrimary, "disabled:opacity-40")}>저장</button>
+        <button onClick={onCancel} className={btnSecondary}>Cancel</button>
+        <button onClick={() => onSave({ source, summary, curator, curator_tier: tier, comment })} disabled={!source || !summary || !curator} className={cn(btnPrimary, "disabled:opacity-40")}>Save</button>
       </div>
     </div>
   )
@@ -216,8 +216,8 @@ export function KnowledgeCurationPanel() {
   }
 
   const subTabs = [
-    { key: "info" as const, label: "기본 정보", icon: FileText },
-    { key: "content" as const, label: "콘텐츠", icon: BookOpen },
+    { key: "info" as const, label: "Basic Info", icon: FileText },
+    { key: "content" as const, label: "Content", icon: BookOpen },
     { key: "evidence" as const, label: `Evidence`, count: selected?.evidence?.length ?? 0, icon: Edit3 },
   ]
 
@@ -237,7 +237,7 @@ export function KnowledgeCurationPanel() {
         <div className="px-3 pb-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#888]" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="검색" className="w-full rounded-lg border border-[#E0E0E0] bg-[#FBFAF8] py-1.5 pl-8 pr-3 text-[12px] outline-none placeholder:text-[#888] focus:border-[#1A1626] focus:bg-white" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="w-full rounded-lg border border-[#E0E0E0] bg-[#FBFAF8] py-1.5 pl-8 pr-3 text-[12px] outline-none placeholder:text-[#888] focus:border-[#1A1626] focus:bg-white" />
           </div>
         </div>
 
@@ -257,7 +257,7 @@ export function KnowledgeCurationPanel() {
               <div className="mt-0.5 flex items-center gap-2 text-[10px]">
                 <span className="text-[#7B5EA7]">{c.category}</span>
                 <span className="text-[#D4854A] font-medium">Q{c.qualityScore}</span>
-                {!c.isActive && <span className="text-[#E57373]">비활성</span>}
+                {!c.isActive && <span className="text-[#E57373]">Inactive</span>}
               </div>
             </button>
           ))}
@@ -269,7 +269,7 @@ export function KnowledgeCurationPanel() {
         {showCreate ? (
           /* ── Create form ── */
           <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="mb-4 text-[15px] font-bold">새 개념 생성</h3>
+            <h3 className="mb-4 text-[15px] font-bold">Create New Concept</h3>
             <div className="space-y-4 max-w-lg">
               <div><label className={labelCls}>ID (slug)</label><input value={newId} onChange={(e) => setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} placeholder="rag" className={cn(inputBase, "mt-1")} /></div>
               <div><label className={labelCls}>Title</label><input value={newTitle} onChange={(e) => { setNewTitle(e.target.value); if (!newId) setNewId(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")) }} placeholder="Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} /></div>
@@ -283,7 +283,7 @@ export function KnowledgeCurationPanel() {
               </div>
               <div><label className={labelCls}>Summary</label><textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} className={cn(inputBase, "mt-1 resize-none")} /></div>
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setShowCreate(false)} className={btnSecondary}>취소</button>
+                <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
                 <button onClick={handleCreate} disabled={saving || !newId || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "생성 중..." : "생성"}</button>
               </div>
             </div>
@@ -299,7 +299,7 @@ export function KnowledgeCurationPanel() {
                   <p className="text-[10px]"><span className="text-[#999]">{selected.id}</span> · <span className="text-[#7B5EA7]">{selected.category}</span></p>
                 </div>
                 <button onClick={() => handleDelete(selected.id)} className="flex items-center gap-1 rounded-lg border border-[#E0E0E0] px-2.5 py-1 text-[11px] text-[#888] transition-colors hover:border-red-200 hover:text-red-400">
-                  <Trash2 className="h-3 w-3" /> 삭제
+                  <Trash2 className="h-3 w-3" /> Delete
                 </button>
               </div>
               <div className="flex gap-0">
@@ -334,16 +334,16 @@ export function KnowledgeCurationPanel() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <button onClick={() => setPreview(false)} className={cn("rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors", !preview ? "bg-[#FAFAFA] text-[#666]" : "text-[#666] hover:bg-[#FAFAFA]")}>
-                        <Edit3 className="mr-1 inline h-3.5 w-3.5" />편집
+                        <Edit3 className="mr-1 inline h-3.5 w-3.5" />Edit
                       </button>
                       <button onClick={() => setPreview(true)} className={cn("rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors", preview ? "bg-[#FAFAFA] text-[#666]" : "text-[#666] hover:bg-[#FAFAFA]")}>
-                        <Eye className="mr-1 inline h-3.5 w-3.5" />미리보기
+                        <Eye className="mr-1 inline h-3.5 w-3.5" />Preview
                       </button>
                     </div>
                     <div className="flex items-center gap-2">
                       <input ref={fileInputRef} type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
                       <button onClick={() => fileInputRef.current?.click()} className={cn(btnSecondary, "flex items-center gap-1")}>
-                        <Upload className="h-3.5 w-3.5" />.md 업로드
+                        <Upload className="h-3.5 w-3.5" />Upload .md
                       </button>
                       <button onClick={handleSaveContent} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
                     </div>
@@ -355,7 +355,7 @@ export function KnowledgeCurationPanel() {
                       onChange={(e) => setContentMd(e.target.value)}
                       rows={24}
                       className={cn(inputBase, "resize-none font-mono text-[12px] leading-relaxed")}
-                      placeholder="마크다운 콘텐츠를 입력하거나 .md 파일을 업로드하세요"
+                      placeholder="Type markdown content or upload a .md file"
                     />
                   ) : (
                     <div className="rounded-xl border border-[#E0E0E0] bg-white p-5">
@@ -377,7 +377,7 @@ export function KnowledgeCurationPanel() {
                     }}
                     className="flex items-center justify-center rounded-xl border-2 border-dashed border-[#E0E0E0] p-6 text-[13px] text-[#888] transition-colors hover:border-[#999]"
                   >
-                    <Upload className="mr-2 h-4 w-4" /> .md / .txt 파일을 드래그 앤 드롭
+                    <Upload className="mr-2 h-4 w-4" /> Drag & drop a .md / .txt file
                   </div>
                 </div>
               )}
@@ -411,7 +411,7 @@ export function KnowledgeCurationPanel() {
                     <EvidenceForm onSave={handleAddEvidence} onCancel={() => setAddingEvidence(false)} />
                   ) : (
                     <button onClick={() => setAddingEvidence(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#E0E0E0] py-4 text-[13px] text-[#888] transition-colors hover:border-[#D4854A] hover:text-[#D4854A]">
-                      <Plus className="h-4 w-4" /> Evidence 추가
+                      <Plus className="h-4 w-4" /> Add Evidence
                     </button>
                   )}
                 </div>
@@ -420,7 +420,7 @@ export function KnowledgeCurationPanel() {
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-[14px] text-[#888]">
-            좌측에서 개념을 선택하세요
+            Select a concept on the left
           </div>
         )}
       </div>
@@ -435,8 +435,8 @@ export default function KaasAdminPage() {
   const [topTab, setTopTab] = useState<"curation" | "template">("curation")
 
   const topTabs = [
-    { key: "curation" as const, label: "지식 큐레이팅" },
-    { key: "template" as const, label: "프롬프트 템플릿" },
+    { key: "curation" as const, label: "Knowledge Curation" },
+    { key: "template" as const, label: "Prompt Templates" },
   ]
 
   return (

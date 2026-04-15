@@ -24,7 +24,7 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 const TYPE_FILTERS = [
-  { value: "ALL", label: "전체" },
+  { value: "ALL", label: "All" },
   { value: "ARTICLE_AI", label: "Article AI" },
   { value: "NEWSLETTER", label: "Newsletter" },
 ]
@@ -65,14 +65,14 @@ function ToneEditor({
     <div className="mt-3 rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] px-4 py-2.5">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#888]">
-          톤 / 방향
+          Tone / Direction
         </span>
         {!editing ? (
           <button
             onClick={() => setEditing(true)}
             className="text-[11px] text-[#888] transition-colors hover:text-[#D4854A]"
           >
-            편집
+            Edit
           </button>
         ) : (
           <div className="flex items-center gap-1.5">
@@ -80,14 +80,14 @@ function ToneEditor({
               onClick={() => { setValue(toneText); setEditing(false) }}
               className="text-[11px] text-[#888] transition-colors hover:text-[#D4854A]"
             >
-              취소
+              Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || value === toneText}
               className="text-[11px] font-semibold text-[#6B727E] transition-colors hover:opacity-80 disabled:opacity-40"
             >
-              {saving ? "저장 중..." : "저장"}
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
         )}
@@ -167,23 +167,23 @@ function VersionEditor({
       <div className="flex items-center gap-2 rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] px-3 py-2.5">
         <Clock className="h-3.5 w-3.5 shrink-0 text-[#888]" />
         <span className="text-[12px] text-[#6B727E]">
-          편집 중: <strong className="text-[#1A1626]">버전 {version.version_tag}</strong>
+          Editing: <strong className="text-[#1A1626]">Version {version.version_tag}</strong>
         </span>
         {version.is_active && (
           <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-[#6B727E]">
-            <Check className="h-3 w-3" /> 현재 활성
+            <Check className="h-3 w-3" /> Currently Active
           </span>
         )}
       </div>
 
-      {/* 변경 메모 */}
+      {/* Change Note */}
       <div className={field}>
-        <label className={label}>변경 메모</label>
+        <label className={label}>Change Note</label>
         <input
           type="text"
           value={changeNote}
           onChange={(e) => setChangeNote(e.target.value)}
-          placeholder="어떤 변경을 했나요?"
+          placeholder="What did you change?"
           className={inputBase}
         />
       </div>
@@ -191,8 +191,8 @@ function VersionEditor({
       {/* 프롬프트 본문 */}
       <div className={field}>
         <div className="flex items-baseline justify-between">
-          <label className={label}>프롬프트 본문</label>
-          <span className="text-[11px] text-[#888]">{"{article_content}"} 등 변수 사용 가능</span>
+          <label className={label}>Prompt Body</label>
+          <span className="text-[11px] text-[#888]">{"{article_content}"} and other variables available</span>
         </div>
         <textarea
           value={promptText}
@@ -205,8 +205,8 @@ function VersionEditor({
       {/* Few-shot */}
       <div className={field}>
         <label className={label}>
-          Few-shot 예시{" "}
-          <span className="font-normal normal-case tracking-normal text-[#AAA]">— 선택</span>
+          Few-shot Examples{" "}
+          <span className="font-normal normal-case tracking-normal text-[#AAA]">— Optional</span>
         </label>
         <textarea
           value={fewShot}
@@ -219,7 +219,7 @@ function VersionEditor({
 
       {/* 파라미터 */}
       <div className={field}>
-        <label className={label}>파라미터 (JSON)</label>
+        <label className={label}>Parameters (JSON)</label>
         <textarea
           value={params}
           onChange={(e) => setParams(e.target.value)}
@@ -235,7 +235,7 @@ function VersionEditor({
           disabled={saving}
           className="rounded-lg border border-[#E0E0E0] px-4 py-2 text-[13px] text-[#6B727E] transition-colors hover:bg-[#FAFAFA] disabled:opacity-50"
         >
-          저장 (비활성)
+          Save (Inactive)
         </button>
         <button
           onClick={() => handleSave(true)}
@@ -245,7 +245,7 @@ function VersionEditor({
         >
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {saved && <Check className="h-3.5 w-3.5" />}
-          {saving ? "저장 중..." : saved ? "저장 완료" : "저장 + 활성 지정"}
+          {saving ? "Saving..." : saved ? "Saved" : "Save + Activate"}
         </button>
       </div>
     </div>
@@ -337,9 +337,9 @@ export function TemplateEditorBody() {
   }
 
   const tabs = [
-    { key: "list" as const, label: "버전 목록" },
-    { key: "editor" as const, label: "버전 편집" },
-    { key: "preview" as const, label: "미리보기" },
+    { key: "list" as const, label: "Versions" },
+    { key: "editor" as const, label: "Editor" },
+    { key: "preview" as const, label: "Preview" },
   ]
 
   if (loading) {
@@ -364,7 +364,7 @@ export function TemplateEditorBody() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="이름 또는 코드"
+                placeholder="Name or code"
                 className="w-full rounded-lg border border-[#E0E0E0] bg-[#FBFAF8] py-1.5 pl-8 pr-3 text-[12px] outline-none transition-colors placeholder:text-[#888] focus:border-[#D4854A] focus:bg-white"
               />
             </div>
@@ -389,7 +389,7 @@ export function TemplateEditorBody() {
 
           <div className="flex-1 overflow-y-auto px-2">
             {filtered.length === 0 ? (
-              <p className="p-4 text-center text-[13px] text-[#888]">결과 없음</p>
+              <p className="p-4 text-center text-[13px] text-[#888]">No results</p>
             ) : (
               filtered.map((t) => (
                 <button
@@ -412,7 +412,7 @@ export function TemplateEditorBody() {
                   </p>
                   <p className="text-[10px] text-[#888]">
                     {TYPE_LABEL[t.type] ?? t.type} · {t.scope}
-                    {!t.is_active && <span className="ml-1.5 text-[#AAA]">비활성</span>}
+                    {!t.is_active && <span className="ml-1.5 text-[#AAA]">Inactive</span>}
                   </p>
                 </button>
               ))
@@ -424,7 +424,7 @@ export function TemplateEditorBody() {
         <div className="flex flex-1 flex-col rounded-xl border border-[#E0E0E0] bg-white overflow-hidden min-w-0">
           {!selected ? (
             <div className="flex flex-1 items-center justify-center text-[14px] text-[#888]">
-              해당 타입의 템플릿이 없습니다.
+              No templates of this type.
             </div>
           ) : (
           <>
@@ -432,7 +432,7 @@ export function TemplateEditorBody() {
           <div className="shrink-0 border-b border-[#E0E0E0] px-5 pt-4 pb-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-[14px] font-bold">{selected.name}</h1>
-              {!selected.is_active && <span className="text-[11px] text-[#888]">비활성</span>}
+              {!selected.is_active && <span className="text-[11px] text-[#888]">Inactive</span>}
             </div>
             {selected.description && (
               <p className="text-[12px] leading-relaxed text-[#6B727E]">{selected.description}</p>
@@ -495,7 +495,7 @@ export function TemplateEditorBody() {
                             background: v.is_active ? "#EFF7F3" : "#FFF8F0",
                             color: v.is_active ? "#2D7A5E" : "#D4854A",
                           }}
-                          title={v.is_active ? "현재 활성" : "클릭하여 활성 지정"}
+                          title={v.is_active ? "Currently Active" : "Click to activate"}
                         >
                           {v.version_tag}
                         </button>
@@ -503,14 +503,14 @@ export function TemplateEditorBody() {
                         {v.is_active ? (
                           <span className="flex items-center gap-1 text-[11px] font-semibold text-[#2D7A5E]">
                             <Check className="h-3 w-3" />
-                            활성
+                            Active
                           </span>
                         ) : (
                           !isConfirming && (
                             <button
                               onClick={() => setConfirmDeleteId(v.id)}
                               className="flex items-center gap-1 rounded-md p-1.5 text-[#AAA] opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-400"
-                              title="삭제"
+                              title="Delete"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -518,7 +518,7 @@ export function TemplateEditorBody() {
                         )}
                       </div>
 
-                      {/* 변경 메모 */}
+                      {/* Change Note */}
                       <p className="mb-4 flex-1 text-[13px] leading-relaxed text-[#3F3F46]">
                         {v.change_note ?? ""}
                       </p>
@@ -537,22 +537,22 @@ export function TemplateEditorBody() {
                             }}
                             className="rounded-lg border border-[#E0E0E0] px-3 py-1 text-[12px] text-[#6B727E] transition-colors hover:border-[#D4854A] hover:text-[#D4854A]"
                           >
-                            편집
+                            Edit
                           </button>
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-red-400">삭제할까요?</span>
+                            <span className="text-[11px] text-red-400">Delete?</span>
                             <button
                               onClick={() => handleDeleteVersion(selected.id, v.id)}
                               className="rounded px-2 py-0.5 text-[11px] font-semibold text-red-500 transition-colors hover:bg-red-100"
                             >
-                              확인
+                              Confirm
                             </button>
                             <button
                               onClick={() => setConfirmDeleteId(null)}
                               className="rounded px-2 py-0.5 text-[11px] text-[#888] transition-colors hover:bg-[#FAFAFA]"
                             >
-                              취소
+                              Cancel
                             </button>
                           </div>
                         )}
@@ -568,14 +568,14 @@ export function TemplateEditorBody() {
                       prompt_text: activeVersion?.prompt_text ?? "",
                       few_shot_examples: activeVersion?.few_shot_examples ?? undefined,
                       parameters_json: activeVersion?.parameters_json ?? undefined,
-                      change_note: "새 버전",
+                      change_note: "New version",
                     })
                     await loadTemplates()
                   }}
                   className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#E0E0E0] text-[13px] text-[#888] transition-colors hover:border-[#D4854A] hover:text-[#D4854A]"
                 >
                   <Plus className="h-5 w-5" />
-                  새 버전 만들기
+                  Create New Version
                 </button>
               </div>
             )}
@@ -595,7 +595,7 @@ export function TemplateEditorBody() {
               <div className="flex flex-col gap-5">
                 <div className="rounded-xl border border-[#E0E0E0] bg-white p-5">
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.8px] text-[#888]">
-                    활성 버전 ({activeVersion.version_tag}) — 프롬프트 본문
+                    Active Version ({activeVersion.version_tag}) — Prompt Body
                   </p>
                   <pre className="whitespace-pre-wrap rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] p-4 font-mono text-[12px] leading-relaxed text-[#3F3F46]">
                     {activeVersion.prompt_text}
@@ -605,7 +605,7 @@ export function TemplateEditorBody() {
                 {activeVersion.few_shot_examples && (
                   <div className="rounded-xl border border-[#E0E0E0] bg-white p-5">
                     <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.8px] text-[#888]">
-                      Few-shot 예시
+                      Few-shot Examples
                     </p>
                     <pre className="whitespace-pre-wrap rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] p-4 font-mono text-[12px] leading-relaxed text-[#3F3F46]">
                       {activeVersion.few_shot_examples}
@@ -615,7 +615,7 @@ export function TemplateEditorBody() {
 
                 <div className="rounded-xl border border-[#E0E0E0] bg-white p-5">
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.8px] text-[#888]">
-                    파라미터
+                    Parameters
                   </p>
                   <pre className="whitespace-pre-wrap rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] p-4 font-mono text-[12px] leading-relaxed text-[#3F3F46]">
                     {JSON.stringify(activeVersion.parameters_json, null, 2)}
@@ -642,10 +642,10 @@ export default function TemplateEditPage() {
             className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-[#6B727E] transition-colors hover:bg-[#FAFAFA]"
           >
             <ChevronLeft className="h-4 w-4" />
-            홈
+            Home
           </Link>
           <span className="text-[#AAA]">/</span>
-          <span className="text-[13px] font-semibold">프롬프트 템플릿</span>
+          <span className="text-[13px] font-semibold">Prompt Templates</span>
         </div>
       </header>
       <TemplateEditorBody />

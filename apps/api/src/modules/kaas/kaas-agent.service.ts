@@ -1,7 +1,9 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Knex } from 'knex';
 import { randomBytes } from 'crypto';
 import { KaasAgentEntity } from './entity/kaas-agent.entity';
+import { getChainAdapter } from './chain-adapter/shared-adapter';
+import type { KarmaTier } from './chain-adapter/interface';
 
 @Injectable()
 export class KaasAgentService {
@@ -101,5 +103,34 @@ export class KaasAgentService {
       updated_at: new Date(),
     });
     this.logger.log(`Knowledge updated: agent=${agentId}, added=${conceptId}, total=${knowledge.length}`);
+  }
+
+  /**
+   * Read the agent's Karma tier from the Status Network Karma contracts onchain.
+   * Falls back to a safe default if the agent has no wallet_address or RPC is down.
+   * Also persists the mapped legacy tier (Bronze/Silver/Gold/Platinum) into kaas.agent
+   * so that the discount table (KARMA_DISCOUNT) picks it up on the next purchase.
+   */
+  async refreshKarmaFromOnchain(agentId: string): Promise<KarmaTier & { walletAddress: string | null }> {
+    const agent = await this.knex('kaas.agent').where({ id: agentId }).first();
+    if (!agent) throw new NotFoundException('agent not found');
+    if (!agent.wallet_address) {
+      return { tier: 'Bronze', balance: 0, walletAddress: null };
+    }
+
+    // Always use the Status adapter for Karma reads (Karma is a Status Network primitive)
+    const adapter = getChainAdapter('status');
+    const result = await adapter.getKarmaTier(agent.wallet_address);
+
+    // Persist the mapped legacy tier so KaaS discount flow uses the fresh value
+    if (agent.karma_tier !== result.tier) {
+      await this.knex('kaas.agent').where({ id: agentId }).update({
+        karma_tier: result.tier,
+        updated_at: new Date(),
+      });
+      this.logger.log(`Karma tier updated: agent=${agentId} ${agent.karma_tier} → ${result.tier} (onchain=${result.onchainTierName})`);
+    }
+
+    return { ...result, walletAddress: agent.wallet_address };
   }
 }

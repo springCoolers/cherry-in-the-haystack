@@ -51,14 +51,14 @@ const getCategoryColor = (code: string) => CATEGORY_COLORS[code] ?? "#9E97B3"
    Skeleton placeholder data
 ───────────────────────────────────────────── */
 const SKELETON_CATEGORIES: FrameworkCategoryItem[] = [
-  { id: "sk1", code: "agent",        name: "Agent",            entities: [{ id: "e1", name: "LangGraph", isSpotlight: true }, { id: "e2", name: "CrewAI", isSpotlight: false }] },
-  { id: "sk2", code: "fine-tuning",  name: "Fine-Tuning",      entities: [{ id: "e3", name: "LoRA", isSpotlight: false }] },
-  { id: "sk3", code: "rag",          name: "RAG",              entities: [{ id: "e4", name: "LlamaIndex", isSpotlight: true }] },
-  { id: "sk4", code: "prompt-eng",   name: "Prompt Engineering",entities: [{ id: "e5", name: "DSPy", isSpotlight: false }] },
-  { id: "sk5", code: "serving",      name: "Serving",          entities: [{ id: "e6", name: "vLLM", isSpotlight: false }] },
-  { id: "sk6", code: "data-storage", name: "Data & Storage",   entities: [{ id: "e7", name: "Weaviate", isSpotlight: false }] },
-  { id: "sk7", code: "llmops",       name: "LLMOps",           entities: [{ id: "e8", name: "Weights & Biases", isSpotlight: false }] },
-  { id: "sk8", code: "observability","name": "Observability",  entities: [{ id: "e9", name: "LangSmith", isSpotlight: false }] },
+  { id: "sk1", code: "agent",        name: "Agent",            sortOrder: 1, entities: [{ id: "e1", name: "LangGraph", url: null, isSpotlight: true }, { id: "e2", name: "CrewAI", url: null, isSpotlight: false }] },
+  { id: "sk2", code: "fine-tuning",  name: "Fine-Tuning",      sortOrder: 2, entities: [{ id: "e3", name: "LoRA", url: null, isSpotlight: false }] },
+  { id: "sk3", code: "rag",          name: "RAG",              sortOrder: 3, entities: [{ id: "e4", name: "LlamaIndex", url: null, isSpotlight: true }] },
+  { id: "sk4", code: "prompt-eng",   name: "Prompt Engineering",sortOrder: 4, entities: [{ id: "e5", name: "DSPy", url: null, isSpotlight: false }] },
+  { id: "sk5", code: "serving",      name: "Serving",          sortOrder: 5, entities: [{ id: "e6", name: "vLLM", url: null, isSpotlight: false }] },
+  { id: "sk6", code: "data-storage", name: "Data & Storage",   sortOrder: 6, entities: [{ id: "e7", name: "Weaviate", url: null, isSpotlight: false }] },
+  { id: "sk7", code: "llmops",       name: "LLMOps",           sortOrder: 7, entities: [{ id: "e8", name: "Weights & Biases", url: null, isSpotlight: false }] },
+  { id: "sk8", code: "observability","name": "Observability",  sortOrder: 8, entities: [{ id: "e9", name: "LangSmith", url: null, isSpotlight: false }] },
 ]
 
 const SKELETON_RISINGSTAR: FrameworksRisingstar = {

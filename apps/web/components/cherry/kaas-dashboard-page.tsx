@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import {
   Coins, ExternalLink, Shield, Wallet, ArrowUpRight, ArrowDownRight,
-  Copy, Check, Globe, UserPlus, Plus, X,
+  Copy, Check, Globe, UserPlus, Plus, X, Key,
 } from "lucide-react"
 import { KnowledgeCurationPanel } from "./kaas-admin-page"
 import { TemplateEditorBody } from "@/app/template/edit/page"
@@ -62,7 +62,7 @@ function ChainSelector() {
     <div className="flex items-center gap-1 p-1 rounded-lg border border-[#E4E1EE] bg-[#FAFAFA] flex-shrink-0">
       <button
         onClick={() => toggle("status")}
-        title="Status Network Sepolia — gasless L2, 수수료 0"
+        title="Status Network Sepolia — gasless L2, zero fees"
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer leading-tight",
           chain === "status"
@@ -78,7 +78,7 @@ function ChainSelector() {
       </button>
       <button
         onClick={() => toggle("near")}
-        title="NEAR Protocol Testnet — L1, 소액 NEAR 수수료"
+        title="NEAR Protocol Testnet — L1, small NEAR fees"
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer leading-tight",
           chain === "near"
@@ -137,6 +137,7 @@ function KnowledgeDiffModal({ agentId, agentName, onClose }: { agentId: string; 
                 txHash: e.txHash,
                 explorerUrl: e.txHash
                   ? e.chain === "near" ? `https://testnet.nearblocks.io/txns/${e.txHash}`
+                  : e.chain === "status-hoodi" ? `https://hoodiscan.status.network/tx/${e.txHash}`
                   : e.chain === "status" ? `https://sepoliascan.status.network/tx/${e.txHash}`
                   : "" : "",
                 onChainFailed: !e.onChain,
@@ -162,7 +163,7 @@ function KnowledgeDiffModal({ agentId, agentName, onClose }: { agentId: string; 
             setError(`${r.error}\n\n💡 ${r.hint ?? ""}`)
           }
         })
-        .catch((e: any) => setError(e.message || "Self-report 요청 실패"))
+        .catch((e: any) => setError(e.message || "Self-report request failed"))
     )
   }
 
@@ -229,8 +230,8 @@ function KnowledgeDiffModal({ agentId, agentName, onClose }: { agentId: string; 
               <p className="text-[#FFBD2E]">⚠ Agent self-report unavailable</p>
               <p className="text-[#FF6B6B] text-[11px] whitespace-pre-wrap">{error}</p>
               <p className="text-[#7C8490] text-[11px] mt-2">
-                이 리포트는 에이전트 프로세스(MCP stdio)가 직접 생성합니다.{'\n'}
-                에이전트가 연결되어 있지 않으면 리포트를 받을 수 없습니다.
+                This report is generated directly by the agent process (MCP stdio).{'\n'}
+                If the agent is not connected, no report can be received.
               </p>
               <button onClick={loadReport} className="mt-2 text-[10px] text-[#6B9CE8] hover:underline cursor-pointer">
                 $ retry
@@ -427,7 +428,7 @@ function CompactPrivacyToggle() {
           Privacy Mode
         </p>
         <p className="text-[10px] text-[#6B727E] mt-0.5 whitespace-nowrap">
-          {enabled ? "NEAR AI TEE 경유 중" : "민감 지식 보호 경유"}
+          {enabled ? "Routed via NEAR AI TEE" : "Protect sensitive knowledge"}
         </p>
       </div>
       <span
@@ -490,8 +491,8 @@ function PrivacyModeToggle() {
           </p>
           <p className="text-[11px] text-[#6B727E] mt-0.5">
             {enabled
-              ? "LLM 추론이 NEAR AI Cloud의 TEE로 라우팅됩니다. 입력/출력이 운영자에게 비공개."
-              : "민감한 지식 소비 시 프라이버시 보호를 위해 켜세요. NEAR AI TEE 경유."}
+              ? "LLM inference is routed through NEAR AI Cloud TEE. Input/output hidden from operators."
+              : "Turn ON to protect privacy when consuming sensitive knowledge. Routes via NEAR AI TEE."}
           </p>
         </div>
       </div>
@@ -562,6 +563,7 @@ const MOCK_AGENTS: Agent[] = [
     credits: 230, totalDeposited: 500, totalConsumed: 270,
     domainInterests: ["AI Engineering", "LLM Frameworks", "Embeddings"],
     apiKey: "ck_live_a1b2c3d4e5f6g7h8i9j0", registeredAt: "2026-04-10",
+    llmProvider: "claude", llmModel: "claude-opus-4-6",
     knowledge: [
       { topic: "RAG", lastUpdated: "2025-11-15" },
       { topic: "Prompt Engineering", lastUpdated: "2026-01-20" },
@@ -574,6 +576,7 @@ const MOCK_AGENTS: Agent[] = [
     credits: 150, totalDeposited: 200, totalConsumed: 50,
     domainInterests: ["Embeddings", "RAG Pipelines", "Semantic Search"],
     apiKey: "ck_live_k9l8m7n6o5p4q3r2s1t0", registeredAt: "2026-04-12",
+    llmProvider: "openai", llmModel: "gpt-4o",
     knowledge: [
       { topic: "Embeddings", lastUpdated: "2026-04-10" },
       { topic: "Semantic Search", lastUpdated: "2026-03-01" },
@@ -585,6 +588,7 @@ const MOCK_AGENTS: Agent[] = [
     credits: 80, totalDeposited: 100, totalConsumed: 20,
     domainInterests: ["Prompt Engineering", "Evaluation"],
     apiKey: "ck_live_u1v2w3x4y5z6a7b8c9d0", registeredAt: "2026-04-13",
+    llmProvider: "claude", llmModel: "claude-sonnet-4-5",
     knowledge: [
       { topic: "Prompt Engineering", lastUpdated: "2026-04-01" },
     ],
@@ -630,6 +634,26 @@ function AgentPanel({
   const [removeCopied, setRemoveCopied] = useState(false)
   const [mcpConnected, setMcpConnected] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
+  const [onchainKarma, setOnchainKarma] = useState<import("@/lib/api").OnchainKarma | null>(null)
+  const [karmaLoading, setKarmaLoading] = useState(false)
+  const [karmaError, setKarmaError] = useState<string | null>(null)
+
+  // Reset onchain karma snapshot when switching agents
+  useEffect(() => { setOnchainKarma(null); setKarmaError(null) }, [selected?.id])
+
+  const refreshOnchainKarma = async () => {
+    if (!selected?.id) return
+    setKarmaLoading(true); setKarmaError(null)
+    try {
+      const { fetchAgentKarma } = await import("@/lib/api")
+      const r = await fetchAgentKarma(selected.id)
+      setOnchainKarma(r)
+    } catch (e: any) {
+      setKarmaError(e?.message ?? "Onchain read failed")
+    } finally {
+      setKarmaLoading(false)
+    }
+  }
 
   // MCP 서버 가동 상태 실시간 폴링 (10초마다)
   // — /mcp/sessions 엔드포인트 도달 가능 여부로 서버 alive 체크
@@ -720,12 +744,57 @@ function AgentPanel({
         </div>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Karma Tier</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">Karma Tier</p>
+            <button
+              onClick={refreshOnchainKarma}
+              disabled={karmaLoading}
+              className="text-[9px] font-semibold px-1.5 py-0.5 rounded border border-[#E4E1EE] hover:border-[#7B5EA7] text-[#7B5EA7] disabled:opacity-50 cursor-pointer transition-colors flex items-center gap-1"
+              title="Read live from Status Network Karma contract"
+            >
+              {karmaLoading ? "…" : "🔗"} {onchainKarma ? "Refresh chain" : "Read onchain"}
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <Shield size={13} style={{ color: TIER_COLOR[selected.karmaTier] }} />
             <span className="text-[13px] font-bold" style={{ color: TIER_COLOR[selected.karmaTier] }}>{selected.karmaTier}</span>
             <span className="text-[11px] text-[#6B727E]">{selected.karmaBalance.toLocaleString()} pts</span>
           </div>
+          {karmaError && (
+            <p className="text-[10px] text-[#C94B6E] mt-1">⚠ {karmaError}</p>
+          )}
+          {onchainKarma && !karmaError && (
+            <div className="mt-1.5 rounded-md border border-[#E4E1EE] bg-[#FAF8FF] px-2 py-1.5 space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-[#6B727E]">Onchain</span>
+                <span className="font-mono text-[#1A1626]">
+                  {onchainKarma.balance.toFixed(2)} KARMA · tier {onchainKarma.onchainTierId} ({onchainKarma.onchainTierName})
+                </span>
+              </div>
+              {typeof onchainKarma.txPerEpoch === "number" && (
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-[#6B727E]">Gasless allowance</span>
+                  <span className="font-mono text-[#2D7A5E] font-semibold">{onchainKarma.txPerEpoch.toLocaleString()} tx / epoch</span>
+                </div>
+              )}
+              {onchainKarma.karmaContract && (
+                <div className="flex items-center justify-between text-[9px]">
+                  <span className="text-[#9E97B3]">Karma contract</span>
+                  <a
+                    href={`https://hoodiscan.status.network/address/${onchainKarma.karmaContract}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[#7B5EA7] hover:underline"
+                  >
+                    {onchainKarma.karmaContract.slice(0, 8)}…{onchainKarma.karmaContract.slice(-4)}
+                  </a>
+                </div>
+              )}
+              <p className="text-[9px] text-[#9E97B3] pt-0.5 border-t border-[#E4E1EE]">
+                Live read from {onchainKarma.chain}
+              </p>
+            </div>
+          )}
         </div>
 
 
@@ -758,43 +827,43 @@ function AgentPanel({
         </div>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Claude Code 연결</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Claude Code Connection</p>
           <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative">
             <p className="text-[10px] font-mono text-[#1A1626] break-all leading-relaxed pr-6">{mcpCommand}</p>
             <button
               onClick={handleCmdCopy}
               className="absolute top-2 right-2 p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
-              title="명령어 복사"
+              title="Copy command"
             >
               {cmdCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
             </button>
           </div>
-          <p className="text-[9px] text-[#9E97B3] mt-1">터미널에 붙여넣고 실행하세요</p>
+          <p className="text-[9px] text-[#9E97B3] mt-1">Paste & run in terminal</p>
           <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative mt-1.5">
             <p className="text-[10px] font-mono text-[#9E97B3] pr-6">{removeCommand}</p>
             <button
               onClick={handleRemoveCopy}
               className="absolute top-2 right-2 p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
-              title="연결 해제 명령어 복사"
+              title="Copy disconnect command"
             >
               {removeCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
             </button>
           </div>
-          <p className="text-[9px] text-[#9E97B3] mt-1">연결 해제 시 실행하세요</p>
+          <p className="text-[9px] text-[#9E97B3] mt-1">Run when disconnecting</p>
         </div>
 
         <button
           onClick={() => setDiffOpen(true)}
           className="w-full text-[12px] font-semibold py-2 rounded-lg border border-[#7B5EA7] text-[#7B5EA7] hover:bg-[#F3EFFA] cursor-pointer transition-colors flex items-center justify-center gap-1.5"
         >
-          📚 학습 이력 보기 (Knowledge Diff)
+          📚 View Learning History (Knowledge Diff)
         </button>
 
         <button
-          onClick={() => { if (confirm(`"${selected.name}" 에이전트를 삭제할까요?`)) onDelete(selected.id) }}
+          onClick={() => { if (confirm(`Delete agent "${selected.name}"?`)) onDelete(selected.id) }}
           className="w-full text-[11px] text-[#999] hover:text-red-400 py-2 cursor-pointer transition-colors"
         >
-          에이전트 삭제
+          Delete Agent
         </button>
       </div>
 
@@ -820,7 +889,7 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
   const connectMetaMask = async () => {
     try {
       const eth = (window as any).ethereum
-      if (!eth) { setError("MetaMask가 설치되어 있지 않습니다"); return }
+      if (!eth) { setError("MetaMask is not installed"); return }
       const accounts = await eth.request({ method: "eth_requestAccounts" })
       if (accounts[0]) {
         setWalletAddress(accounts[0])
@@ -828,7 +897,7 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
         setError("")
       }
     } catch {
-      setError("MetaMask 연결 실패")
+      setError("MetaMask connection failed")
     }
   }
 
@@ -856,7 +925,7 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
       setRegisteredKey(raw.api_key ?? "")
       onComplete(newAgent)
     } catch (err: any) {
-      setError(err.message || "등록 실패")
+      setError(err.message || "Registration failed")
     } finally {
       setRegistering(false)
     }
@@ -880,18 +949,18 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
       <div className="flex flex-col gap-3 overflow-y-auto">
         <div className="flex items-center gap-2">
           <Check size={16} className="text-[#2D7A5E]" />
-          <h3 className="text-[14px] font-bold text-[#2D7A5E]">등록 완료!</h3>
+          <h3 className="text-[14px] font-bold text-[#2D7A5E]">Registered!</h3>
         </div>
 
         <div className="rounded-lg bg-[#EFF7F3] p-3 text-[12px] text-[#2D7A5E] space-y-1">
-          <p className="font-semibold">다음 단계</p>
-          <p className="text-[11px]">1. 크레딧 충전 (Deposit)</p>
-          <p className="text-[11px]">2. 아래 설정을 MCP 클라이언트에 추가</p>
-          <p className="text-[11px]">3. 에이전트가 지식 검색/구매 시작</p>
+          <p className="font-semibold">Next Steps</p>
+          <p className="text-[11px]">1. Deposit credits</p>
+          <p className="text-[11px]">2. Add the config below to your MCP client</p>
+          <p className="text-[11px]">3. Agent starts searching/purchasing knowledge</p>
         </div>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#D4854A] mb-1">MCP 설정 (복사)</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#D4854A] mb-1">MCP Config (copy)</p>
           <div className="relative">
             <pre className="text-[9px] font-mono bg-[#FAFAFA] rounded-lg p-3 border border-[#E4E1EE] whitespace-pre-wrap break-all select-all overflow-x-auto">{mcpConfig}</pre>
             <button
@@ -924,11 +993,11 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
           }}
           className="w-full text-[12px] font-semibold py-2 rounded-lg bg-[#D4854A] text-white hover:opacity-90 cursor-pointer flex items-center justify-center gap-1.5"
         >
-          <Key size={13} /> Claude Desktop 설정 다운로드
+          <Key size={13} /> Download Claude Desktop Config
         </button>
 
         <button onClick={() => { setRegisteredKey(""); onCancel() }} className="w-full text-[12px] font-medium py-2 rounded-lg border border-[#E4E1EE] text-[#6B727E] hover:bg-[#FAFAFA] cursor-pointer">
-          확인
+          OK
         </button>
       </div>
     )
@@ -976,7 +1045,7 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
             : "bg-[#E4E1EE] text-[#9E97B3] cursor-not-allowed"
         )}
       >
-        <UserPlus size={14} /> {registering ? "등록 중..." : "Register Agent"}
+        <UserPlus size={14} /> {registering ? "Registering..." : "Register Agent"}
       </button>
     </div>
   )
@@ -993,19 +1062,19 @@ function DepositWithdrawButtons({ agent, onDeposited, pendingAmount }: { agent: 
 
   const handleDeposit = async () => {
     const key = agent.apiKey
-    if (!key) { alert("API Key가 없습니다. 에이전트를 다시 등록해주세요."); return }
-    if (amount <= 0) { alert("금액을 입력하세요"); return }
+    if (!key) { alert("API Key missing. Please re-register the agent."); return }
+    if (amount <= 0) { alert("Enter an amount"); return }
     setDepositing(true)
     setResult("")
     try {
       const { depositCredits } = await import("@/lib/api")
       const res = await depositCredits(key, amount)
-      setResult(`충전 완료! 잔액: ${res.balance}cr`)
+      setResult(`Deposit complete! Balance: ${res.balance}cr`)
       setShowDeposit(false)
       onDeposited()
     } catch (err: any) {
-      setResult(`충전 실패: ${err.message}`)
-      alert(`충전 실패: ${err.message}`)
+      setResult(`Deposit failed: ${err.message}`)
+      alert(`Deposit failed: ${err.message}`)
     } finally {
       setDepositing(false)
     }
@@ -1013,13 +1082,13 @@ function DepositWithdrawButtons({ agent, onDeposited, pendingAmount }: { agent: 
 
   return (
     <div className="flex flex-col gap-2">
-      {result && <p className={cn("text-[11px] px-3 py-1.5 rounded-lg", result.includes("완료") ? "text-[#2D7A5E] bg-[#EFF7F3]" : "text-red-500 bg-red-50")}>{result}</p>}
+      {result && <p className={cn("text-[11px] px-3 py-1.5 rounded-lg", result.includes("complete") ? "text-[#2D7A5E] bg-[#EFF7F3]" : "text-red-500 bg-red-50")}>{result}</p>}
       {showDeposit && (
         <div className="flex items-center gap-2">
           <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} min={1} className="w-24 px-2 py-1 text-[12px] rounded-lg border border-[#E4E1EE] outline-none focus:border-[#D4854A]" />
           <span className="text-[11px] text-[#6B727E]">cr</span>
-          <button onClick={handleDeposit} disabled={depositing} className="text-[11px] font-semibold px-3 py-1 rounded-lg bg-[#D4854A] text-white hover:opacity-90 disabled:opacity-50">{depositing ? "..." : "충전"}</button>
-          <button onClick={() => setShowDeposit(false)} className="text-[11px] text-[#6B727E] hover:text-[#1A1626]">취소</button>
+          <button onClick={handleDeposit} disabled={depositing} className="text-[11px] font-semibold px-3 py-1 rounded-lg bg-[#D4854A] text-white hover:opacity-90 disabled:opacity-50">{depositing ? "..." : "Deposit"}</button>
+          <button onClick={() => setShowDeposit(false)} className="text-[11px] text-[#6B727E] hover:text-[#1A1626]">Cancel</button>
         </div>
       )}
       <div className="flex items-center gap-2">
@@ -1117,8 +1186,8 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
       <div className="rounded-lg border border-[#E4E1EE] bg-white p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">결제 방식</p>
-            <p className="text-[10px] text-[#9E97B3] mt-0.5">구매 시 온체인 영수증이 기록될 체인을 선택하세요</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">Payment Chain</p>
+            <p className="text-[10px] text-[#9E97B3] mt-0.5">Select the chain where on-chain receipts will be recorded</p>
           </div>
           <ChainSelector />
         </div>
@@ -1169,7 +1238,7 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
                     </div>
                     <span className="text-[11px] text-[#D4854A] font-bold">{credits}cr</span>
                     {onChainFailed ? (
-                      <span className="text-[#D4854A] text-[10px] flex-shrink-0" title="On-chain 기록 실패">⚠ on-chain 실패</span>
+                      <span className="text-[#D4854A] text-[10px] flex-shrink-0" title="On-chain recording failed">⚠ on-chain failed</span>
                     ) : (
                       <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[#6B727E] font-mono text-[10px] hover:underline flex-shrink-0 flex items-center gap-0.5">
                         {hash.slice(0, 10)}...<ExternalLink size={9} />
@@ -1195,7 +1264,7 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
         {activeTab === "rewards" && (
           <div>
             {rewardData.rewards.length === 0 ? (
-              <div className="text-center py-8 text-[12px] text-[#9E97B3]">보상 내역이 없습니다.</div>
+              <div className="text-center py-8 text-[12px] text-[#9E97B3]">No reward history yet.</div>
             ) : rewardData.rewards.map((r: any) => {
               const txHash = r.tx_hash ?? ""
               const explorerUrl = txHash ? `https://sepoliascan.status.network/tx/${txHash}` : ""
@@ -1217,7 +1286,7 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
                       {txHash.slice(0, 10)}...<ExternalLink size={9} />
                     </a>
                   ) : (
-                    <span className="text-[10px] text-[#D4854A] flex-shrink-0" title="On-chain 기록 실패 또는 처리 중">⚠ on-chain 실패</span>
+                    <span className="text-[10px] text-[#D4854A] flex-shrink-0" title="On-chain recording failed or pending">⚠ on-chain failed</span>
                   )}
                   {r.withdrawn
                     ? <span className="text-[10px] text-[#6B727E]">Withdrawn</span>
@@ -1289,10 +1358,10 @@ export function KaasDashboardPage({ isAdmin = false }: { isAdmin?: boolean }) {
   const showRegisterAuto = agents.length === 0 && !showRegister
 
   const tabs = [
-    { key: "dashboard" as const, label: "대시보드" },
+    { key: "dashboard" as const, label: "Dashboard" },
     ...(isAdmin ? [
-      { key: "curation" as const, label: "지식 큐레이팅" },
-      { key: "template" as const, label: "프롬프트 템플릿" },
+      { key: "curation" as const, label: "Knowledge Curation" },
+      { key: "template" as const, label: "Prompt Templates" },
     ] : []),
   ]
 
@@ -1365,7 +1434,7 @@ export function KaasDashboardPage({ isAdmin = false }: { isAdmin?: boolean }) {
               {/* Right — Wallet & Rewards */}
               <div className="flex-1 rounded-xl border border-[#E4E1EE] bg-white p-4 lg:p-5 min-w-0 overflow-y-auto">
                 {selectedAgent ? <WalletPanel agent={selectedAgent} onRefresh={loadAgents} /> : (
-                  <div className="flex items-center justify-center h-full text-[13px] text-[#999]">에이전트를 등록하세요</div>
+                  <div className="flex items-center justify-center h-full text-[13px] text-[#999]">Register an agent</div>
                 )}
               </div>
             </div>
