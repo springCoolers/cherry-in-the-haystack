@@ -169,7 +169,7 @@ function RisingStarCard({ rs, loading }: { rs: FrameworksRisingstar; loading?: b
 
   return (
     <div
-      className="flex flex-col lg:flex-row items-start gap-5 rounded-[10px] border p-5"
+      className="flex flex-col lg:flex-row items-center gap-5 rounded-[10px] border p-5"
       style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
       <div className="flex-1 min-w-0">

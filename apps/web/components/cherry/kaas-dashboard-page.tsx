@@ -1184,7 +1184,7 @@ function WalletPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () => void
 
       {/* 결제 체인 선택 */}
       <div className="rounded-lg border border-[#E4E1EE] bg-white p-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">Payment Chain</p>
             <p className="text-[10px] text-[#9E97B3] mt-0.5">Select the chain where on-chain receipts will be recorded</p>
@@ -1373,7 +1373,7 @@ export function KaasDashboardPage({ isAdmin = false }: { isAdmin?: boolean }) {
           Dashboard
         </h2>
         {tabs.length > 1 && (
-          <div className="flex items-end justify-between gap-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
             <div className="flex gap-0 overflow-x-auto">
               {tabs.map((t) => (
                 <button
@@ -1390,7 +1390,9 @@ export function KaasDashboardPage({ isAdmin = false }: { isAdmin?: boolean }) {
                 </button>
               ))}
             </div>
-            <CompactPrivacyToggle />
+            <div className="flex-shrink-0 pb-2 lg:pb-0">
+              <CompactPrivacyToggle />
+            </div>
           </div>
         )}
       </div>

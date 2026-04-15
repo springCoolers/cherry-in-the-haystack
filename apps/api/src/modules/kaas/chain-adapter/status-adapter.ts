@@ -84,7 +84,7 @@ const KARMA_TIERS_ABI = [
 ];
 
 /** Map Status Network onchain tier name → legacy 4-tier (KaaS discount table) */
-function mapOnchainTier(onchainName: string): KarmaTier["tier"] {
+export function mapOnchainTier(onchainName: string): KarmaTier["tier"] {
   switch (onchainName) {
     case "none":
     case "entry":
