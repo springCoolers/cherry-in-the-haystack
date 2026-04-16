@@ -19,6 +19,7 @@ export interface Concept {
   updatedAt: string;
   relatedConcepts: string[];
   evidence: Evidence[];
+  creator?: { name: string; karmaTier: string } | null;
 }
 
 /** 구매용 개념 (content_md 포함 — 실제 지식 본문) */

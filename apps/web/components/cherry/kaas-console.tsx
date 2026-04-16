@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react"
 import { cn } from "@/lib/utils"
 import { Send, ExternalLink, ChevronDown, Shield, Bot, Cherry, Minus, X, Trash2 } from "lucide-react"
-import { purchaseConcept, followConcept } from "@/lib/api"
+import { purchaseConcept, followConcept, chatWithAgent } from "@/lib/api"
 import { SelfReportLog } from "./kaas-dashboard-page"
 
 /* ═══════════════════════════════════════════════
@@ -199,13 +199,15 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
             🔒 NEAR AI TEE
           </span>
         )}
-        {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+        {msg.privacy && msg.provenance?.onChain && msg.provenance.hash ? (
           <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
             <Shield size={9} />
             <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
             <ExternalLink size={8} />
           </a>
-        )}
+        ) : msg.privacy && !msg.provenance?.onChain ? (
+          <div className="w-3 h-3 border-[1.5px] border-[#7B5EA7] border-t-transparent rounded-full animate-spin" />
+        ) : null}
       </p>
       <div className={cn(
         "bg-[#1A1520] border-l-2 rounded-lg px-3 py-2 max-w-[90%]",
@@ -337,6 +339,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
   const [actionType, setActionType] = useState<Action>("purchase")
   const [credits, setCredits] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
 
@@ -775,6 +778,20 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         let res: { answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsRemaining?: number; privacy?: boolean }
         let provData: Provenance | null = null
 
+        // 단계별 진행 메시지 (3초 간격)
+        const phases = [
+          "Connecting to Cherry KaaS…",
+          "Verifying agent credentials…",
+          "Processing on-chain transaction…",
+          "Finalizing purchase…",
+        ]
+        let phaseIdx = 0
+        setLoadingPhase(phases[0])
+        const phaseTimer = setInterval(() => {
+          phaseIdx++
+          if (phaseIdx < phases.length) setLoadingPhase(phases[phaseIdx])
+        }, 3000)
+
         try {
           const apiKey = apiKeyRef.current
           if (!apiKey) throw new Error("Please select an agent")
@@ -788,19 +805,6 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
 
           // 🔒 Privacy Mode: 구매 intent(concept_id)를 NEAR TEE로 통과시킨 뒤 서버로 전달
           let isPrivate = false
-          try {
-            const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
-            if (getPrivacyMode()) {
-              const { chatWithAgent } = await import("@/lib/api")
-              await chatWithAgent(
-                apiKey,
-                "",
-                `[TEE relay] Purchase intent: agent wants to ${act} concept "${conceptId}". Respond OK.`,
-                true,
-              ).then(() => { isPrivate = true })
-                .catch(() => { /* TEE 통과 실패해도 구매 진행 */ })
-            }
-          } catch { /* import 실패 무시 */ }
 
           // 선택된 체인 읽기 (Status / NEAR)
           let selectedChain: "status" | "near" = "status"
@@ -813,6 +817,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             ? await purchaseConcept(apiKey, conceptId, selectedChain)
             : await followConcept(apiKey, conceptId, selectedChain)
 
+          clearInterval(phaseTimer)
+
           // 기본 답변 = 서버가 준 summary
           let agentReply = apiResult.answer
           if (apiResult.content_md) {
@@ -820,18 +826,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
               const { chatWithAgent } = await import("@/lib/api")
               const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
               const privacy = getPrivacyMode()
-              if (privacy) {
-                // 🔒 Privacy Mode: content_md를 NEAR AI TEE로 한 번 통과만 시킴 (답변 생성 X)
-                // 서버 summary를 그대로 쓰고, 배지만 부착
-                await chatWithAgent(
-                  apiKey,
-                  "",
-                  `[TEE relay] Purchased content: ${apiResult.content_md.slice(0, 1500)}. Respond OK.`,
-                  true,
-                ).catch(() => { /* TEE 통과 실패해도 구매 진행 */ })
-                isPrivate = true
-              } else {
-                // 일반 모드: 기존 그대로 LLM이 요약 생성
+              if (!privacy) {
+                // 일반 모드: LLM이 요약 생성
                 const llmQuestion = `I just learned the "${apiResult.concepts?.[0] ?? conceptId}" concept. Please summarize the core points concisely.`
                 const llmResult = await chatWithAgent(apiKey, apiResult.content_md, llmQuestion, false)
                 if (llmResult.reply && !llmResult.error) agentReply = llmResult.reply
@@ -839,6 +835,12 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             } catch { /* LLM 실패 시 기본 summary 사용 */ }
           }
 
+          // privacy 플래그는 TEE 백그라운드 완료 후 업데이트됨
+          let privacyMode = false
+          try {
+            const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
+            privacyMode = getPrivacyMode()
+          } catch {}
           res = {
             answer: agentReply,
             concepts: apiResult.concepts,
@@ -846,7 +848,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             qualityScore: apiResult.quality_score,
             creditsConsumed: apiResult.credits_consumed,
             creditsRemaining: apiResult.credits_remaining,
-            privacy: isPrivate,
+            privacy: privacyMode,
           }
           if (apiResult.provenance) {
             const p = apiResult.provenance as any
@@ -861,6 +863,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             }
           }
         } catch (err: any) {
+          clearInterval(phaseTimer)
           // ALREADY_OWNED — 사용자가 Compare 안 하고 이미 보유한 지식을 사려고 한 경우
           if (err?.code === 'ALREADY_OWNED' || /already.*owned|이미 보유/i.test(err?.message ?? '')) {
             const friendly = `⚠ Purchase blocked — this knowledge is already in your agent's memory. Run Compare in the catalog to see what you already own.`
@@ -878,35 +881,49 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         // 실제 온체인 tx가 있을 때만 provenance 설정, 없으면 null
         const prov = provData
 
-        // Cherry 응답 + provenance 한번에 표시
+        // Privacy Mode 체크
+        let _privacyOn = false
+        try { const m = await import("@/components/cherry/kaas-dashboard-page"); _privacyOn = m.getPrivacyMode() } catch {}
+
+        // Cherry 응답 즉시 표시 — privacy ON이면 뱃지 + 스피너, TEE 완료 후 tx 링크로 변환
         const remaining = (res as any).creditsRemaining ?? 0
         const before = remaining + res.creditsConsumed
         setCredits(remaining)
-        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: `cherry-${Date.now()}`, privacy: (res as any).privacy }
+        const msgId = `cherry-${Date.now()}`
+        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: msgId, privacy: _privacyOn }
         setMessages((m) => [...m, cherryMsg])
         scrollToBottom()
+
+        // 🔒 Privacy Mode: TEE relay를 백그라운드 실행 → 완료 시 스피너 → tx 링크로 변환
+        if (_privacyOn) {
+          chatWithAgent(apiKeyRef.current, "", `[TEE relay] Purchased content. Respond OK.`, true)
+            .then((teeResult: any) => {
+              const teeProv = teeResult?.provenance ? {
+                hash: teeResult.provenance.hash, chain: teeResult.provenance.chain,
+                explorerUrl: teeResult.provenance.explorer_url, onChain: teeResult.provenance.on_chain,
+              } as Provenance : null
+              setMessages((m) => m.map((msg) =>
+                (msg as any)._id === msgId ? { ...msg, privacy: true, provenance: teeProv ?? (msg as any).provenance } : msg
+              ))
+            })
+            .catch(() => {
+              // TEE 실패해도 뱃지만 부착
+              setMessages((m) => m.map((msg) =>
+                (msg as any)._id === msgId ? { ...msg, privacy: true } : msg
+              ))
+            })
+        }
 
         // Agent done (1.5s later)
         setTimeout(() => {
             setMessages((m) => [...m, { role: "agent-done", hash: prov?.hash ?? "", blocked: prov?.chain === "blocked" }])
-            setLoading(false)
+            setLoading(false); setLoadingPhase("")
             scrollToBottom()
             // 잔액 + knowledge 갱신
             if (apiKeyRef.current) {
               import("@/lib/api").then(({ fetchBalance, fetchAgents }) => {
                 fetchBalance(apiKeyRef.current).then((b: any) => setCredits(b?.balance ?? 0)).catch(() => {})
-                fetchAgents().then(async (agents: any[]) => {
-                  const agent = agents.find((a: any) => a.api_key === apiKeyRef.current)
-                  const knowledge: Array<{ topic: string; lastUpdated: string }> = (() => {
-                    try { const r = agent?.knowledge; return typeof r === 'string' ? JSON.parse(r) : (Array.isArray(r) ? r : []) } catch { return [] }
-                  })()
-                  if (knowledge.length > 0) {
-                    const lines = knowledge.map((k) => `  ✓ ${k.topic} (${k.lastUpdated})`).join("\n")
-                    // TEE를 실제로 거치지 않으므로 뱃지 미부착 (provenance 없이 뱃지만 다는 건 무의미)
-                    setMessages((m) => [...m, { role: "agent-chat", reply: `📚 Knowledge submitted (${knowledge.length} topics):\n${lines}` }])
-                    scrollToBottom()
-                  }
-                }).catch(() => {})
+                fetchAgents().catch(() => {})
               })
             }
             window.dispatchEvent(new Event("kaas-agents-changed"))
@@ -1302,15 +1319,14 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         })}
 
         {loading && (() => {
-          // Cherry 응답이 아직 안 온 동안 계속 스피너 표시.
-          // user 메시지 직후 / agent action 메시지 직후 모두 대응.
           const lastRole = messages[messages.length - 1]?.role
           const waitingForCherry = lastRole === "user" || lastRole === "agent"
           if (!waitingForCherry) return null
+          const phase = loadingPhase || (lastRole === "agent" ? "Cherry is processing…" : "Thinking…")
           return (
             <div className="flex items-center gap-1.5 text-[11px] text-[#555] py-2">
               <div className="w-3 h-3 border-[1.5px] border-[#C94B6E] border-t-transparent rounded-full animate-spin" />
-              {lastRole === "agent" ? "Waiting for Cherry KaaS..." : "Agent is working..."}
+              {phase}
             </div>
           )
         })()}

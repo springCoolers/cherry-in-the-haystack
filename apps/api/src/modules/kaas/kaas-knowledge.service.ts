@@ -35,47 +35,56 @@ export class KaasKnowledgeService {
     };
   }
 
-  /** 전체 목록 (카탈로그용 — content_md 제외) */
+  /** 전체 목록 (카탈로그용 — content_md 제외, 작성자 카르마 포함) */
   async findAll(): Promise<Concept[]> {
     const rows = await this.knex('kaas.concept')
-      .where('is_active', true)
+      .where('kaas.concept.is_active', true)
       .orderBy('quality_score', 'desc');
 
     if (rows.length === 0) return [];
 
+    // 작성자 정보 일괄 조회 — '__SYSTEM__'은 시스템 유저 UUID로 변환
+    const SYSTEM_UUID = '00000000-0000-0000-0000-000000000000';
+    const creatorIds = [...new Set(
+      rows.map((r: Record<string, unknown>) => {
+        const cb = r.created_by as string;
+        return (!cb || cb === '__SYSTEM__') ? SYSTEM_UUID : cb;
+      })
+    )];
+    const users = creatorIds.length > 0
+      ? await this.knex('core.app_user').whereIn('id', creatorIds).select('id', 'name', 'karma_tier')
+      : [];
+    const userMap = new Map(users.map((u: any) => [u.id, { name: u.name as string, karmaTier: (u.karma_tier ?? 'Bronze') as string }]));
+    // __SYSTEM__ 키로도 조회 가능하게
+    const sysUser = userMap.get(SYSTEM_UUID);
+    if (sysUser) userMap.set('__SYSTEM__', sysUser);
+
     const evidence = await this.knex('kaas.evidence')
       .whereIn('concept_id', rows.map((r: Record<string, unknown>) => r.id) as string[]);
 
-    return rows.map((r: Record<string, unknown>) =>
-      this.mapConcept(r, evidence.filter((e: Record<string, unknown>) => e.concept_id === r.id)),
-    );
+    return rows.map((r: Record<string, unknown>) => ({
+      ...this.mapConcept(r, evidence.filter((e: Record<string, unknown>) => e.concept_id === r.id)),
+      creator: userMap.get(r.created_by as string) ?? null,
+      onSale: !!(r.is_on_sale),
+      saleDiscount: r.is_on_sale ? (r.sale_discount as number ?? 20) : 0,
+    }));
   }
 
-  /**
-   * SALE 대상 개념 ID 집합.
-   * 각 카테고리에서 quality_score 가 가장 높은 개념 1개씩.
-   * 프론트 `onSaleIds` 로직과 동일한 규칙 — 클라이언트 선언이 아닌 서버 단일 소스.
-   */
-  async getOnSaleIds(): Promise<Set<string>> {
-    const rows: Array<{ id: string; category: string; quality_score: number | string }> = await this.knex('kaas.concept')
-      .where('is_active', true)
-      .select('id', 'category', 'quality_score');
-
-    const bestPerCategory = new Map<string, { id: string; score: number }>();
-    for (const r of rows) {
-      const score = typeof r.quality_score === 'string' ? parseFloat(r.quality_score) : (r.quality_score ?? 0);
-      const prev = bestPerCategory.get(r.category);
-      if (!prev || score > prev.score) {
-        bestPerCategory.set(r.category, { id: r.id, score });
-      }
-    }
-    return new Set(Array.from(bestPerCategory.values()).map((v) => v.id));
+  /** SALE 대상 개념 ID → 할인율 맵 (DB 기반) */
+  async getSaleMap(): Promise<Map<string, number>> {
+    const rows: Array<{ id: string; sale_discount: number }> = await this.knex('kaas.concept')
+      .where({ is_active: true, is_on_sale: true })
+      .select('id', 'sale_discount');
+    return new Map(rows.map((r) => [r.id, r.sale_discount ?? 20]));
   }
 
-  /** 해당 개념이 현재 SALE인지 */
-  async isOnSale(conceptId: string): Promise<boolean> {
-    const ids = await this.getOnSaleIds();
-    return ids.has(conceptId);
+  /** 해당 개념의 SALE 할인율 (0이면 세일 아님) */
+  async getSaleDiscount(conceptId: string): Promise<number> {
+    const row = await this.knex('kaas.concept')
+      .where({ id: conceptId, is_active: true, is_on_sale: true })
+      .select('sale_discount')
+      .first();
+    return row ? (row.sale_discount ?? 20) : 0;
   }
 
   /** ID로 조회 (카탈로그 상세 — content_md 제외) */
@@ -159,10 +168,10 @@ export class KaasKnowledgeService {
   async findAllAdmin(createdBy?: string) {
     let query = this.knex('kaas.concept').orderBy('quality_score', 'desc');
     if (createdBy === '__ADMIN__') {
-      // 관리자: 전체 (시스템 + 모든 유저)
+      // 관리자: 전체 (시스템 + 모든 유저, 비활성 포함)
     } else if (createdBy) {
-      // 일반 유저: 자기 것만
-      query = query.where('created_by', createdBy);
+      // 일반 유저: 자기 것만 + 활성만
+      query = query.where('created_by', createdBy).where('is_active', true);
     }
     const rows = await query;
     if (rows.length === 0) return [];
@@ -174,6 +183,8 @@ export class KaasKnowledgeService {
       ...this.mapConcept(r, evidence.filter((e: Record<string, unknown>) => e.concept_id === r.id)),
       contentMd: (r.content_md as string) ?? null,
       isActive: r.is_active as boolean,
+      isOnSale: !!(r.is_on_sale),
+      saleDiscount: (r.sale_discount as number) ?? 20,
     }));
   }
 
@@ -187,6 +198,8 @@ export class KaasKnowledgeService {
       ...this.mapConcept(row, evidence),
       contentMd: (row.content_md as string) ?? null,
       isActive: row.is_active as boolean,
+      isOnSale: !!(row.is_on_sale),
+      saleDiscount: (row.sale_discount as number) ?? 20,
     };
   }
 
@@ -230,6 +243,8 @@ export class KaasKnowledgeService {
     if (dto.quality_score !== undefined) updates.quality_score = dto.quality_score;
     if (dto.source_count !== undefined) updates.source_count = dto.source_count;
     if (dto.related_concepts !== undefined) updates.related_concepts = JSON.stringify(dto.related_concepts);
+    if (dto.is_on_sale !== undefined) updates.is_on_sale = dto.is_on_sale;
+    if (dto.sale_discount !== undefined) updates.sale_discount = dto.sale_discount;
 
     const [row] = await this.knex('kaas.concept').where({ id }).update(updates).returning('*');
     return row;

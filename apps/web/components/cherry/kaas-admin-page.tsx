@@ -30,6 +30,26 @@ const btnSecondary =
 
 const TIER_OPTIONS = ["Bronze", "Silver", "Gold", "Platinum"]
 
+/** UUID v7 생성 (타임스탬프 기반, 정렬 가능) */
+function uuidv7(): string {
+  const now = Date.now()
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  // 48-bit timestamp (ms)
+  bytes[0] = (now / 2 ** 40) & 0xff
+  bytes[1] = (now / 2 ** 32) & 0xff
+  bytes[2] = (now / 2 ** 24) & 0xff
+  bytes[3] = (now / 2 ** 16) & 0xff
+  bytes[4] = (now / 2 ** 8) & 0xff
+  bytes[5] = now & 0xff
+  // version 7
+  bytes[6] = (bytes[6] & 0x0f) | 0x70
+  // variant 10xx
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const h = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
 /* ═══════════════════════════════════════════
    Evidence Form (inline)
 ═══════════════════════════════════════════ */
@@ -79,7 +99,6 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false)
-  const [newId, setNewId] = useState("")
   const [newTitle, setNewTitle] = useState("")
   const [newCategory, setNewCategory] = useState("")
   const [newSummary, setNewSummary] = useState("")
@@ -90,6 +109,8 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
   const [editSummary, setEditSummary] = useState("")
   const [editQuality, setEditQuality] = useState(0)
   const [editRelated, setEditRelated] = useState("")
+  const [editOnSale, setEditOnSale] = useState(false)
+  const [editSaleDiscount, setEditSaleDiscount] = useState(20)
 
   // Content
   const [contentMd, setContentMd] = useState("")
@@ -140,6 +161,8 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
     setEditSummary(selected.summary)
     setEditQuality(selected.qualityScore)
     setEditRelated((selected.relatedConcepts ?? []).join(", "))
+    setEditOnSale((selected as any).isOnSale ?? false)
+    setEditSaleDiscount((selected as any).saleDiscount ?? 20)
     setContentMd(selected.contentMd ?? "")
     setPreview(false)
     setEditingEvId(null)
@@ -162,6 +185,8 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         summary: editSummary,
         quality_score: editQuality,
         related_concepts: editRelated.split(",").map((s) => s.trim()).filter(Boolean),
+        is_on_sale: editOnSale,
+        sale_discount: editSaleDiscount,
       })
       await loadConcepts()
     } finally { setSaving(false) }
@@ -177,13 +202,14 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
   }
 
   async function handleCreate() {
-    if (!newId || !newTitle || !newCategory || !newSummary) return
+    if (!newTitle || !newCategory || !newSummary) return
     setSaving(true)
+    const id = uuidv7()
     try {
-      await createConceptAdmin({ id: newId, title: newTitle, category: newCategory, summary: newSummary, created_by: isAdmin ? '__SYSTEM__' : (userId ?? '__SYSTEM__') })
+      await createConceptAdmin({ id, title: newTitle, category: newCategory, summary: newSummary, created_by: isAdmin ? '__SYSTEM__' : (userId ?? '__SYSTEM__') })
       setShowCreate(false)
-      setNewId(""); setNewTitle(""); setNewCategory(""); setNewSummary("")
-      setSelectedId(newId)
+      setNewTitle(""); setNewCategory(""); setNewSummary("")
+      setSelectedId(id)
       await loadConcepts()
     } finally { setSaving(false) }
   }
@@ -285,8 +311,7 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
           <div className="flex-1 overflow-y-auto p-6">
             <h3 className="mb-4 text-[15px] font-bold">Create New Concept</h3>
             <div className="space-y-4 max-w-lg">
-              <div><label className={labelCls}>ID (slug)</label><input value={newId} onChange={(e) => setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} placeholder="rag" className={cn(inputBase, "mt-1")} /></div>
-              <div><label className={labelCls}>Title</label><input value={newTitle} onChange={(e) => { setNewTitle(e.target.value); if (!newId) setNewId(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")) }} placeholder="Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} /></div>
+              <div><label className={labelCls}>Title</label><input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} /></div>
               <div><label className={labelCls}>Category</label>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {categories.map((cat) => (
@@ -298,7 +323,7 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
               <div><label className={labelCls}>Summary</label><textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} className={cn(inputBase, "mt-1 resize-none")} /></div>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
-                <button onClick={handleCreate} disabled={saving || !newId || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "생성 중..." : "생성"}</button>
+                <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "생성 중..." : "생성"}</button>
               </div>
             </div>
           </div>
@@ -337,6 +362,21 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
                     <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#2D7A5E]">Source Count</label><input type="number" value={selected.sourceCount} disabled className={cn(inputBase, "mt-1 bg-[#F9F7F5]")} /></div>
                   </div>
                   <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#999]">Related Concepts (comma-separated)</label><input value={editRelated} onChange={(e) => setEditRelated(e.target.value)} placeholder="chain-of-thought, embeddings" className={cn(inputBase, "mt-1")} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">Sale</label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <button onClick={() => setEditOnSale(!editOnSale)} className={cn("relative w-10 h-5 rounded-full transition-colors", editOnSale ? "bg-[#C94B6E]" : "bg-[#E0E0E0]")}>
+                          <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", editOnSale ? "translate-x-5" : "translate-x-0.5")} />
+                        </button>
+                        <span className="text-[12px] text-[#666]">{editOnSale ? "On Sale" : "Off"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">Discount %</label>
+                      <input type="number" min="1" max="90" value={editSaleDiscount} onChange={(e) => setEditSaleDiscount(Number(e.target.value))} disabled={!editOnSale} className={cn(inputBase, "mt-1", !editOnSale && "bg-[#F9F7F5] opacity-50")} />
+                    </div>
+                  </div>
                   <div className="pt-2">
                     <button onClick={handleSaveInfo} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
                   </div>

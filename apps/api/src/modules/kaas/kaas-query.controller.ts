@@ -69,15 +69,15 @@ export class KaasQueryController {
       if (this.agentOwnsConcept(agent, dto.concept_id, concept.title)) {
         throw new BadRequestException({
           code: 'ALREADY_OWNED',
-          message: `이미 보유한 지식입니다: ${concept.title}`,
+          message: `Already owned: ${concept.title}`,
         });
       }
 
-      // SALE 대상이면 20% 할인 추가 (Karma 할인과 곱연산으로 스택)
-      const onSale = await this.knowledge.isOnSale(dto.concept_id);
+      // SALE: DB에서 할인율 조회 (0이면 세일 아님)
+      const saleDiscountPct = await this.knowledge.getSaleDiscount(dto.concept_id);
       const { consumed, remaining } = await this.credit.consume(
         agent.id, ACTION_PRICE.purchase, agent.karma_tier as KarmaTierName, dto.concept_id, 'purchase',
-        { saleDiscount: onSale ? 0.2 : 0 },
+        { saleDiscount: saleDiscountPct / 100 },
       );
 
       const responseData = {
@@ -141,10 +141,10 @@ export class KaasQueryController {
       });
     }
 
-    const onSaleFollow = await this.knowledge.isOnSale(dto.concept_id);
+    const saleDiscountPct = await this.knowledge.getSaleDiscount(dto.concept_id);
     const { consumed, remaining } = await this.credit.consume(
       agent.id, ACTION_PRICE.follow, agent.karma_tier as KarmaTierName, dto.concept_id, 'follow',
-      { saleDiscount: onSaleFollow ? 0.2 : 0 },
+      { saleDiscount: saleDiscountPct / 100 },
     );
 
     const responseData = {

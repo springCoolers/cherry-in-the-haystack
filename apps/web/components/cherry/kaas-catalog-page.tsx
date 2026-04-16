@@ -28,6 +28,9 @@ type Concept = {
   updatedAt: string
   relatedConcepts: string[]
   evidence: Evidence[]
+  creator?: { name: string; karmaTier: string } | null
+  onSale?: boolean
+  saleDiscount?: number
 }
 
 const MOCK_CONCEPTS: Concept[] = [
@@ -294,6 +297,23 @@ function ConceptCard({
         {concept.summary}
       </p>
 
+      {/* Creator + Karma */}
+      {concept.creator && (
+        <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+          <span className="text-[#666]">by</span>
+          <span className="font-semibold text-[#3D3652]">{concept.creator.name === "__SYSTEM__" ? "Market" : concept.creator.name}</span>
+          <span className={cn(
+            "text-[9px] font-bold uppercase tracking-wide",
+            concept.creator.karmaTier === "Platinum" ? "text-[#7B5EA7]" :
+            concept.creator.karmaTier === "Gold" ? "text-[#D4854A]" :
+            concept.creator.karmaTier === "Silver" ? "text-[#888]" :
+            "text-[#AAA]"
+          )}>
+            {concept.creator.karmaTier}
+          </span>
+        </div>
+      )}
+
       {/* Footer: sources + updated + gap recommendation */}
       <div className="flex items-center gap-3 text-[11px] text-text-muted">
         <span>
@@ -334,12 +354,12 @@ function DetailModal({
   agentConnected?: boolean
   onSale?: boolean
 }) {
-  // 세일 카드면 20% 할인 — 20cr → 16cr, 25cr → 20cr
-  const SALE_DISCOUNT = 0.2
+  // 세일 할인율은 DB에서 가져옴 (concept.saleDiscount %)
+  const saleRate = (concept.saleDiscount ?? 20) / 100
   const purchaseBase = 20
   const followBase = 25
-  const purchasePrice = onSale ? Math.round(purchaseBase * (1 - SALE_DISCOUNT)) : purchaseBase
-  const followPrice = onSale ? Math.round(followBase * (1 - SALE_DISCOUNT)) : followBase
+  const purchasePrice = onSale ? Math.round(purchaseBase * (1 - saleRate)) : purchaseBase
+  const followPrice = onSale ? Math.round(followBase * (1 - saleRate)) : followBase
   // Block reason priority: already owned > agent not connected
   const blocked = owned || !agentConnected
   const blockReason = owned
@@ -377,6 +397,21 @@ function DetailModal({
                   {concept.sourceCount} sources · Updated {relativeDate(concept.updatedAt)}
                 </span>
               </div>
+              {concept.creator && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
+                  <span className="text-[#666]">by</span>
+                  <span className="font-semibold text-[#3D3652]">{concept.creator.name === "__SYSTEM__" ? "Market" : concept.creator.name}</span>
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-wide",
+                    concept.creator.karmaTier === "Platinum" ? "text-[#7B5EA7]" :
+                    concept.creator.karmaTier === "Gold" ? "text-[#D4854A]" :
+                    concept.creator.karmaTier === "Silver" ? "text-[#888]" :
+                    "text-[#AAA]"
+                  )}>
+                    {concept.creator.karmaTier}
+                  </span>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -482,7 +517,7 @@ function DetailModal({
           {onSale && !blocked && (
             <div className="mb-2 flex items-center gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
               <span className="inline-block px-1.5 py-0.5 rounded bg-[#C94B6E] text-white text-[9px] font-extrabold tracking-[0.08em]">SALE</span>
-              <span>20% off applied at checkout</span>
+              <span>{concept.saleDiscount ?? 20}% off applied at checkout</span>
             </div>
           )}
           <div className="flex items-center justify-end gap-2">
@@ -742,19 +777,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
 
   const isOwned = (conceptId: string) => ownedConceptIds.has(conceptId)
 
-  // 카테고리별 대표 SALE 1개씩 (Basics / Advanced / Technique).
-  // 각 카테고리에서 qualityScore 최고인 컨셉을 선정 → deterministic.
-  const onSaleIds = useMemo(() => {
-    const ids = new Set<string>()
-    const categories = Array.from(new Set(concepts.map((c) => c.category)))
-    for (const cat of categories) {
-      const top = concepts
-        .filter((c) => c.category === cat)
-        .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))[0]
-      if (top) ids.add(top.id)
-    }
-    return ids
-  }, [concepts])
+  // SALE 여부는 DB에서 가져옴 (concept.onSale)
 
   const categories = ["All", ...Array.from(new Set(concepts.map((c) => c.category)))]
 
@@ -899,7 +922,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
             compareStatus={getCompareStatus(c.id)}
             owned={submitted && isOwned(c.id)}
-            onSale={onSaleIds.has(c.id)}
+            onSale={!!c.onSale}
           />
         ))}
       </div>
@@ -929,7 +952,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
           disabled={false}
           owned={submitted && isOwned(selected.id)}
           agentConnected={!!(selectedAgent && (selectedAgent as any).is_active !== false && (selectedAgent as any).api_key)}
-          onSale={onSaleIds.has(selected.id)}
+          onSale={!!selected.onSale}
           onQuery={(title, depth, conceptId) => {
             onQuery?.(title, depth, conceptId)
           }}
