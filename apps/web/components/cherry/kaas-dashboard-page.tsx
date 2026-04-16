@@ -901,6 +901,7 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
   const [error, setError] = useState("")
   const [registeredKey, setRegisteredKey] = useState("")
   const [copied, setCopied] = useState(false)
+  const [removeHintCopied, setRemoveHintCopied] = useState(false)
 
   const connectMetaMask = async () => {
     try {
@@ -1033,11 +1034,15 @@ function RegisterForm({ onComplete, onCancel }: { onComplete: (agent: Agent) => 
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-mono text-[#1A1626]">claude mcp remove cherry-kaas</p>
           <button
-            onClick={() => { navigator.clipboard.writeText("claude mcp remove cherry-kaas") }}
+            onClick={() => {
+              navigator.clipboard.writeText("claude mcp remove cherry-kaas")
+              setRemoveHintCopied(true)
+              setTimeout(() => setRemoveHintCopied(false), 2000)
+            }}
             className="p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
             title="Copy"
           >
-            <Copy size={11} className="text-[#6B727E]" />
+            {removeHintCopied ? <Check size={11} className="text-[#2D7A5E]" /> : <Copy size={11} className="text-[#6B727E]" />}
           </button>
         </div>
       </div>
