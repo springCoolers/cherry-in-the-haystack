@@ -118,8 +118,8 @@ type Message =
   | { role: "user"; text: string }
   | { role: "agent"; action: string; endpoint: string; mcpTool: string; actionType: Action; budget: number }
   | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string; privacy?: boolean }
-  | { role: "agent-chat"; reply: string; privacy?: boolean }
-  | { role: "kaas-chat"; reply: string; privacy?: boolean }
+  | { role: "agent-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
+  | { role: "kaas-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
   | { role: "agent-done"; hash: string; blocked?: boolean }
   | { role: "agent-report"; reportData: any; agentId: string; agentName: string; generatedAt: string }
   | { role: "room"; from: "user" | "claude" | "cherry"; to: "user" | "claude" | "cherry"; content: string; ts: string }
@@ -149,7 +149,7 @@ function search(q: string, act: Action) {
 ═══════════════════════════════════════════════ */
 export type KaasConsoleRef = {
   query: (conceptTitle: string, action: string, conceptId?: string) => void
-  notify: (message: string, privacy?: boolean) => void
+  notify: (message: string, privacy?: boolean, provenance?: Provenance | null) => void
 }
 
 /* ═══════════════════════════════════════════════
@@ -198,6 +198,13 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
             🔒 NEAR AI TEE
           </span>
+        )}
+        {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+          <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+            <Shield size={9} />
+            <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+            <ExternalLink size={8} />
+          </a>
         )}
       </p>
       <div className={cn(
@@ -895,13 +902,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                   })()
                   if (knowledge.length > 0) {
                     const lines = knowledge.map((k) => `  ✓ ${k.topic} (${k.lastUpdated})`).join("\n")
-                    // Privacy Mode 상태 읽어서 배지 부착
-                    let knowPrivacy = false
-                    try {
-                      const mod = await import("@/components/cherry/kaas-dashboard-page")
-                      knowPrivacy = mod.getPrivacyMode()
-                    } catch { /* ignore */ }
-                    setMessages((m) => [...m, { role: "agent-chat", reply: `📚 Knowledge submitted (${knowledge.length} topics):\n${lines}`, privacy: knowPrivacy }])
+                    // TEE를 실제로 거치지 않으므로 뱃지 미부착 (provenance 없이 뱃지만 다는 건 무의미)
+                    setMessages((m) => [...m, { role: "agent-chat", reply: `📚 Knowledge submitted (${knowledge.length} topics):\n${lines}` }])
                     scrollToBottom()
                   }
                 }).catch(() => {})
@@ -1020,7 +1022,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
           setMessages((m) => [...m, { role: "agent-chat", reply: BUSY_MSG }])
         } else {
           const isPrivate = !!(privacy && result.privacy)
-          setMessages((m) => [...m, { role: "kaas-chat", reply, privacy: isPrivate }])
+          const prov = result.provenance ? { hash: result.provenance.hash, chain: result.provenance.chain, explorerUrl: result.provenance.explorer_url, onChain: result.provenance.on_chain } as Provenance : null
+          setMessages((m) => [...m, { role: "kaas-chat", reply, privacy: isPrivate, provenance: prov }])
         }
       } catch {
         setMessages((m) => [...m, { role: "agent-chat", reply: "지금은 체리가 중요한 업무를 처리중입니다. 차후에 응대해 드리겠습니다." }])
@@ -1046,8 +1049,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         conceptId
       )
     },
-    notify: (message: string, privacy?: boolean) => {
-      setMessages((m) => [...m, { role: "agent-chat", reply: message, privacy }])
+    notify: (message: string, privacy?: boolean, provenance?: Provenance | null) => {
+      setMessages((m) => [...m, { role: "agent-chat", reply: message, privacy, provenance }])
       setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
     },
   }), [executeQuery])
@@ -1194,17 +1197,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                 <button
                   key={q}
                   onClick={() => {
-                    // 하드코딩 답변 — LLM 토큰 낭비 방지.
-                    // 다만 LLM 느낌 살리려고 2초 "생각 중" 로딩 표시 후 답변 출력.
                     setOpen(true)
-                    setMessages((m) => [...m, { role: "user", text: q }])
-                    setLoading(true)
-                    scrollToBottom()
-                    setTimeout(() => {
-                      setMessages((m) => [...m, { role: "kaas-chat", reply: EXAMPLE_ANSWERS[q] }])
-                      setLoading(false)
-                      scrollToBottom()
-                    }, 2000)
+                    sendText(q)
                   }}
                   disabled={loading}
                   className="text-[11.5px] text-left px-3 py-2 rounded-lg bg-[#1A1520] border border-[#333] text-[#E0E0E0] hover:bg-[#241B2C] hover:border-[#444] cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1230,6 +1224,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                       🔒 NEAR AI TEE
                     </span>
                   )}
+                  {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+                    <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+                      <Shield size={9} />
+                      <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+                      <ExternalLink size={8} />
+                    </a>
+                  )}
                 </p>
                 <div className="bg-[#1A1520] border-l-2 border-[#7B5EA7] rounded-lg px-3 py-2 max-w-[90%]">
                   <p className="text-[12px] text-[#D0D0D0] leading-relaxed whitespace-pre-line">{msg.reply}</p>
@@ -1244,6 +1245,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                     <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
                       🔒 NEAR AI TEE
                     </span>
+                  )}
+                  {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+                    <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+                      <Shield size={9} />
+                      <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+                      <ExternalLink size={8} />
+                    </a>
                   )}
                 </p>
                 <div className={cn(

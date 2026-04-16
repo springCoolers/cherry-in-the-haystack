@@ -98,7 +98,7 @@ export default function CherryApp() {
               ...result.gaps?.slice(0, 3).map((c: any) => `  ⬜ ${c.title} (gap)`) ?? [],
               gaps > 3 ? `  ... +${gaps - 3} more gaps` : null,
             ].filter(Boolean).join("\n")
-            consoleRef.current?.notify(`📊 Compare (${result.source ?? "db"}) — ${result.agentName ?? "agent"}\n${topics}\n\nup-to-date: ${upToDate} | outdated: ${outdated} | gaps: ${gaps}`, !!result.privacy)
+            consoleRef.current?.notify(`📊 Compare (${result.source ?? "db"}) — ${result.agentName ?? "agent"}\n${topics}\n\nup-to-date: ${upToDate} | outdated: ${outdated} | gaps: ${gaps}`, !!result.privacy, result.provenance ?? null)
           }}
         />
 

@@ -680,22 +680,9 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
       const privacy = getPrivacyMode()
 
       if (privacy) {
-        // 🔒 Privacy Mode: 서버 경유 완전 차단
-        // 1) knowledge 데이터를 NEAR AI TEE로 통과 (경로 보호)
-        // 2) 클라이언트에서 로컬 분석 (서버 DB 접근 X, 기록 X)
-        try {
-          const { chatWithAgent } = await import("@/lib/api")
-          const apiKey = (selectedAgent as any).api_key ?? (selectedAgent as any).apiKey
-          await chatWithAgent(
-            apiKey,
-            "",
-            `[TEE relay] Agent knowledge payload: ${JSON.stringify(knowledge)}. Respond OK.`,
-            true,
-          ).catch(() => { /* 통과 실패해도 compare는 로컬 분석으로 진행 */ })
-        } catch { /* import 실패 무시 */ }
-
+        // 🔒 Privacy Mode: 서버 경유 완전 차단 — 클라이언트에서 로컬 분석만 수행
         const localResult = analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
-        handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local+tee" }, true)
+        handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local" }, false)
         return
       }
 
@@ -794,28 +781,6 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             >
               Knowledge Market
             </h1>
-            <a
-              href="https://market.near.ai/agents/cherry_kaas_agent"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Registered as a worker on NEAR Agent Market — click to view public profile (cherry_kaas_agent)."
-              className="group self-start inline-flex items-center gap-2 px-2.5 py-1 rounded-md border border-[#E4E1EE] bg-white hover:border-[#1A1626] hover:bg-[#FAFAFB] transition-all cursor-pointer"
-            >
-              <span className="flex flex-col leading-tight">
-                <span className="text-[9px] uppercase tracking-[0.08em] text-[#6B727E] font-semibold">
-                  Listed on
-                </span>
-                <span className="text-[11px] font-bold text-[#1A1626]">
-                  NEAR Agent Market
-                </span>
-              </span>
-              <svg
-                width="10" height="10" viewBox="0 0 10 10" fill="none"
-                className="text-[#6B727E] group-hover:text-[#1A1626] transition-colors ml-0.5"
-              >
-                <path d="M2 8L8 2M8 2H3.5M8 2V6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </a>
           </div>
           <p className="text-[13px] text-text-muted">
             Browse curated AI concepts · {filtered.length} concept{filtered.length !== 1 ? "s" : ""}

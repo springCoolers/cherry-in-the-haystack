@@ -11,6 +11,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { KaasAgentService } from './kaas-agent.service';
 import { KaasKnowledgeService } from './kaas-knowledge.service';
+import { KaasProvenanceService } from './kaas-provenance.service';
 
 type KnowledgeTopic = { topic: string; lastUpdated: string };
 
@@ -25,6 +26,7 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly agentService: KaasAgentService,
     private readonly knowledge: KaasKnowledgeService,
+    private readonly provenance: KaasProvenanceService,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -76,17 +78,41 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('submit_knowledge')
   async handleSubmitKnowledge(
     @ConnectedSocket() socket: Socket,
-    @MessageBody() topics: KnowledgeTopic[],
+    @MessageBody() data: KnowledgeTopic[] | { topics: KnowledgeTopic[]; privacy?: boolean },
   ) {
     const agentId = socket.data?.agentId;
     if (!agentId) return;
+
+    // 기존 호환: 배열이면 topics만, 객체면 privacy 포함
+    const topics = Array.isArray(data) ? data : data.topics;
+    const privacy = !Array.isArray(data) && data.privacy === true;
 
     await this.agentService['knex']('kaas.agent')
       .where({ id: agentId })
       .update({ knowledge: JSON.stringify(topics), updated_at: new Date() });
 
-    this.logger.log(`Knowledge submitted: agent=${agentId}, topics=${topics.length}`);
-    socket.emit('knowledge_saved', { count: topics.length });
+    this.logger.log(`Knowledge submitted: agent=${agentId}, topics=${topics.length}, privacy=${privacy}`);
+
+    // 🔒 Privacy Mode: TEE provenance 온체인 기록
+    let provenance: { hash: string | null; explorer_url: string | null; on_chain: boolean; chain: string } | undefined;
+    if (privacy) {
+      try {
+        const prov = await this.provenance.recordQuery(
+          agentId, '_tee', 'tee-submit', 0,
+          { topicCount: topics.length, topics: topics.map(t => t.topic) },
+        );
+        provenance = {
+          hash: prov.provenanceHash,
+          explorer_url: prov.explorerUrl,
+          on_chain: prov.onChain,
+          chain: prov.onChain ? prov.chain : 'failed',
+        };
+      } catch (e: any) {
+        this.logger.error(`[TEE provenance] submit recording failed: ${e?.message ?? e}`);
+      }
+    }
+
+    socket.emit('knowledge_saved', { count: topics.length, provenance });
   }
 
   /** 에이전트가 self-report 제출.
