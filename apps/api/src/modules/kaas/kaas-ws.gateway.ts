@@ -100,6 +100,7 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const prov = await this.provenance.recordQuery(
           agentId, '_tee', 'tee-submit', 0,
           { topicCount: topics.length, topics: topics.map(t => t.topic) },
+          'near',
         );
         provenance = {
           hash: prov.provenanceHash,

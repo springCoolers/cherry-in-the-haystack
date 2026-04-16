@@ -117,7 +117,7 @@ type Provenance = { hash: string; chain: string; explorerUrl: string; onChain: b
 type Message =
   | { role: "user"; text: string }
   | { role: "agent"; action: string; endpoint: string; mcpTool: string; actionType: Action; budget: number }
-  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string; privacy?: boolean }
+  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; teeProvenance?: Provenance | null; _id?: string; privacy?: boolean }
   | { role: "agent-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
   | { role: "kaas-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
   | { role: "agent-done"; hash: string; blocked?: boolean }
@@ -199,13 +199,13 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
             🔒 NEAR AI TEE
           </span>
         )}
-        {msg.privacy && msg.provenance?.onChain && msg.provenance.hash ? (
-          <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+        {msg.privacy && msg.teeProvenance?.onChain && msg.teeProvenance.hash ? (
+          <a href={msg.teeProvenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
             <Shield size={9} />
-            <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+            <span className="font-mono">{msg.teeProvenance.hash.slice(0, 10)}...{msg.teeProvenance.hash.slice(-6)}</span>
             <ExternalLink size={8} />
           </a>
-        ) : msg.privacy && !msg.provenance?.onChain ? (
+        ) : msg.privacy && msg.teeProvenance === undefined ? (
           <div className="w-3 h-3 border-[1.5px] border-[#7B5EA7] border-t-transparent rounded-full animate-spin" />
         ) : null}
       </p>
@@ -398,6 +398,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
   const [typedText, setTypedText] = useState("")
   // Cherry Console 버튼 / 패널 shake — "I've got a cold" 농담 나올 때 부르르
   const [consoleShake, setConsoleShake] = useState(false)
+  const lastShakeRef = useRef(0)
   // 대화 삭제 확인 팝오버
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
@@ -606,11 +607,15 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
       lastCasualIdx = idx
       setTypedText(text)
       setBubbleVisible(true)
-      // 감기 농담 → 콘솔 부르르 떨림 (애니메이션 0.7s 보다 살짝 여유)
+      // 감기 농담 → 콘솔 부르르 떨림. 한 번 떨고 나면 60초 cooldown
       if (text === SHAKE_PHRASE) {
-        setConsoleShake(false)          // 직전 잔여 상태 초기화 (연속 트리거 대비)
-        requestAnimationFrame(() => setConsoleShake(true))
-        setTimeout(() => setConsoleShake(false), 750)
+        const now = Date.now()
+        if (now - lastShakeRef.current >= 60000) {
+          lastShakeRef.current = now
+          setConsoleShake(false)
+          requestAnimationFrame(() => setConsoleShake(true))
+          setTimeout(() => setConsoleShake(false), 750)
+        }
       }
       t1 = setTimeout(() => {
         setBubbleVisible(false)
@@ -903,13 +908,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                 explorerUrl: teeResult.provenance.explorer_url, onChain: teeResult.provenance.on_chain,
               } as Provenance : null
               setMessages((m) => m.map((msg) =>
-                (msg as any)._id === msgId ? { ...msg, privacy: true, provenance: teeProv ?? (msg as any).provenance } : msg
+                (msg as any)._id === msgId ? { ...msg, privacy: true, teeProvenance: teeProv } : msg
               ))
             })
             .catch(() => {
-              // TEE 실패해도 뱃지만 부착
+              // TEE 실패 — 뱃지 유지, 스피너 멈춤 (onChain: false로 링크 대신 빈 상태)
               setMessages((m) => m.map((msg) =>
-                (msg as any)._id === msgId ? { ...msg, privacy: true } : msg
+                (msg as any)._id === msgId ? { ...msg, privacy: true, teeProvenance: { hash: "", chain: "failed", explorerUrl: "", onChain: false } } : msg
               ))
             })
         }

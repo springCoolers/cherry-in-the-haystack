@@ -515,9 +515,8 @@ function DetailModal({
             </div>
           )}
           {onSale && !blocked && (
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
-              <span className="inline-block px-1.5 py-0.5 rounded bg-[#C94B6E] text-white text-[9px] font-extrabold tracking-[0.08em]">SALE</span>
-              <span>{concept.saleDiscount ?? 20}% off applied at checkout</span>
+            <div className="mb-2 flex items-center justify-end gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
+              <span>{concept.saleDiscount ?? 20}% off</span>
             </div>
           )}
           <div className="flex items-center justify-end gap-2">
@@ -655,16 +654,22 @@ function analyzeGaps(agentKnowledge: AgentKnowledge[]): GapResult {
 /* ─────────────────────────────────────────────
    Main: KaaS Catalog Page
 ───────────────────────────────────────────── */
-export function KaasCatalogPage({ onQuery, onCompareResult }: {
+export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId }: {
   onQuery?: (title: string, depth: string, conceptId?: string) => void
   onCompareResult?: (result: any) => void
+  initialConceptId?: string | null
 }) {
   const [query, setQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialConceptId ?? null)
 
   // API에서 카탈로그 로드 (실패 시 MOCK_CONCEPTS fallback)
   const [concepts, setConcepts] = useState<Concept[]>(MOCK_CONCEPTS)
+
+  // initialConceptId 변경 시 자동 선택
+  useEffect(() => {
+    if (initialConceptId) setSelectedId(initialConceptId)
+  }, [initialConceptId])
   const [agents, setAgents] = useState<any[]>([])
 
   const reloadAgents = () => {
@@ -848,7 +853,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
                   >
                     <span>{a.icon}</span>
                     <span className="flex-1">{a.name}</span>
-                    <span className="text-[10px] text-[#6B727E]">{a.credits}cr</span>
+                    {selectedAgentId === a.id && <span className="text-[10px] text-[#7B5EA7]">✓</span>}
                   </button>
                 ))}
               </div>

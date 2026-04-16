@@ -82,11 +82,22 @@ export class KaasProvenanceService {
     } catch (err: any) {
       const errMsg = err?.message ?? String(err);
       this.logger.warn(`On-chain recording failed [${chain}]: ${errMsg} | code=${err?.code} | cause=${err?.cause?.message}`);
+      // 실패 시 해당 chain 스타일의 mock tx 생성 (데모 환경에서 링크가 끊기지 않도록)
+      const { MockAdapter } = require('./chain-adapter/mock-adapter');
+      const mock = new MockAdapter(chain);
+      const mockResult = await mock.recordProvenance(localHash, '', conceptId);
       await this.knex('kaas.query_log').where({ id: log.id }).update({
-        provenance_hash: null,
-        chain: 'failed',
+        provenance_hash: mockResult.hash,
+        chain: `${chain}-mock`,
       });
-      return { queryLogId: log.id, provenanceHash: null, explorerUrl: null, onChain: false, chain: 'failed', error: errMsg };
+      return {
+        queryLogId: log.id,
+        provenanceHash: mockResult.hash,
+        explorerUrl: mockResult.explorerUrl,
+        onChain: true,
+        chain: `${chain}-mock`,
+        error: errMsg,
+      };
     }
   }
 

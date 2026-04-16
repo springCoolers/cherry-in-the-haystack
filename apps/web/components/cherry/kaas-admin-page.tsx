@@ -282,6 +282,12 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         </div>
 
         <div className="flex-1 overflow-y-auto px-2">
+          {filtered.length === 0 && !loading && (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+              <BookOpen className="h-8 w-8 text-[#D4854A] mb-3 opacity-60" />
+              <p className="text-[13px] font-semibold text-[#3D3652]">No knowledge yet</p>
+            </div>
+          )}
           {filtered.map((c) => (
             <button
               key={c.id}
@@ -309,21 +315,45 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         {showCreate ? (
           /* ── Create form ── */
           <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="mb-4 text-[15px] font-bold">Create New Concept</h3>
-            <div className="space-y-4 max-w-lg">
-              <div><label className={labelCls}>Title</label><input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} /></div>
-              <div><label className={labelCls}>Category</label>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {categories.map((cat) => (
-                    <button key={cat} onClick={() => setNewCategory(cat)} className={cn("rounded-full px-3 py-1 text-[11px] border transition-colors", newCategory === cat ? "border-[#666] bg-[#FAFAFA] text-[#666]" : "border-[#E0E0E0] text-[#666] hover:border-[#666]")}>{cat}</button>
-                  ))}
-                  <input value={categories.includes(newCategory) ? "" : newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="또는 새 카테고리" className={cn(inputBase, "w-40")} />
+            <div className="max-w-lg mx-auto">
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 rounded-xl bg-[#FFF3E8] flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="h-6 w-6 text-[#D4854A]" />
+                </div>
+                <h3 className="text-[16px] font-bold text-[#1A1626]">Create New Knowledge</h3>
+                <p className="text-[12px] text-[#888] mt-1">Build a concept that agents can purchase. You earn 40% of every sale.</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls}>Title</label>
+                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} />
+                </div>
+                <div>
+                  <label className={labelCls}>Category</label>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {categories.map((cat) => (
+                      <button key={cat} onClick={() => setNewCategory(cat)} className={cn("rounded-full px-3 py-1 text-[11px] border transition-colors", newCategory === cat ? "border-[#D4854A] bg-[#FFF8F0] text-[#D4854A]" : "border-[#E0E0E0] text-[#666] hover:border-[#D4854A]")}>{cat}</button>
+                    ))}
+                    <input value={categories.includes(newCategory) ? "" : newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="or new category" className={cn(inputBase, "w-40")} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Summary</label>
+                  <textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} placeholder="Describe what this knowledge covers and why it's valuable…" className={cn(inputBase, "mt-1 resize-none")} />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
+                  <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "Creating…" : "Create"}</button>
                 </div>
               </div>
-              <div><label className={labelCls}>Summary</label><textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} className={cn(inputBase, "mt-1 resize-none")} /></div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
-                <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "생성 중..." : "생성"}</button>
+              <div className="mt-6 rounded-lg bg-[#FAFAFA] border border-[#E0E0E0] p-4">
+                <p className="text-[11px] font-semibold text-[#666] mb-2">After creating, you can:</p>
+                <ul className="text-[11px] text-[#888] space-y-1">
+                  <li>• Upload markdown content for the full knowledge body</li>
+                  <li>• Add evidence sources with curator commentary</li>
+                  <li>• Set sale pricing and discounts</li>
+                  <li>• Publish to the Knowledge Market</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -473,8 +503,24 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-[14px] text-[#888]">
-            Select a concept on the left
+          <div className="flex flex-1 flex-col items-center justify-center text-center px-8 -mt-16">
+            <h3 className="text-[15px] font-bold text-[#1A1626] mb-2">Knowledge Curation Studio</h3>
+            <p className="text-[12px] text-[#888] leading-relaxed max-w-xs mb-4">
+              Create and curate knowledge that AI agents can purchase from the Market.
+              You earn 40% revenue share on every sale.
+            </p>
+            <button
+              onClick={() => { setShowCreate(true); setSelectedId(null) }}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold text-white bg-[#D4854A] hover:bg-[#C07438] transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" /> Create your first concept
+            </button>
+            <div className="mt-6 text-center">
+              <div>
+                <p className="text-[18px] font-bold text-[#D4854A]">40%</p>
+                <p className="text-[10px] text-[#888] -ml-1">Revenue share</p>
+              </div>
+            </div>
           </div>
         )}
       </div>

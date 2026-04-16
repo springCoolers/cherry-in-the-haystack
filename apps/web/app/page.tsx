@@ -39,6 +39,7 @@ function parseJwtRole(token: string): string | null {
 export default function CherryApp() {
   const [activeNav, setActiveNav] = useState("highlight")
   const [dashboardTab, setDashboardTab] = useState<"dashboard" | "curation" | "template">("dashboard")
+  const [marketConceptId, setMarketConceptId] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [landing, setLanding] = useState<LandingResponse | null>(null)
@@ -87,6 +88,7 @@ export default function CherryApp() {
 
       case "kaas-catalog":
         return <KaasCatalogPage
+          initialConceptId={marketConceptId}
           onQuery={(title, depth, conceptId) => consoleRef.current?.query(title, depth, conceptId)}
           onCompareResult={(result) => {
             const upToDate = result.upToDate?.length ?? 0
@@ -103,7 +105,10 @@ export default function CherryApp() {
         />
 
       case "concept-reader":
-        return <ConceptReaderPage />
+        return <ConceptReaderPage onBuyOnMarket={(conceptId) => {
+          setMarketConceptId(conceptId)
+          setActiveNav("kaas-catalog")
+        }} />
 
       // BASICS
       case "prompting":

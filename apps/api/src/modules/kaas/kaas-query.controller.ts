@@ -235,6 +235,7 @@ Rules (strict):
             const prov = await this.provenance.recordQuery(
               agent.id, '_tee', 'tee-chat', 0,
               { question: body.question, reply, provider: 'near' },
+              'near',
             );
             provenance = {
               hash: prov.provenanceHash,
