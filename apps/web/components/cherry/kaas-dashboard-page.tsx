@@ -692,7 +692,8 @@ function AgentPanel({
   if (!selected) return null
 
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://solteti.site'
-  const mcpCommand = `claude mcp add cherry-kaas /path/to/cherry-kaas/apps/api/start-mcp.sh --env KAAS_AGENT_API_KEY=${selected.apiKey} --env KAAS_WS_URL=${siteUrl}`
+  const apiUrl = siteUrl.includes('localhost:3000') ? siteUrl.replace(':3000', ':4000') : siteUrl
+  const mcpCommand = `curl -so ~/cherry-agent.js ${siteUrl}/cherry-agent.js && curl -so ~/cherry-kaas.sh ${siteUrl}/cherry-kaas.sh && chmod +x ~/cherry-kaas.sh && claude mcp add cherry-kaas ~/cherry-kaas.sh --env KAAS_AGENT_API_KEY=${selected.apiKey} --env KAAS_WS_URL=${apiUrl}`
   const removeCommand = `claude mcp remove cherry-kaas`
 
   const handleCmdCopy = () => {
@@ -863,6 +864,8 @@ function AgentPanel({
             </button>
           </div>
           <p className="text-[9px] text-[#9E97B3] mt-1">Paste & run in terminal</p>
+
+          {/* Disconnect */}
           <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative mt-1.5">
             <p className="text-[10px] font-mono text-[#9E97B3] pr-6">{removeCommand}</p>
             <button

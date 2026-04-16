@@ -270,6 +270,25 @@ Rules (strict):
     }
   }
 
+  /** 에이전트 보유 지식 REST 제출 (cherry-kaas-agent 패키지용) */
+  @Post('agents/:id/knowledge')
+  @HttpCode(200)
+  @ApiOperation({ summary: '에이전트 보유 지식 제출 (REST)' })
+  async submitKnowledge(
+    @Param('id') agentId: string,
+    @Body() body: { api_key?: string; knowledge?: Array<{ topic: string; lastUpdated?: string }> },
+  ) {
+    const agent = body.api_key
+      ? await this.agentService.authenticate(body.api_key)
+      : await this.agentService.findById(agentId);
+    if (!agent) throw new NotFoundException({ code: 'AGENT_NOT_FOUND', message: `Agent ${agentId} not found` });
+    if (agent.id !== agentId) throw new BadRequestException({ code: 'AGENT_MISMATCH', message: 'API key does not match agent ID' });
+
+    const topics = body.knowledge ?? [];
+    await this.agentService.addToKnowledge(agent.id, topics.map(t => t.topic).join(','));
+    return { ok: true, count: topics.length };
+  }
+
   /** DB 기반 Knowledge Diff — 에이전트 연결 안 됐을 때 fallback */
   @Get('agents/:id/knowledge-diff')
   @ApiOperation({ summary: 'DB 기반 지식 이력 (fallback)' })
