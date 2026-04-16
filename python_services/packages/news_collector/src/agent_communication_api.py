@@ -27,9 +27,9 @@ class AgentAPIClient:
         payload = {
             "title": page["title"],
             "url": page["url"],
+            "source_name": page.get("author", "unknown"),
             "content_raw": page.get("article_raw", ""),
             "published_at": page["published_at"],
-            "source_name": page.get("source_name", "unknown"),
         }
         response = self.session.post(
             f"{self.BASE_URL}/api/agent/insert-article",

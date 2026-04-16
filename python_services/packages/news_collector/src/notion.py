@@ -1366,8 +1366,8 @@ class NotionAgent:
         blocks,
         database_id,
         ranked_page,
-        topics: list,
-        categories: list,
+        topics: list = [],
+        categories: list = [],
         **kwargs
     ):
         # assemble topics
@@ -1381,7 +1381,7 @@ class NotionAgent:
 
         properties.update({"Source": {
             "select": {
-                "name": ranked_page["source"],
+                "name": ranked_page.get("source", "RSS"),
             }
         }})
 
@@ -1392,13 +1392,15 @@ class NotionAgent:
                 },
             })
 
-        properties.update({"Topic": {
-            "multi_select": topics_list,
-        }})
+        if len(topics_list) > 0:
+            properties.update({"Topic": {
+                "multi_select": topics_list,
+            }})
 
-        properties.update({"Category": {
-            "multi_select": categories_list,
-        }})
+        if len(categories_list) > 0:
+            properties.update({"Category": {
+                "multi_select": categories_list,
+            }})
 
         if ranked_page.get("__relevant_score"):
             properties.update({"Relevant Score": {
@@ -1599,7 +1601,7 @@ class NotionAgent:
         #     }
         # })
 
-    def createDatabaseItem_ToRead_RSS(self, database_id, page, topics, categories):
+    def createDatabaseItem_ToRead_RSS(self, database_id, page):
         title = page["title"]
         url = page["url"]
         article_raw = page.get("article_raw", "")
@@ -1618,6 +1620,11 @@ class NotionAgent:
                 "url": url
             }
         }
+
+        if page.get("cherry_category"):
+            properties["Cherry Category"] = {
+                "multi_select": [{"name": page["cherry_category"]}]
+            }
 
         blocks = [
             {
@@ -1641,8 +1648,6 @@ class NotionAgent:
             blocks,
             database_id,
             page,
-            topics,
-            categories,
             list_names=[page["list_name"]]
         )
 
