@@ -115,10 +115,10 @@ function CustomizedContent(props: any) {
       />
       {/* foreignObject로 HTML 텍스트 → word-break / 자동 줄바꿈 */}
       {(showLabel || showPct) && (() => {
-        // 패딩: 타일 크기 + 순위 기반. 상위권일수록 여유, 하위권도 최소 패딩 보장
+        // 패딩: 타일 크기 + 순위 기반. 상/하 여유 충분히 확보
         const rankBoost = rank <= 4 ? 1.0 - rank * 0.05 : 0.75 // 1위 1.0 → 5위 0.8 → 하위 0.75
-        const padX = Math.max(8, Math.min(28, width * 0.1 * rankBoost))
-        const padY = Math.max(6, Math.min(26, height * 0.11 * rankBoost))
+        const padX = Math.max(12, Math.min(28, width * 0.1 * rankBoost))
+        const padY = Math.max(14, Math.min(28, height * 0.12 * rankBoost))
         return (
         <foreignObject
           x={x + padX}
@@ -199,7 +199,7 @@ export function CategoryTreemap({ items }: { items?: LandingTreemapItem[] }) {
   }))
 
   return (
-    <div>
+    <div className="flex flex-col flex-1">
       <div className="mb-3 flex items-end justify-between">
         <p
           className="text-[12px] font-semibold uppercase tracking-[0.14em] text-text-secondary"
@@ -216,10 +216,10 @@ export function CategoryTreemap({ items }: { items?: LandingTreemapItem[] }) {
       </div>
 
       <div
-        className="rounded-2xl border border-border/80 overflow-hidden p-[6px] shadow-card"
+        className="rounded-2xl border border-border/80 overflow-hidden p-[6px] shadow-card flex-1"
         style={{
           background: "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(238,233,248,0.98))",
-          height: containerH,
+          minHeight: containerH,
         }}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -236,22 +236,6 @@ export function CategoryTreemap({ items }: { items?: LandingTreemapItem[] }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-        {data.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <span
-              className="w-2 h-2 rounded-sm"
-              style={{ backgroundColor: item.bgMid }}
-            />
-            <span
-              className="text-[10px] text-text-muted"
-              style={{ fontFamily: TREEMAP_FONT_STACK }}
-            >
-              {prettyLabel(item.label)} {item.percent}%
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
