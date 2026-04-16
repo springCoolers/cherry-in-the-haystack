@@ -835,7 +835,10 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
         <div className="flex items-center gap-2 mt-1">
           {/* Agent selector */}
           {hasAgent && selectedAgent ? (
-          <div className="relative">
+          <div className="relative"
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setAgentDropdownOpen(false) }}
+            tabIndex={-1}
+          >
             <button
               onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border border-[#E4E1EE] text-[#3D3652] hover:border-[#C7B8E8] transition-all cursor-pointer flex items-center gap-1.5"

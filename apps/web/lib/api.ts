@@ -531,7 +531,7 @@ export async function mcpChat(message: string, agentId?: string) {
 export async function elicitKnowledge(agentId?: string) {
   const res = await fetch(`${KAAS_BASE}/mcp/elicit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ agent_id: agentId }),
   })
   if (!res.ok) throw new Error("Elicitation failed")

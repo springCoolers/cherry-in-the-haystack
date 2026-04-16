@@ -8,9 +8,10 @@ const { io } = require('socket.io-client');
 /** 서버 API 호출 (보고서용 데이터 조회) */
 async function fetchAgentData(baseUrl, apiKey) {
   try {
-    // 에이전트 정보 (knowledge 포함)
-    const agentsRes = await fetch(`${baseUrl}/api/v1/kaas/agents?api_key=${apiKey}`);
-    const agents = await agentsRes.json();
+    // 에이전트 정보 (knowledge 포함) — /agents/me는 api_key 인증 (JWT 불필요)
+    const meRes = await fetch(`${baseUrl}/api/v1/kaas/agents/me?api_key=${apiKey}`);
+    const me = await meRes.json();
+    const agents = me?.id ? [me] : [];
     // api_key로 매칭되는 에이전트 찾기 (목록에서 현재 에이전트)
     // 서버는 api_key 기반으로 에이전트를 식별하므로 balance 조회로 확인
     const balRes = await fetch(`${baseUrl}/api/v1/kaas/credits/balance?api_key=${apiKey}`);
