@@ -155,9 +155,16 @@ export class KaasKnowledgeService {
      Admin CRUD
   ═══════════════════════════════════════════ */
 
-  /** Admin — 전체 목록 (비활성 포함, content_md 포함) */
-  async findAllAdmin() {
-    const rows = await this.knex('kaas.concept').orderBy('quality_score', 'desc');
+  /** Admin — 큐레이션 목록 (created_by 필터 지원) */
+  async findAllAdmin(createdBy?: string) {
+    let query = this.knex('kaas.concept').orderBy('quality_score', 'desc');
+    if (createdBy === '__ADMIN__') {
+      // 관리자: 전체 (시스템 + 모든 유저)
+    } else if (createdBy) {
+      // 일반 유저: 자기 것만
+      query = query.where('created_by', createdBy);
+    }
+    const rows = await query;
     if (rows.length === 0) return [];
 
     const evidence = await this.knex('kaas.evidence')
@@ -193,6 +200,7 @@ export class KaasKnowledgeService {
     quality_score?: number;
     source_count?: number;
     related_concepts?: string[];
+    created_by?: string;
   }) {
     const [row] = await this.knex('kaas.concept')
       .insert({
@@ -204,6 +212,7 @@ export class KaasKnowledgeService {
         quality_score: dto.quality_score ?? 0,
         source_count: dto.source_count ?? 0,
         related_concepts: JSON.stringify(dto.related_concepts ?? []),
+        created_by: dto.created_by ?? '__SYSTEM__',
         is_active: true,
         updated_at: new Date(),
       })

@@ -1528,8 +1528,8 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
 
   const tabs = [
     { key: "dashboard" as const, label: "Dashboard" },
+    { key: "curation" as const, label: "Knowledge Curation" },
     ...(isAdmin ? [
-      { key: "curation" as const, label: "Knowledge Curation" },
       { key: "template" as const, label: "Prompt Templates" },
     ] : []),
   ]
@@ -1541,8 +1541,8 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
         <h2 className="text-[16px] lg:text-[18px] font-extrabold text-[#1A1626] mb-2 lg:mb-3" style={{ letterSpacing: "-0.3px" }}>
           Dashboard
         </h2>
-        {tabs.length > 1 && (
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+          {tabs.length > 1 ? (
             <div className="flex gap-0 overflow-x-auto">
               {tabs.map((t) => (
                 <button
@@ -1559,11 +1559,11 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
                 </button>
               ))}
             </div>
-            <div className="flex-shrink-0 pb-2 lg:pb-0">
-              <CompactPrivacyToggle />
-            </div>
+          ) : <div />}
+          <div className="flex-shrink-0 pb-2 lg:pb-0">
+            <CompactPrivacyToggle />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -1614,7 +1614,7 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
         )}
         {activeTab === "curation" && (
           <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA]">
-            <KnowledgeCurationPanel />
+            <KnowledgeCurationPanel isAdmin={isAdmin} />
           </div>
         )}
         {activeTab === "template" && (

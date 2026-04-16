@@ -70,7 +70,7 @@ function EvidenceForm({
 /* ═══════════════════════════════════════════
    Knowledge Curation Panel
 ═══════════════════════════════════════════ */
-export function KnowledgeCurationPanel() {
+export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean } = {}) {
   const [concepts, setConcepts] = useState<AdminConcept[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -102,9 +102,23 @@ export function KnowledgeCurationPanel() {
 
   const [saving, setSaving] = useState(false)
 
+  // 로그인 유저 ID (JWT에서 추출)
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setUserId(payload.id ?? null)
+      }
+    } catch {}
+  }, [])
+
   const loadConcepts = useCallback(async () => {
     try {
-      const data = await fetchConceptsAdmin()
+      // 관리자: __ADMIN__ → __SYSTEM__ + 자기 것, 일반 유저: 자기 userId → 자기 것만
+      const filter = isAdmin ? '__ADMIN__' : (userId ?? '__NONE__')
+      const data = await fetchConceptsAdmin(filter)
       setConcepts(data)
       if (data.length > 0 && !selectedId) setSelectedId(data[0].id)
     } catch {
@@ -112,7 +126,7 @@ export function KnowledgeCurationPanel() {
     } finally {
       setLoading(false)
     }
-  }, [selectedId])
+  }, [selectedId, isAdmin, userId])
 
   useEffect(() => { loadConcepts() }, [loadConcepts])
 
@@ -166,7 +180,7 @@ export function KnowledgeCurationPanel() {
     if (!newId || !newTitle || !newCategory || !newSummary) return
     setSaving(true)
     try {
-      await createConceptAdmin({ id: newId, title: newTitle, category: newCategory, summary: newSummary })
+      await createConceptAdmin({ id: newId, title: newTitle, category: newCategory, summary: newSummary, created_by: isAdmin ? '__SYSTEM__' : (userId ?? '__SYSTEM__') })
       setShowCreate(false)
       setNewId(""); setNewTitle(""); setNewCategory(""); setNewSummary("")
       setSelectedId(newId)
