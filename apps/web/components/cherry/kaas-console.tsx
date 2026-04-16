@@ -662,7 +662,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/api.*$/, "")
         socketInstance = io(`${base}/kaas`, {
           auth: { api_key: currentApiKey, role: "user" },  // ← web은 user role
-          transports: ["websocket"],
+          transports: ["polling", "websocket"],  // polling 먼저 → WebSocket 불가 시 fallback
           reconnection: true,
         })
         roomSocketRef.current = socketInstance
