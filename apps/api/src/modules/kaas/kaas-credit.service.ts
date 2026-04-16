@@ -95,6 +95,21 @@ export class KaasCreditService {
       .select('id', 'amount', 'type', 'description', 'tx_hash', 'chain', 'created_at');
   }
 
+  /** 크레딧 DB만 적립 (온체인 없이 즉시) — 가입 축하 크레딧 등 */
+  async depositDbOnly(agentId: string, amount: number): Promise<{ balance: number }> {
+    await this.knex('kaas.credit_ledger').insert({
+      agent_id: agentId,
+      amount,
+      type: 'deposit',
+      description: 'Welcome bonus',
+      tx_hash: null,
+      chain: null,
+    });
+    const { balance } = await this.getBalance(agentId);
+    this.logger.log(`Welcome deposit: agent=${agentId}, amount=${amount}, balance=${balance}`);
+    return { balance };
+  }
+
   /** 크레딧 충전 — 온체인 트랜잭션 생성 후 DB 적립.
    *  온체인 실패해도 DB 적립은 유지 (구매 플로우와 동일). tx_hash NULL + chain='failed'. */
   async deposit(

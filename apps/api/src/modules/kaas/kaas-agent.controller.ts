@@ -25,8 +25,8 @@ export class KaasAgentController {
     // TODO: JWT에서 userId 추출. 현재는 시스템 유저로 대체
     const agent = await this.agentService.register(SYSTEM_USER_ID, dto);
 
-    // 가입 축하 크레딧 자동 지급
-    await this.credit.deposit(agent.id, WELCOME_CREDITS).catch(() => {});
+    // 가입 축하 크레딧 — DB만 (트랜잭션 없이 즉시)
+    await this.credit.depositDbOnly(agent.id, WELCOME_CREDITS).catch(() => {});
 
     return {
       id: agent.id,
