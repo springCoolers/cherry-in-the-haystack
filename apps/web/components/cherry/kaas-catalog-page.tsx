@@ -654,22 +654,28 @@ function analyzeGaps(agentKnowledge: AgentKnowledge[]): GapResult {
 /* ─────────────────────────────────────────────
    Main: KaaS Catalog Page
 ───────────────────────────────────────────── */
-export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId }: {
+export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, onInitialConceptConsumed }: {
   onQuery?: (title: string, depth: string, conceptId?: string) => void
   onCompareResult?: (result: any) => void
   initialConceptId?: string | null
+  onInitialConceptConsumed?: () => void
 }) {
   const [query, setQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
-  const [selectedId, setSelectedId] = useState<string | null>(initialConceptId ?? null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   // API에서 카탈로그 로드 (실패 시 MOCK_CONCEPTS fallback)
   const [concepts, setConcepts] = useState<Concept[]>(MOCK_CONCEPTS)
 
-  // initialConceptId 변경 시 자동 선택
+  // initialConceptId 변경 시 1초 후 모달 오픈 (화면 전환 안정화 대기), 일회성 소비
   useEffect(() => {
-    if (initialConceptId) setSelectedId(initialConceptId)
-  }, [initialConceptId])
+    if (!initialConceptId) return
+    const t = setTimeout(() => {
+      setSelectedId(initialConceptId)
+      onInitialConceptConsumed?.()
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [initialConceptId, onInitialConceptConsumed])
   const [agents, setAgents] = useState<any[]>([])
 
   const reloadAgents = () => {

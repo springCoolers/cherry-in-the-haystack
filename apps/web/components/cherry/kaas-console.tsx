@@ -886,21 +886,23 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         // 실제 온체인 tx가 있을 때만 provenance 설정, 없으면 null
         const prov = provData
 
-        // Privacy Mode 체크
+        // Privacy Mode 체크 — 구매 성공(실제 온체인 tx 발생)한 경우에만 TEE 활성화
         let _privacyOn = false
         try { const m = await import("@/components/cherry/kaas-dashboard-page"); _privacyOn = m.getPrivacyMode() } catch {}
+        const purchaseSucceeded = !!(prov && prov.onChain)
+        const teeActive = _privacyOn && purchaseSucceeded
 
-        // Cherry 응답 즉시 표시 — privacy ON이면 뱃지 + 스피너, TEE 완료 후 tx 링크로 변환
+        // Cherry 응답 즉시 표시
         const remaining = (res as any).creditsRemaining ?? 0
         const before = remaining + res.creditsConsumed
         setCredits(remaining)
         const msgId = `cherry-${Date.now()}`
-        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: msgId, privacy: _privacyOn }
+        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: msgId, privacy: teeActive }
         setMessages((m) => [...m, cherryMsg])
         scrollToBottom()
 
         // 🔒 Privacy Mode: TEE relay를 백그라운드 실행 → 완료 시 스피너 → tx 링크로 변환
-        if (_privacyOn) {
+        if (teeActive) {
           chatWithAgent(apiKeyRef.current, "", `[TEE relay] Purchased content. Respond OK.`, true)
             .then((teeResult: any) => {
               const teeProv = teeResult?.provenance ? {
@@ -1329,7 +1331,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
           if (!waitingForCherry) return null
           const phase = loadingPhase || (lastRole === "agent" ? "Cherry is processing…" : "Thinking…")
           return (
-            <div className="flex items-center gap-1.5 text-[11px] text-[#555] py-2">
+            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#C0B8D0] py-2">
               <div className="w-3 h-3 border-[1.5px] border-[#C94B6E] border-t-transparent rounded-full animate-spin" />
               {phase}
             </div>

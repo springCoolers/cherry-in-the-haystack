@@ -89,6 +89,7 @@ export default function CherryApp() {
       case "kaas-catalog":
         return <KaasCatalogPage
           initialConceptId={marketConceptId}
+          onInitialConceptConsumed={() => setMarketConceptId(null)}
           onQuery={(title, depth, conceptId) => consoleRef.current?.query(title, depth, conceptId)}
           onCompareResult={(result) => {
             const upToDate = result.upToDate?.length ?? 0
