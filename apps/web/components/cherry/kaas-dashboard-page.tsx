@@ -1010,7 +1010,7 @@ function DepositWithdrawButtons({ agent, onDeposited, pendingAmount, curatorName
   const [showDeposit, setShowDeposit] = useState(false)
   const [amount, setAmount] = useState(100)
   const [depositing, setDepositing] = useState(false)
-  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawMsg, setWithdrawMsg] = useState(false)
   const [result, setResult] = useState<{ msg: string; ok: boolean; tx?: string; explorer?: string } | null>(null)
 
   const handleDeposit = async () => {
@@ -1096,19 +1096,13 @@ function DepositWithdrawButtons({ agent, onDeposited, pendingAmount, curatorName
           <Wallet size={13} /> Deposit
         </button>
         <button
-          onClick={handleWithdraw}
-          disabled={withdrawing || pendingAmount <= 0 || !curatorName}
-          title={!curatorName ? "No curator profile" : pendingAmount <= 0 ? "No pending rewards" : `Withdraw ${pendingAmount}cr`}
-          className={cn(
-            "text-[12px] font-semibold px-3.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition-colors",
-            pendingAmount > 0 && curatorName && !withdrawing
-              ? "border-[#2D7A5E] text-[#2D7A5E] hover:bg-[#EFF7F3] cursor-pointer"
-              : "border-[#E4E1EE] text-[#B5AECB] bg-[#F9F7F5] cursor-not-allowed"
-          )}
+          onClick={() => { setWithdrawMsg(true); setTimeout(() => setWithdrawMsg(false), 3000) }}
+          className="text-[12px] font-semibold px-3.5 py-1.5 rounded-lg border border-[#2D7A5E] text-[#2D7A5E] hover:bg-[#EFF7F3] cursor-pointer flex items-center gap-1.5 transition-colors"
         >
           <ArrowUpRight size={13} />
-          {withdrawing ? "..." : `Withdraw${pendingAmount > 0 ? ` ${pendingAmount}cr` : ""}`}
+          Withdraw{pendingAmount > 0 ? ` ${pendingAmount}cr` : ""}
         </button>
+        {withdrawMsg && <span className="text-[10px] text-[#D4854A] font-semibold">Not yet</span>}
         <span className="text-[10px] text-[#6B727E] ml-auto">Gasless on Status Network</span>
       </div>
     </div>
