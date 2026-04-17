@@ -132,11 +132,13 @@ export class KaasProvenanceService {
     }
   }
 
-  /** 에이전트의 쿼리 이력 조회 */
+  /** 에이전트의 쿼리 이력 조회 (concept.title 조인) */
   async getQueryHistory(agentId: string): Promise<unknown[]> {
-    return this.knex('kaas.query_log')
-      .where({ agent_id: agentId })
-      .orderBy('created_at', 'desc')
-      .limit(20);
+    return this.knex('kaas.query_log as ql')
+      .leftJoin('kaas.concept as c', 'ql.concept_id', 'c.id')
+      .where({ 'ql.agent_id': agentId })
+      .orderBy('ql.created_at', 'desc')
+      .limit(20)
+      .select('ql.*', 'c.title as concept_title');
   }
 }

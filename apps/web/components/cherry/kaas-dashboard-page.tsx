@@ -130,6 +130,26 @@ export function SelfReportLog({
     if (!timelineByConcept.has(t.conceptId)) timelineByConcept.set(t.conceptId, t)
   })
 
+  // 에이전트가 보내준 timeline의 conceptTitle이 UUID 그대로일 때(구버전 에이전트 호환)
+  // 카탈로그에서 id→title 맵을 가져와 fallback으로 사용
+  const [titleMap, setTitleMap] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    import("@/lib/api").then(({ fetchCatalog }) =>
+      fetchCatalog().then((list: any[]) => {
+        if (Array.isArray(list)) {
+          setTitleMap(new Map(list.map((c) => [c.id, c.title])))
+        }
+      }).catch(() => {})
+    )
+  }, [])
+  const resolveTitle = (t: any) => {
+    const raw = t?.conceptTitle ?? ""
+    const id = t?.conceptId ?? ""
+    const looksLikeId = raw === id || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(raw)
+    if (looksLikeId) return titleMap.get(id) ?? raw ?? id
+    return raw || titleMap.get(id) || id
+  }
+
   return (
     <>
       {/* Header — agent + generated + agent-signed badge */}
@@ -153,7 +173,7 @@ export function SelfReportLog({
             if (!t) return null
             return (
               <div key={topic} className="mt-1.5 pl-1">
-                <p className="text-[#27C93F]">+ <span className="font-bold">{t.conceptTitle}</span></p>
+                <p className="text-[#27C93F]">+ <span className="font-bold" title={t.conceptId}>{resolveTitle(t)}</span></p>
                 <div className="pl-4 text-[11px]">
                   <p><span className="text-[#6B7280]">★ </span>{t.qualityScore}<span className="text-[#6B7280]"> · {fmtTime(t.at)} · </span><span className="text-[#F59E6A]">{t.action}</span> ({t.creditsConsumed}cr)</p>
                   {t.onChainFailed ? (
@@ -190,7 +210,7 @@ export function SelfReportLog({
             if (!t) return null
             return (
               <div key={topic} className="mt-1 pl-1">
-                <p className="text-[#FFBD2E]">~ <span className="font-bold">{t.conceptTitle}</span> <span className="text-[#6B7280]">(follow)</span></p>
+                <p className="text-[#FFBD2E]">~ <span className="font-bold" title={t.conceptId}>{resolveTitle(t)}</span> <span className="text-[#6B7280]">(follow)</span></p>
                 <p className="pl-4 text-[11px] text-[#6B7280]">{fmtTime(t.at)} · {t.creditsConsumed}cr
                   {!t.onChainFailed && t.explorerUrl && (
                     <> · <a href={t.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[#6B9CE8] underline break-all">{t.txHash.slice(0, 12)}...</a></>
@@ -236,8 +256,11 @@ export function SelfReportLog({
           <p className="pl-1 text-[#6B7280] text-[11px]">(no skill directories found in ~/.claude/skills/)</p>
         ) : (
             data.localSkills.items.map((s: any) => {
-              // dir 끝의 폴더명을 기술명으로 사용 (예: cherry-rag → cherry-rag)
+              // dir 끝의 폴더명에서 conceptId 추출 (cherry-{uuid}) → DB title로 치환
               const folderName = (s.dir ?? "").split("/").filter(Boolean).pop() ?? "unknown"
+              const extractedId = folderName.startsWith("cherry-") ? folderName.slice(7) : ""
+              const resolvedTitle = extractedId ? titleMap.get(extractedId) : undefined
+              const displayName = resolvedTitle ?? folderName
               const sizeKb = (Number(s.sizeBytes ?? 0) / 1024).toFixed(1)
               const mtime = s.mtime ? fmtTime(s.mtime) : ""
               return (
@@ -246,7 +269,7 @@ export function SelfReportLog({
                     <span className={s.hasSkillMd ? "text-[#27C93F]" : "text-[#FFBD2E]"}>
                       {s.hasSkillMd ? "✓" : "✗"}
                     </span>{" "}
-                    <span className="font-bold text-[#C7A7FF]">{folderName}</span>
+                    <span className="font-bold text-[#C7A7FF]" title={folderName}>{displayName}</span>
                   </p>
                   <p className="pl-4 text-[11px] text-[#7C8490]">
                     <span className="text-[#6B7280]">├─ dir:</span>{" "}
@@ -1452,6 +1475,7 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
             <div>
               {queries.map((q) => {
                 const conceptId = q.concept_id ?? q.conceptId ?? ""
+                const conceptTitle = q.concept_title ?? q.conceptTitle ?? conceptId
                 const actionType = q.action_type ?? q.actionType ?? "purchase"
                 const credits = q.credits_consumed ?? q.creditsConsumed ?? 0
                 const hash = q.provenance_hash ?? q.provenanceHash ?? ""
@@ -1467,7 +1491,7 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
                 return (
                   <div key={q.id} className="flex items-center gap-3 py-2.5 border-b border-[#F2F0F7] last:border-0">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-[#1A1626] font-semibold truncate">{conceptId}</p>
+                      <p className="text-[12px] text-[#1A1626] font-semibold truncate" title={conceptId}>{conceptTitle}</p>
                       <p className="text-[10px] text-[#6B727E] mt-0.5">{actionType} · {relDate(time)}</p>
                     </div>
                     <span className="text-[11px] text-[#D4854A] font-bold">{credits}cr</span>

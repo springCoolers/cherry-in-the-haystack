@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { Search, X, GitCompare, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, ChevronDown, ExternalLink } from "lucide-react"
 import { MOCK_AGENTS } from "./kaas-dashboard-page"
@@ -163,8 +163,6 @@ const MOCK_CONCEPTS: Concept[] = [
     ],
   },
 ]
-
-const CATEGORIES = ["All", ...Array.from(new Set(MOCK_CONCEPTS.map((c) => c.category)))]
 
 /* ─────────────────────────────────────────────
    Category badge styles (기존 Cherry 패턴)
@@ -619,12 +617,12 @@ type GapResult = {
   recommendations: { conceptId: string; suggestedDepth: string; estimatedCredits: number; reason: string }[]
 }
 
-function analyzeGaps(agentKnowledge: AgentKnowledge[]): GapResult {
+function analyzeGaps(agentKnowledge: AgentKnowledge[], conceptList: Concept[]): GapResult {
   const upToDate: GapResult["upToDate"] = []
   const outdated: GapResult["outdated"] = []
   const gaps: GapResult["gaps"] = []
 
-  for (const concept of MOCK_CONCEPTS) {
+  for (const concept of conceptList) {
     const titleLower = concept.title.toLowerCase()
     const idLower = concept.id.toLowerCase()
     const match = agentKnowledge.find(
@@ -722,13 +720,21 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
     }).catch((e) => console.error("fetchAgents:", e))
   }
 
-  useEffect(() => {
+  const reloadCatalog = () => {
     fetchCatalog().then((data) => {
       if (Array.isArray(data) && data.length > 0) setConcepts(data)
     }).catch(() => {})
+  }
+
+  useEffect(() => {
+    reloadCatalog()
     reloadAgents()
     window.addEventListener("kaas-agents-changed", reloadAgents)
-    return () => window.removeEventListener("kaas-agents-changed", reloadAgents)
+    window.addEventListener("kaas-catalog-changed", reloadCatalog)
+    return () => {
+      window.removeEventListener("kaas-agents-changed", reloadAgents)
+      window.removeEventListener("kaas-catalog-changed", reloadCatalog)
+    }
   }, [])
 
   // Agent selection
@@ -738,19 +744,26 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
   const hasAgent = agents.length > 0
 
   // Compare state — based on selected agent's knowledge
-  const [submitted, setSubmitted] = useState(false)
+  // armed: 로컬스토리지로 유지되는 자동 비교 토글.
+  //   첫 클릭 시 loud (콘솔에 보고서 1회) → 이후 knowledge/catalog 변동 때마다 silent refresh.
+  //   다시 클릭하면 disarm + 결과 clear.
+  const COMPARE_ARMED_KEY = "kaas-compare-armed"
+  const [armed, setArmed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem(COMPARE_ARMED_KEY) === "true"
+  })
   const [gapResult, setGapResult] = useState<GapResult | null>(null)
+  const submitted = armed
 
-  const handleSubmit = () => {
+  const runCompare = (silent: boolean) => {
     if (!selectedAgent) return
     const rawKnowledge = (selectedAgent as any).knowledge
     const knowledge: any[] = (() => {
       try { return typeof rawKnowledge === 'string' ? JSON.parse(rawKnowledge) : (Array.isArray(rawKnowledge) ? rawKnowledge : []) } catch { return [] }
     })()
-    setSubmitted(true)
     const handleResult = (result: any, privacy = false) => {
       setGapResult(result)
-      onCompareResult?.(privacy ? { ...result, privacy: true } : result)
+      if (!silent) onCompareResult?.(privacy ? { ...result, privacy: true } : result)
     }
 
     ;(async () => {
@@ -759,7 +772,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
 
       if (privacy) {
         // 🔒 Privacy Mode: 서버 경유 완전 차단 — 클라이언트에서 로컬 분석만 수행
-        const localResult = analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
+        const localResult = analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })), concepts)
         handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local" }, false)
         return
       }
@@ -770,23 +783,44 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
         .catch(() =>
           compareKnowledge(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
             .then((r) => handleResult(r, false))
-            .catch(() => handleResult(analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated }))), false))
+            .catch(() => handleResult(analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })), concepts), false))
         )
     })()
   }
 
+  // loud 실행 직후 useEffect의 자동 silent 재실행을 한 번 건너뛰기 위한 플래그
+  const skipNextAutoRun = useRef(false)
+
+  const handleSubmit = () => {
+    skipNextAutoRun.current = true
+    setArmed(true)
+    if (typeof window !== "undefined") window.localStorage.setItem(COMPARE_ARMED_KEY, "true")
+    runCompare(false) // loud — 콘솔에 보고서 출력
+  }
+
   const handleReset = () => {
-    setSubmitted(false)
+    setArmed(false)
     setGapResult(null)
+    if (typeof window !== "undefined") window.localStorage.removeItem(COMPARE_ARMED_KEY)
   }
 
   const handleAgentChange = (agentId: string) => {
     setSelectedAgentId(agentId)
     setAgentDropdownOpen(false)
-    // Reset compare when agent changes
-    setSubmitted(false)
+    // 에이전트가 바뀌면 기존 결과는 무효 — 새 에이전트 지식으로 자동 재비교
     setGapResult(null)
   }
+
+  // armed 상태에서 knowledge/catalog/agent 변동 시 silent refresh + mount 시 최초 1회 silent 실행
+  useEffect(() => {
+    if (!armed || !selectedAgent) return
+    if (skipNextAutoRun.current) {
+      skipNextAutoRun.current = false
+      return
+    }
+    runCompare(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed, selectedAgent?.id, (selectedAgent as any)?.knowledge, concepts])
 
   // Per-concept compare status (3-way)
   const getCompareStatus = (conceptId: string): CompareStatus | null => {
@@ -822,7 +856,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
 
   // SALE 여부는 DB에서 가져옴 (concept.onSale)
 
-  const categories = ["All", ...Array.from(new Set(concepts.map((c) => c.category)))]
+  const categories = ["All", "Basic", "Advanced", "Technique"]
 
   const filtered = concepts.filter((c) => {
     const matchCategory = activeCategory === "All" || c.category === activeCategory
@@ -903,16 +937,18 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
 
           <button
             disabled={false}
-            onClick={submitted ? handleReset : handleSubmit}
+            onClick={armed ? handleReset : handleSubmit}
+            title={armed ? "Auto-compare on — click to turn off" : "Click to compare and keep auto-refreshing"}
             className={cn(
               "text-[12px] font-semibold px-3 py-1.5 rounded-lg border transition-all cursor-pointer flex-shrink-0 flex items-center gap-1.5",
-              submitted
+              armed
                 ? "bg-[var(--cherry)] text-white border-[var(--cherry)] hover:opacity-90"
                 : "border-[var(--cherry)] text-[var(--cherry)] hover:bg-[#FDF0F3]"
             )}
           >
-            <GitCompare size={13} className={cn("transition-transform duration-500", submitted && "animate-spin")} style={submitted ? { animation: "spin 2s linear infinite" } : undefined} />
+            <GitCompare size={13} className={cn("transition-transform duration-500", armed && "animate-spin")} style={armed ? { animation: "spin 2s linear infinite" } : undefined} />
             Compare
+            {armed && <span className="w-1.5 h-1.5 rounded-full bg-white/90 animate-pulse ml-0.5" />}
           </button>
         </div>
       </div>

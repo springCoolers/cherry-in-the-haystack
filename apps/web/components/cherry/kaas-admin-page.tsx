@@ -224,6 +224,7 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         sale_discount: editSaleDiscount,
       })
       await loadConcepts()
+      window.dispatchEvent(new CustomEvent("kaas-catalog-changed"))
       showSaved("info")
     } finally { setSaving(false) }
   }

@@ -143,7 +143,7 @@ function connectWebSocket(apiKey, baseUrl) {
         at: log.created_at ?? log.timestamp,
         action: log.action_type ?? log.actionType ?? 'purchase',
         conceptId: log.concept_id ?? log.conceptId,
-        conceptTitle: log.concept_id ?? log.conceptId,
+        conceptTitle: log.concept_title ?? log.conceptTitle ?? log.concept_id ?? log.conceptId,
         creditsConsumed: log.credits_consumed ?? log.creditsConsumed ?? 0,
         qualityScore: 0,
         chain: log.chain ?? 'status',
