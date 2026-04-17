@@ -30,6 +30,26 @@ const btnSecondary =
 
 const TIER_OPTIONS = ["Bronze", "Silver", "Gold", "Platinum"]
 
+/** UUID v7 생성 (타임스탬프 기반, 정렬 가능) */
+function uuidv7(): string {
+  const now = Date.now()
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  // 48-bit timestamp (ms)
+  bytes[0] = (now / 2 ** 40) & 0xff
+  bytes[1] = (now / 2 ** 32) & 0xff
+  bytes[2] = (now / 2 ** 24) & 0xff
+  bytes[3] = (now / 2 ** 16) & 0xff
+  bytes[4] = (now / 2 ** 8) & 0xff
+  bytes[5] = now & 0xff
+  // version 7
+  bytes[6] = (bytes[6] & 0x0f) | 0x70
+  // variant 10xx
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const h = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
 /* ═══════════════════════════════════════════
    Evidence Form (inline)
 ═══════════════════════════════════════════ */
@@ -70,7 +90,7 @@ function EvidenceForm({
 /* ═══════════════════════════════════════════
    Knowledge Curation Panel
 ═══════════════════════════════════════════ */
-export function KnowledgeCurationPanel() {
+export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean } = {}) {
   const [concepts, setConcepts] = useState<AdminConcept[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -79,7 +99,6 @@ export function KnowledgeCurationPanel() {
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false)
-  const [newId, setNewId] = useState("")
   const [newTitle, setNewTitle] = useState("")
   const [newCategory, setNewCategory] = useState("")
   const [newSummary, setNewSummary] = useState("")
@@ -90,6 +109,8 @@ export function KnowledgeCurationPanel() {
   const [editSummary, setEditSummary] = useState("")
   const [editQuality, setEditQuality] = useState(0)
   const [editRelated, setEditRelated] = useState("")
+  const [editOnSale, setEditOnSale] = useState(false)
+  const [editSaleDiscount, setEditSaleDiscount] = useState(20)
 
   // Content
   const [contentMd, setContentMd] = useState("")
@@ -101,10 +122,29 @@ export function KnowledgeCurationPanel() {
   const [addingEvidence, setAddingEvidence] = useState(false)
 
   const [saving, setSaving] = useState(false)
+  const [savedKey, setSavedKey] = useState<string | null>(null)
+  const showSaved = (key: string) => {
+    setSavedKey(key)
+    setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 2000)
+  }
+
+  // 로그인 유저 ID (JWT에서 추출)
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setUserId(payload.id ?? null)
+      }
+    } catch {}
+  }, [])
 
   const loadConcepts = useCallback(async () => {
     try {
-      const data = await fetchConceptsAdmin()
+      // 관리자: __ADMIN__ → __SYSTEM__ + 자기 것, 일반 유저: 자기 userId → 자기 것만
+      const filter = isAdmin ? '__ADMIN__' : (userId ?? '__NONE__')
+      const data = await fetchConceptsAdmin(filter)
       setConcepts(data)
       if (data.length > 0 && !selectedId) setSelectedId(data[0].id)
     } catch {
@@ -112,7 +152,7 @@ export function KnowledgeCurationPanel() {
     } finally {
       setLoading(false)
     }
-  }, [selectedId])
+  }, [selectedId, isAdmin, userId])
 
   useEffect(() => { loadConcepts() }, [loadConcepts])
 
@@ -126,6 +166,8 @@ export function KnowledgeCurationPanel() {
     setEditSummary(selected.summary)
     setEditQuality(selected.qualityScore)
     setEditRelated((selected.relatedConcepts ?? []).join(", "))
+    setEditOnSale((selected as any).isOnSale ?? false)
+    setEditSaleDiscount((selected as any).saleDiscount ?? 20)
     setContentMd(selected.contentMd ?? "")
     setPreview(false)
     setEditingEvId(null)
@@ -148,8 +190,11 @@ export function KnowledgeCurationPanel() {
         summary: editSummary,
         quality_score: editQuality,
         related_concepts: editRelated.split(",").map((s) => s.trim()).filter(Boolean),
+        is_on_sale: editOnSale,
+        sale_discount: editSaleDiscount,
       })
       await loadConcepts()
+      showSaved("info")
     } finally { setSaving(false) }
   }
 
@@ -159,17 +204,21 @@ export function KnowledgeCurationPanel() {
     try {
       await updateConceptAdmin(selectedId, { content_md: contentMd })
       await loadConcepts()
+      showSaved("content")
     } finally { setSaving(false) }
   }
 
   async function handleCreate() {
-    if (!newId || !newTitle || !newCategory || !newSummary) return
+    if (!newTitle || !newCategory || !newSummary) return
     setSaving(true)
+    const id = uuidv7()
     try {
-      await createConceptAdmin({ id: newId, title: newTitle, category: newCategory, summary: newSummary })
+      await createConceptAdmin({ id, title: newTitle, category: newCategory, summary: newSummary, created_by: isAdmin ? '__SYSTEM__' : (userId ?? '__SYSTEM__') })
+      // 일부러 최소 0.5초 스피닝 — 사용자가 변화를 인지할 수 있도록
+      await new Promise((r) => setTimeout(r, 500))
       setShowCreate(false)
-      setNewId(""); setNewTitle(""); setNewCategory(""); setNewSummary("")
-      setSelectedId(newId)
+      setNewTitle(""); setNewCategory(""); setNewSummary("")
+      setSelectedId(id)
       await loadConcepts()
     } finally { setSaving(false) }
   }
@@ -242,6 +291,12 @@ export function KnowledgeCurationPanel() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-2">
+          {filtered.length === 0 && !loading && (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+              <BookOpen className="h-8 w-8 text-[#D4854A] mb-3 opacity-60" />
+              <p className="text-[13px] font-semibold text-[#3D3652]">No knowledge yet</p>
+            </div>
+          )}
           {filtered.map((c) => (
             <button
               key={c.id}
@@ -269,22 +324,48 @@ export function KnowledgeCurationPanel() {
         {showCreate ? (
           /* ── Create form ── */
           <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="mb-4 text-[15px] font-bold">Create New Concept</h3>
-            <div className="space-y-4 max-w-lg">
-              <div><label className={labelCls}>ID (slug)</label><input value={newId} onChange={(e) => setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} placeholder="rag" className={cn(inputBase, "mt-1")} /></div>
-              <div><label className={labelCls}>Title</label><input value={newTitle} onChange={(e) => { setNewTitle(e.target.value); if (!newId) setNewId(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")) }} placeholder="Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} /></div>
-              <div><label className={labelCls}>Category</label>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {categories.map((cat) => (
-                    <button key={cat} onClick={() => setNewCategory(cat)} className={cn("rounded-full px-3 py-1 text-[11px] border transition-colors", newCategory === cat ? "border-[#666] bg-[#FAFAFA] text-[#666]" : "border-[#E0E0E0] text-[#666] hover:border-[#666]")}>{cat}</button>
-                  ))}
-                  <input value={categories.includes(newCategory) ? "" : newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="또는 새 카테고리" className={cn(inputBase, "w-40")} />
+            <div className="max-w-lg mx-auto">
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 rounded-xl bg-[#FFF3E8] flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="h-6 w-6 text-[#D4854A]" />
+                </div>
+                <h3 className="text-[16px] font-bold text-[#1A1626]">Create New Knowledge</h3>
+                <p className="text-[12px] text-[#888] mt-1">Build a concept that agents can purchase. You earn 40% of every sale.</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls}>Title</label>
+                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Retrieval-Augmented Generation" className={cn(inputBase, "mt-1")} />
+                </div>
+                <div>
+                  <label className={labelCls}>Category</label>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {categories.map((cat) => (
+                      <button key={cat} onClick={() => setNewCategory(cat)} className={cn("rounded-full px-3 py-1 text-[11px] border transition-colors", newCategory === cat ? "border-[#D4854A] bg-[#FFF8F0] text-[#D4854A]" : "border-[#E0E0E0] text-[#666] hover:border-[#D4854A]")}>{cat}</button>
+                    ))}
+                    <input value={categories.includes(newCategory) ? "" : newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="or new category" className={cn(inputBase, "w-40")} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Summary</label>
+                  <textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} placeholder="Describe what this knowledge covers and why it's valuable…" className={cn(inputBase, "mt-1 resize-none")} />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
+                  <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40 inline-flex items-center gap-1.5")}>
+                    {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {saving ? "Creating…" : "Create"}
+                  </button>
                 </div>
               </div>
-              <div><label className={labelCls}>Summary</label><textarea value={newSummary} onChange={(e) => setNewSummary(e.target.value)} rows={3} className={cn(inputBase, "mt-1 resize-none")} /></div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
-                <button onClick={handleCreate} disabled={saving || !newId || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "생성 중..." : "생성"}</button>
+              <div className="mt-6 rounded-lg bg-[#FAFAFA] border border-[#E0E0E0] p-4">
+                <p className="text-[11px] font-semibold text-[#666] mb-2">After creating, you can:</p>
+                <ul className="text-[11px] text-[#888] space-y-1">
+                  <li>• Upload markdown content for the full knowledge body</li>
+                  <li>• Add evidence sources with curator commentary</li>
+                  <li>• Set sale pricing and discounts</li>
+                  <li>• Publish to the Knowledge Market</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -323,8 +404,30 @@ export function KnowledgeCurationPanel() {
                     <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#2D7A5E]">Source Count</label><input type="number" value={selected.sourceCount} disabled className={cn(inputBase, "mt-1 bg-[#F9F7F5]")} /></div>
                   </div>
                   <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#999]">Related Concepts (comma-separated)</label><input value={editRelated} onChange={(e) => setEditRelated(e.target.value)} placeholder="chain-of-thought, embeddings" className={cn(inputBase, "mt-1")} /></div>
-                  <div className="pt-2">
-                    <button onClick={handleSaveInfo} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">Sale</label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <button
+                          onClick={() => setEditOnSale(!editOnSale)}
+                          className={cn("relative w-10 h-5 rounded-full transition-colors", editOnSale ? "bg-[#C94B6E]" : "bg-[#E0E0E0]")}
+                        >
+                          <span
+                            className="absolute top-0.5 left-0 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                            style={{ transform: `translateX(${editOnSale ? 22 : 2}px)` }}
+                          />
+                        </button>
+                        <span className="text-[12px] text-[#666]">{editOnSale ? "On Sale" : "Off"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">Discount %</label>
+                      <input type="number" min="1" max="90" value={editSaleDiscount} onChange={(e) => setEditSaleDiscount(Number(e.target.value))} disabled={!editOnSale} className={cn(inputBase, "mt-1", !editOnSale && "bg-[#F9F7F5] opacity-50")} />
+                    </div>
+                  </div>
+                  <div className="pt-2 flex items-center gap-3">
+                    <button onClick={handleSaveInfo} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")}>저장</button>
+                    {savedKey === "info" && <span className="text-[12px] text-[#2D7A5E] font-medium">✓ 저장되었습니다</span>}
                   </div>
                 </div>
               )}
@@ -340,12 +443,17 @@ export function KnowledgeCurationPanel() {
                         <Eye className="mr-1 inline h-3.5 w-3.5" />Preview
                       </button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input ref={fileInputRef} type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
-                      <button onClick={() => fileInputRef.current?.click()} className={cn(btnSecondary, "flex items-center gap-1")}>
-                        <Upload className="h-3.5 w-3.5" />Upload .md
-                      </button>
-                      <button onClick={handleSaveContent} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <input ref={fileInputRef} type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
+                        <button onClick={() => fileInputRef.current?.click()} className={cn(btnSecondary, "flex items-center gap-1")}>
+                          <Upload className="h-3.5 w-3.5" />Upload .md
+                        </button>
+                        <button onClick={handleSaveContent} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")}>저장</button>
+                      </div>
+                      <div className="h-[18px]">
+                        {savedKey === "content" && <span className="text-[12px] text-[#2D7A5E] font-medium">✓ 저장되었습니다</span>}
+                      </div>
                     </div>
                   </div>
 
@@ -419,8 +527,24 @@ export function KnowledgeCurationPanel() {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-[14px] text-[#888]">
-            Select a concept on the left
+          <div className="flex flex-1 flex-col items-center justify-center text-center px-8 -mt-16">
+            <h3 className="text-[15px] font-bold text-[#1A1626] mb-2">Knowledge Curation Studio</h3>
+            <p className="text-[12px] text-[#888] leading-relaxed max-w-xs mb-4">
+              Create and curate knowledge that AI agents can purchase from the Market.
+              You earn 40% revenue share on every sale.
+            </p>
+            <button
+              onClick={() => { setShowCreate(true); setSelectedId(null) }}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold text-white bg-[#D4854A] hover:bg-[#C07438] transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" /> Create your first concept
+            </button>
+            <div className="mt-6 text-center">
+              <div>
+                <p className="text-[18px] font-bold text-[#D4854A]">40%</p>
+                <p className="text-[10px] text-[#888] -ml-1">Revenue share</p>
+              </div>
+            </div>
           </div>
         )}
       </div>

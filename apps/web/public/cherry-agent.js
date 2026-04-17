@@ -43890,8 +43890,9 @@ var require_ws_client = __commonJS({
     var { io } = require_cjs6();
     async function fetchAgentData(baseUrl, apiKey) {
       try {
-        const agentsRes = await fetch(`${baseUrl}/api/v1/kaas/agents?api_key=${apiKey}`);
-        const agents = await agentsRes.json();
+        const meRes = await fetch(`${baseUrl}/api/v1/kaas/agents/me?api_key=${apiKey}`);
+        const me = await meRes.json();
+        const agents = me?.id ? [me] : [];
         const balRes = await fetch(`${baseUrl}/api/v1/kaas/credits/balance?api_key=${apiKey}`);
         const balance = await balRes.json();
         const histRes = await fetch(`${baseUrl}/api/v1/kaas/credits/history?api_key=${apiKey}`);

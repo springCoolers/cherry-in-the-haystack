@@ -28,6 +28,9 @@ type Concept = {
   updatedAt: string
   relatedConcepts: string[]
   evidence: Evidence[]
+  creator?: { name: string; karmaTier: string } | null
+  onSale?: boolean
+  saleDiscount?: number
 }
 
 const MOCK_CONCEPTS: Concept[] = [
@@ -230,7 +233,7 @@ function ConceptCard({
     <button
       onClick={onSelect}
       className={cn(
-        "w-full text-left rounded-xl p-4 transition-all duration-150 cursor-pointer",
+        "block w-full text-left rounded-md p-4 transition-all duration-150 cursor-pointer",
         "border hover:shadow-sm relative bg-white",
         isSelected
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
@@ -254,25 +257,22 @@ function ConceptCard({
         </span>
       )}
 
-      {/* 지식 비교 / 소유 뱃지 — 우하단 */}
+      {/* 지식 비교 / 소유 표시 — 우하단. owned/up-to-date는 텍스트만, gap만 뱃지 유지 */}
       {owned ? (
-        <span className="absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0] z-[2]">
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#2D7A5E] z-[2]">
           ✓ Owned
         </span>
-      ) : compareStatus ? (
-        <span
-          className={cn(
-            "absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 z-[2]",
-            compareStatus === "up-to-date"
-              ? "bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0]"
-              : compareStatus === "outdated"
-                ? "bg-[#FDF6EE] text-[#D4854A] border border-[#F0D8B0]"
-                : "bg-[#FDF0F3] text-[var(--cherry)] border border-[#F2C4CE]"
-          )}
-        >
-          {compareStatus === "up-to-date" && "✓ Up to date"}
-          {compareStatus === "outdated" && <><RefreshCw size={9} /> Update available</>}
-          {compareStatus === "gap" && "Gap"}
+      ) : compareStatus === "up-to-date" ? (
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#2D7A5E] z-[2]">
+          ✓ Up to date
+        </span>
+      ) : compareStatus === "outdated" ? (
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#D4854A] z-[2]">
+          <RefreshCw size={10} /> Update available
+        </span>
+      ) : compareStatus === "gap" ? (
+        <span className="absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#FDF0F3] text-[var(--cherry)] border border-[#F2C4CE] z-[2]">
+          Gap
         </span>
       ) : null}
 
@@ -293,6 +293,23 @@ function ConceptCard({
       <p className="text-[12px] text-text-muted leading-relaxed line-clamp-2 mb-3">
         {concept.summary}
       </p>
+
+      {/* Creator + Karma */}
+      {concept.creator && (
+        <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+          <span className="text-[#666]">by</span>
+          <span className="font-semibold text-[#3D3652]">{concept.creator.name === "__SYSTEM__" ? "Market" : concept.creator.name}</span>
+          <span className={cn(
+            "text-[9px] font-bold uppercase tracking-wide",
+            concept.creator.karmaTier === "Platinum" ? "text-[#7B5EA7]" :
+            concept.creator.karmaTier === "Gold" ? "text-[#D4854A]" :
+            concept.creator.karmaTier === "Silver" ? "text-[#888]" :
+            "text-[#AAA]"
+          )}>
+            {concept.creator.karmaTier}
+          </span>
+        </div>
+      )}
 
       {/* Footer: sources + updated + gap recommendation */}
       <div className="flex items-center gap-3 text-[11px] text-text-muted">
@@ -334,12 +351,12 @@ function DetailModal({
   agentConnected?: boolean
   onSale?: boolean
 }) {
-  // 세일 카드면 20% 할인 — 20cr → 16cr, 25cr → 20cr
-  const SALE_DISCOUNT = 0.2
+  // 세일 할인율은 DB에서 가져옴 (concept.saleDiscount %)
+  const saleRate = (concept.saleDiscount ?? 20) / 100
   const purchaseBase = 20
   const followBase = 25
-  const purchasePrice = onSale ? Math.round(purchaseBase * (1 - SALE_DISCOUNT)) : purchaseBase
-  const followPrice = onSale ? Math.round(followBase * (1 - SALE_DISCOUNT)) : followBase
+  const purchasePrice = onSale ? Math.round(purchaseBase * (1 - saleRate)) : purchaseBase
+  const followPrice = onSale ? Math.round(followBase * (1 - saleRate)) : followBase
   // Block reason priority: already owned > agent not connected
   const blocked = owned || !agentConnected
   const blockReason = owned
@@ -377,6 +394,21 @@ function DetailModal({
                   {concept.sourceCount} sources · Updated {relativeDate(concept.updatedAt)}
                 </span>
               </div>
+              {concept.creator && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
+                  <span className="text-[#666]">by</span>
+                  <span className="font-semibold text-[#3D3652]">{concept.creator.name === "__SYSTEM__" ? "Market" : concept.creator.name}</span>
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-wide",
+                    concept.creator.karmaTier === "Platinum" ? "text-[#7B5EA7]" :
+                    concept.creator.karmaTier === "Gold" ? "text-[#D4854A]" :
+                    concept.creator.karmaTier === "Silver" ? "text-[#888]" :
+                    "text-[#AAA]"
+                  )}>
+                    {concept.creator.karmaTier}
+                  </span>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -480,9 +512,8 @@ function DetailModal({
             </div>
           )}
           {onSale && !blocked && (
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
-              <span className="inline-block px-1.5 py-0.5 rounded bg-[#C94B6E] text-white text-[9px] font-extrabold tracking-[0.08em]">SALE</span>
-              <span>20% off applied at checkout</span>
+            <div className="mb-2 flex items-center justify-end gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
+              <span>{concept.saleDiscount ?? 20}% off</span>
             </div>
           )}
           <div className="flex items-center justify-end gap-2">
@@ -620,9 +651,11 @@ function analyzeGaps(agentKnowledge: AgentKnowledge[]): GapResult {
 /* ─────────────────────────────────────────────
    Main: KaaS Catalog Page
 ───────────────────────────────────────────── */
-export function KaasCatalogPage({ onQuery, onCompareResult }: {
+export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, onInitialConceptConsumed }: {
   onQuery?: (title: string, depth: string, conceptId?: string) => void
   onCompareResult?: (result: any) => void
+  initialConceptId?: string | null
+  onInitialConceptConsumed?: () => void
 }) {
   const [query, setQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
@@ -630,6 +663,16 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
 
   // API에서 카탈로그 로드 (실패 시 MOCK_CONCEPTS fallback)
   const [concepts, setConcepts] = useState<Concept[]>(MOCK_CONCEPTS)
+
+  // initialConceptId 변경 시 1초 후 모달 오픈 (화면 전환 안정화 대기), 일회성 소비
+  useEffect(() => {
+    if (!initialConceptId) return
+    const t = setTimeout(() => {
+      setSelectedId(initialConceptId)
+      onInitialConceptConsumed?.()
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [initialConceptId, onInitialConceptConsumed])
   const [agents, setAgents] = useState<any[]>([])
 
   const reloadAgents = () => {
@@ -680,22 +723,9 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
       const privacy = getPrivacyMode()
 
       if (privacy) {
-        // 🔒 Privacy Mode: 서버 경유 완전 차단
-        // 1) knowledge 데이터를 NEAR AI TEE로 통과 (경로 보호)
-        // 2) 클라이언트에서 로컬 분석 (서버 DB 접근 X, 기록 X)
-        try {
-          const { chatWithAgent } = await import("@/lib/api")
-          const apiKey = (selectedAgent as any).api_key ?? (selectedAgent as any).apiKey
-          await chatWithAgent(
-            apiKey,
-            "",
-            `[TEE relay] Agent knowledge payload: ${JSON.stringify(knowledge)}. Respond OK.`,
-            true,
-          ).catch(() => { /* 통과 실패해도 compare는 로컬 분석으로 진행 */ })
-        } catch { /* import 실패 무시 */ }
-
+        // 🔒 Privacy Mode: 서버 경유 완전 차단 — 클라이언트에서 로컬 분석만 수행
         const localResult = analyzeGaps(knowledge.map((k: any) => ({ topic: k.topic, lastUpdated: k.lastUpdated })))
-        handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local+tee" }, true)
+        handleResult({ ...localResult, agentName: (selectedAgent as any).name, source: "local" }, false)
         return
       }
 
@@ -755,19 +785,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
 
   const isOwned = (conceptId: string) => ownedConceptIds.has(conceptId)
 
-  // 카테고리별 대표 SALE 1개씩 (Basics / Advanced / Technique).
-  // 각 카테고리에서 qualityScore 최고인 컨셉을 선정 → deterministic.
-  const onSaleIds = useMemo(() => {
-    const ids = new Set<string>()
-    const categories = Array.from(new Set(concepts.map((c) => c.category)))
-    for (const cat of categories) {
-      const top = concepts
-        .filter((c) => c.category === cat)
-        .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))[0]
-      if (top) ids.add(top.id)
-    }
-    return ids
-  }, [concepts])
+  // SALE 여부는 DB에서 가져옴 (concept.onSale)
 
   const categories = ["All", ...Array.from(new Set(concepts.map((c) => c.category)))]
 
@@ -794,28 +812,6 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             >
               Knowledge Market
             </h1>
-            <a
-              href="https://market.near.ai/agents/cherry_kaas_agent"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Registered as a worker on NEAR Agent Market — click to view public profile (cherry_kaas_agent)."
-              className="group self-start inline-flex items-center gap-2 px-2.5 py-1 rounded-md border border-[#E4E1EE] bg-white hover:border-[#1A1626] hover:bg-[#FAFAFB] transition-all cursor-pointer"
-            >
-              <span className="flex flex-col leading-tight">
-                <span className="text-[9px] uppercase tracking-[0.08em] text-[#6B727E] font-semibold">
-                  Listed on
-                </span>
-                <span className="text-[11px] font-bold text-[#1A1626]">
-                  NEAR Agent Market
-                </span>
-              </span>
-              <svg
-                width="10" height="10" viewBox="0 0 10 10" fill="none"
-                className="text-[#6B727E] group-hover:text-[#1A1626] transition-colors ml-0.5"
-              >
-                <path d="M2 8L8 2M8 2H3.5M8 2V6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </a>
           </div>
           <p className="text-[13px] text-text-muted">
             Browse curated AI concepts · {filtered.length} concept{filtered.length !== 1 ? "s" : ""}
@@ -835,7 +831,10 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
         <div className="flex items-center gap-2 mt-1">
           {/* Agent selector */}
           {hasAgent && selectedAgent ? (
-          <div className="relative">
+          <div className="relative"
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setAgentDropdownOpen(false) }}
+            tabIndex={-1}
+          >
             <button
               onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border border-[#E4E1EE] text-[#3D3652] hover:border-[#C7B8E8] transition-all cursor-pointer flex items-center gap-1.5"
@@ -857,7 +856,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
                   >
                     <span>{a.icon}</span>
                     <span className="flex-1">{a.name}</span>
-                    <span className="text-[10px] text-[#6B727E]">{a.credits}cr</span>
+                    {selectedAgentId === a.id && <span className="text-[10px] text-[#7B5EA7]">✓</span>}
                   </button>
                 ))}
               </div>
@@ -894,32 +893,31 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
           placeholder="Search concepts..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-[#E4E1EE] bg-white placeholder:text-text-muted focus:outline-none focus:border-[var(--cherry)] focus:ring-1 focus:ring-[var(--cherry)]/20 transition-colors"
+          className="w-full pl-9 pr-3 py-2 text-[13px] rounded-md border border-[#E4E1EE] bg-white placeholder:text-text-muted focus:outline-none focus:border-[var(--cherry)] focus:ring-1 focus:ring-[var(--cherry)]/20 transition-colors"
         />
       </div>
 
-      {/* Category filter chips */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Category filter — tab bar with continuous faint line + active dark segment */}
+      <div className="pl-[3px]"><div className="flex items-center gap-5 flex-wrap">
         {categories.map((cat) => {
           const isActive = activeCategory === cat
-          const badge = cat === "All" ? DEFAULT_BADGE : getBadge(cat)
           return (
             <button
               key={cat}
               onClick={() => { setActiveCategory(cat); setSelectedId(null) }}
               className={cn(
-                "text-[11px] font-semibold px-3 py-1 rounded-full border transition-all cursor-pointer",
-                isActive
-                  ? "bg-[#1A1626] text-white border-[#1A1626]"
-                  : "bg-white border-[#E4E1EE] hover:border-[#C7B8E8]"
+                "relative text-[12px] font-semibold pb-1.5 cursor-pointer transition-colors",
+                isActive ? "text-[#1A1626]" : "text-[#9E97B3] hover:text-[#3D3652]"
               )}
-              style={isActive ? undefined : { color: badge.text }}
             >
               {cat}
+              {isActive && (
+                <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-[#1A1626]" />
+              )}
             </button>
           )
         })}
-      </div>
+      </div></div>
 
       {/* Cards grid — each card shows compare status after submit */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -931,7 +929,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
             compareStatus={getCompareStatus(c.id)}
             owned={submitted && isOwned(c.id)}
-            onSale={onSaleIds.has(c.id)}
+            onSale={!!c.onSale}
           />
         ))}
       </div>
@@ -961,7 +959,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
           disabled={false}
           owned={submitted && isOwned(selected.id)}
           agentConnected={!!(selectedAgent && (selectedAgent as any).is_active !== false && (selectedAgent as any).api_key)}
-          onSale={onSaleIds.has(selected.id)}
+          onSale={!!selected.onSale}
           onQuery={(title, depth, conceptId) => {
             onQuery?.(title, depth, conceptId)
           }}

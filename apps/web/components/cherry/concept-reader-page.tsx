@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { ShoppingCart } from "lucide-react"
 
 /* ─────────────────────────────────────────────
    Cherries data
@@ -74,7 +75,9 @@ const REFERENCES = [
 /* ─────────────────────────────────────────────
    Main Page Component
 ───────────────────────────────────────────── */
-export function ConceptReaderPage() {
+export function ConceptReaderPage({ onBuyOnMarket }: { onBuyOnMarket?: (conceptId: string) => void }) {
+  // 현재 리더에 표시된 컨셉 — 마켓과 동일 slug로 매칭
+  const READER_CONCEPT_ID = "rag"
   return (
     <div className="flex flex-col -m-4 -mx-4 lg:-m-8 lg:-mx-10">
       {/* 2-column content (left reading + right panel) */}
@@ -87,9 +90,21 @@ export function ConceptReaderPage() {
           </span>
 
           {/* Title */}
-          <h1 className="text-[20px] lg:text-[28px] font-extrabold text-text-primary tracking-[-0.5px] leading-[1.2] mb-4">
-            Retrieval-Augmented Generation
-          </h1>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <h1 className="text-[20px] lg:text-[28px] font-extrabold text-text-primary tracking-[-0.5px] leading-[1.2]">
+              Retrieval-Augmented Generation
+            </h1>
+            {onBuyOnMarket && (
+              <button
+                onClick={() => onBuyOnMarket(READER_CONCEPT_ID)}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cherry)] text-white text-[12px] font-semibold hover:bg-[#B13E5F] transition-colors cursor-pointer"
+                title="Buy this concept on the Knowledge Market"
+              >
+                <ShoppingCart size={13} />
+                Buy on Market
+              </button>
+            )}
+          </div>
 
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-text-muted mb-8">

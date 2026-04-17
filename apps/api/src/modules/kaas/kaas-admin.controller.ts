@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'src/middleware/zod-validation.pipe';
 import { KaasKnowledgeService } from './kaas-knowledge.service';
@@ -15,9 +15,9 @@ export class KaasAdminController {
   /* ───── Concept CRUD ───── */
 
   @Get('concepts')
-  @ApiOperation({ summary: 'Admin — 전체 개념 목록 (비활성 포함, content_md 포함)' })
-  async listConcepts() {
-    return this.knowledge.findAllAdmin();
+  @ApiOperation({ summary: '큐레이션 개념 목록 (created_by 필터 지원)' })
+  async listConcepts(@Query('created_by') createdBy?: string) {
+    return this.knowledge.findAllAdmin(createdBy);
   }
 
   @Get('concepts/:id')
@@ -32,7 +32,7 @@ export class KaasAdminController {
   @HttpCode(201)
   @ApiOperation({ summary: 'Admin — 개념 생성' })
   async createConcept(
-    @Body(new ZodValidationPipe(CreateConceptSchema)) dto: CreateConceptDto,
+    @Body() dto: any,
   ) {
     return this.knowledge.createConcept(dto);
   }

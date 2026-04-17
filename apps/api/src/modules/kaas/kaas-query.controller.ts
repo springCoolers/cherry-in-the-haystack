@@ -69,15 +69,15 @@ export class KaasQueryController {
       if (this.agentOwnsConcept(agent, dto.concept_id, concept.title)) {
         throw new BadRequestException({
           code: 'ALREADY_OWNED',
-          message: `이미 보유한 지식입니다: ${concept.title}`,
+          message: `Already owned: ${concept.title}`,
         });
       }
 
-      // SALE 대상이면 20% 할인 추가 (Karma 할인과 곱연산으로 스택)
-      const onSale = await this.knowledge.isOnSale(dto.concept_id);
+      // SALE: DB에서 할인율 조회 (0이면 세일 아님)
+      const saleDiscountPct = await this.knowledge.getSaleDiscount(dto.concept_id);
       const { consumed, remaining } = await this.credit.consume(
         agent.id, ACTION_PRICE.purchase, agent.karma_tier as KarmaTierName, dto.concept_id, 'purchase',
-        { saleDiscount: onSale ? 0.2 : 0 },
+        { saleDiscount: saleDiscountPct / 100 },
       );
 
       const responseData = {
@@ -141,10 +141,10 @@ export class KaasQueryController {
       });
     }
 
-    const onSaleFollow = await this.knowledge.isOnSale(dto.concept_id);
+    const saleDiscountPct = await this.knowledge.getSaleDiscount(dto.concept_id);
     const { consumed, remaining } = await this.credit.consume(
       agent.id, ACTION_PRICE.follow, agent.karma_tier as KarmaTierName, dto.concept_id, 'follow',
-      { saleDiscount: onSaleFollow ? 0.2 : 0 },
+      { saleDiscount: saleDiscountPct / 100 },
     );
 
     const responseData = {
@@ -226,7 +226,30 @@ Rules (strict):
         });
         const data = await res.json();
         const reply = data.choices?.[0]?.message?.content ?? data.error?.message ?? '응답 없음';
-        return { reply, provider: 'near', privacy: 'TEE-attested (NEAR AI Cloud)' };
+
+        // 🔒 TEE provenance: privacy_mode 시 온체인 기록
+        let provenance: { hash: string | null; explorer_url: string | null; on_chain: boolean; chain: string; error?: string } | undefined;
+        if (body.api_key) {
+          try {
+            const agent = await this.agentService.authenticate(body.api_key);
+            const prov = await this.provenance.recordQuery(
+              agent.id, '_tee', 'tee-chat', 0,
+              { question: body.question, reply, provider: 'near' },
+              'near',
+            );
+            provenance = {
+              hash: prov.provenanceHash,
+              explorer_url: prov.explorerUrl,
+              on_chain: prov.onChain,
+              chain: prov.onChain ? prov.chain : 'failed',
+              error: prov.error,
+            };
+          } catch (e: any) {
+            this.logger.error(`[TEE provenance] chat recording failed: ${e?.message ?? e}`);
+          }
+        }
+
+        return { reply, provider: 'near', privacy: 'TEE-attested (NEAR AI Cloud)', provenance };
       } catch (err: any) {
         this.logger.error(`NEAR AI error: ${err.message}`);
         return { reply: `NEAR AI 오류: ${err.message}`, error: true };

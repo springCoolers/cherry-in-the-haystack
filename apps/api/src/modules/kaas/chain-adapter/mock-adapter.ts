@@ -2,55 +2,62 @@
  * MockAdapter — DEMO_FALLBACK용 목 어댑터
  *
  * 실제 블록체인 호출 없이 랜덤 해시를 반환.
- * 개발/데모에서 블록체인 연결 없이 전체 플로우를 테스트할 때 사용.
+ * 체인별 적절한 explorer URL 반환 (status / near / mock).
  */
 
 import { IChainAdapter, TxResult, KarmaTier } from "./interface";
 import crypto from "crypto";
 
+type MockChain = "status" | "near" | "mock";
+
 function randomHash(): string {
   return "0x" + crypto.randomBytes(32).toString("hex");
 }
 
+function randomNearHash(): string {
+  // NEAR tx hash는 base58 형식 (44자 내외)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789";
+  return Array.from({ length: 44 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 export class MockAdapter implements IChainAdapter {
-  async recordProvenance(hash: string, agent: string, conceptId: string): Promise<TxResult> {
-    const txHash = randomHash();
+  constructor(private readonly pretendChain: MockChain = "status") {}
+
+  private makeTx(): TxResult {
+    if (this.pretendChain === "near") {
+      const hash = randomNearHash();
+      return {
+        hash,
+        chain: "near",
+        explorerUrl: `https://testnet.nearblocks.io/txns/${hash}`,
+      };
+    }
+    // status / mock → Sepolia 형식
+    const hash = randomHash();
     return {
-      hash: txHash,
-      chain: "mock",
-      explorerUrl: `https://sepoliascan.status.network/tx/${txHash}`,
+      hash,
+      chain: this.pretendChain === "status" ? "status" : "mock",
+      explorerUrl: `https://sepoliascan.status.network/tx/${hash}`,
     };
   }
 
-  async depositCredit(agent: string, amount: number): Promise<TxResult> {
-    const txHash = randomHash();
-    return {
-      hash: txHash,
-      chain: "mock",
-      explorerUrl: `https://sepoliascan.status.network/tx/${txHash}`,
-    };
+  async recordProvenance(_hash: string, _agent: string, _conceptId: string): Promise<TxResult> {
+    return this.makeTx();
   }
 
-  async consumeCredit(agent: string, amount: number, conceptId: string, actionType: string): Promise<TxResult> {
-    const txHash = randomHash();
-    return {
-      hash: txHash,
-      chain: "mock",
-      explorerUrl: `https://sepoliascan.status.network/tx/${txHash}`,
-    };
+  async depositCredit(_agent: string, _amount: number): Promise<TxResult> {
+    return this.makeTx();
   }
 
-  async withdrawReward(curator: string, amount: number): Promise<TxResult> {
-    const txHash = randomHash();
-    return {
-      hash: txHash,
-      chain: "mock",
-      explorerUrl: `https://sepoliascan.status.network/tx/${txHash}`,
-    };
+  async consumeCredit(_agent: string, _amount: number, _conceptId: string, _actionType: string): Promise<TxResult> {
+    return this.makeTx();
   }
 
-  async getKarmaTier(address: string): Promise<KarmaTier> {
-    // 목 데이터: Silver 티어
+  async withdrawReward(_curator: string, _amount: number): Promise<TxResult> {
+    return this.makeTx();
+  }
+
+  async getKarmaTier(_address: string): Promise<KarmaTier> {
     return { tier: "Silver", balance: 1250 };
   }
 }

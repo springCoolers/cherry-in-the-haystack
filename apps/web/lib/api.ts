@@ -531,7 +531,7 @@ export async function mcpChat(message: string, agentId?: string) {
 export async function elicitKnowledge(agentId?: string) {
   const res = await fetch(`${KAAS_BASE}/mcp/elicit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ agent_id: agentId }),
   })
   if (!res.ok) throw new Error("Elicitation failed")
@@ -602,8 +602,9 @@ export interface AdminEvidence {
   comment: string
 }
 
-export async function fetchConceptsAdmin(): Promise<AdminConcept[]> {
-  const res = await fetch(`${KAAS_BASE}/admin/concepts`, { cache: "no-store" })
+export async function fetchConceptsAdmin(createdBy?: string): Promise<AdminConcept[]> {
+  const params = createdBy ? `?created_by=${encodeURIComponent(createdBy)}` : ''
+  const res = await fetch(`${KAAS_BASE}/admin/concepts${params}`, { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch admin concepts")
   return res.json()
 }
@@ -623,6 +624,7 @@ export async function createConceptAdmin(body: {
   quality_score?: number
   source_count?: number
   related_concepts?: string[]
+  created_by?: string
 }) {
   const res = await fetch(`${KAAS_BASE}/admin/concepts`, {
     method: "POST",

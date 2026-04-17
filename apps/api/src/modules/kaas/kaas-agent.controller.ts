@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'src/middleware/zod-validation.pipe';
@@ -11,7 +11,6 @@ const WELCOME_CREDITS = 200;
 
 @Controller('v1/kaas/agents')
 @ApiTags('KaaS — Agent')
-@UseGuards(AuthGuard('jwt'))
 export class KaasAgentController {
   constructor(
     private readonly agentService: KaasAgentService,
@@ -26,8 +25,18 @@ export class KaasAgentController {
     return agent;
   }
 
+  /** api_key로 자기 에이전트 조회 (MCP 에이전트용 — JWT 불필요) */
+  @Get('me')
+  @ApiOperation({ summary: 'api_key로 자기 에이전트 정보 조회 (MCP용)' })
+  async getMe(@Query('api_key') apiKey: string) {
+    if (!apiKey) throw new NotFoundException('api_key required');
+    const agent = await this.agentService.authenticate(apiKey);
+    return agent;
+  }
+
   @Post('register')
   @HttpCode(201)
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: '에이전트 등록 → API Key 발급' })
   async register(
     @AuthUser('id') userId: string,
@@ -51,6 +60,7 @@ export class KaasAgentController {
   }
 
   @Get()
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: '내 에이전트 목록 조회' })
   async list(@AuthUser('id') userId: string) {
     return this.agentService.findByUserId(userId);
@@ -58,6 +68,7 @@ export class KaasAgentController {
 
   @Delete(':id')
   @HttpCode(204)
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: '에이전트 삭제 (소유권 확인)' })
   async delete(@AuthUser('id') userId: string, @Param('id') id: string) {
     await this.verifyOwnership(id, userId);
@@ -65,6 +76,7 @@ export class KaasAgentController {
   }
 
   @Patch(':id/model')
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: '에이전트 LLM 모델 변경 (소유권 확인)' })
   async updateModel(@AuthUser('id') userId: string, @Param('id') id: string, @Body() body: { llm_model: string }) {
     await this.verifyOwnership(id, userId);
@@ -73,6 +85,7 @@ export class KaasAgentController {
   }
 
   @Get(':id/karma')
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Read agent Karma tier from Status Network onchain (live)' })
   async getKarma(@AuthUser('id') userId: string, @Param('id') id: string) {
     await this.verifyOwnership(id, userId);

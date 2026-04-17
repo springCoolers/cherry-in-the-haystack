@@ -594,6 +594,7 @@ function AgentPanel({
   const selected = agents.find((a) => a.id === selectedId) ?? agents[0]
   const [cmdCopied, setCmdCopied] = useState(false)
   const [removeCopied, setRemoveCopied] = useState(false)
+  const [testCopied, setTestCopied] = useState(false)
   const [mcpConnected, setMcpConnected] = useState(false)
   // MCP 서버 가동 상태 실시간 폴링 (10초마다)
   // — /mcp/sessions 엔드포인트 도달 가능 여부로 서버 alive 체크
@@ -704,14 +705,6 @@ function AgentPanel({
 
       {/* Selected agent detail — 고정 하단 */}
       <div className="shrink-0 border-t border-[#E4E1EE] pt-3 mt-3 space-y-3">
-        {/* Wallet address (Karma는 우측 패널로 이동) */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Wallet</p>
-          <div className="flex items-center gap-2">
-            <Wallet size={13} className="text-[#7B5EA7]" />
-            <span className="text-[12px] font-mono font-semibold text-[#1A1626]">{selected.walletAddress && selected.walletAddress.length > 12 ? `${selected.walletAddress.slice(0, 6)}...${selected.walletAddress.slice(-4)}` : selected.walletAddress || "—"}</span>
-          </div>
-        </div>
 
 
         <div>
@@ -734,6 +727,9 @@ function AgentPanel({
         </div>
 
         <div>
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0] mb-1.5">
+            ✓ Paste & run in terminal
+          </span>
           <div className="flex items-center justify-between mb-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E]">Claude Code Connection</p>
             <div className="flex items-center gap-0.5 bg-[#F3F1F7] rounded-md p-0.5">
@@ -761,11 +757,31 @@ function AgentPanel({
               {cmdCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
             </button>
           </div>
-          <p className="text-[9px] text-[#9E97B3] mt-1">Paste & run in terminal</p>
 
-          {/* Disconnect */}
-          <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative mt-1.5">
-            <p className="text-[10px] font-mono text-[#9E97B3] pr-6">{removeCommand}</p>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Connection Test</p>
+          <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative">
+            <p className="text-[10px] font-mono text-[#1A1626] pr-6">Submit a self-report of your knowledge to Cherry KaaS server.</p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText("Submit a self-report of your knowledge to Cherry KaaS server.")
+                setTestCopied(true)
+                setTimeout(() => setTestCopied(false), 2000)
+              }}
+              className="absolute top-2 right-2 p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
+              title="Copy test prompt"
+            >
+              {testCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Disconnect MCP</p>
+          <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative">
+            <p className="text-[10px] font-mono text-[#1A1626] pr-6">{removeCommand}</p>
             <button
               onClick={handleRemoveCopy}
               className="absolute top-2 right-2 p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
@@ -774,31 +790,11 @@ function AgentPanel({
               {removeCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
             </button>
           </div>
-          <p className="text-[9px] text-[#9E97B3] mt-1">Run when disconnecting</p>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#6B727E] mb-1">Connection Test</p>
-          <p className="text-[9px] text-[#9E97B3] mb-1">Paste in Claude Code to verify agent connection:</p>
-          <div className="bg-[#F9F7F5] rounded-lg px-3 py-2 border border-[#E4E1EE] relative">
-            <p className="text-[10px] font-mono text-[#1A1626] pr-6">Submit a self-report of your knowledge to Cherry KaaS server.</p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText("Submit a self-report of your knowledge to Cherry KaaS server.")
-                setCmdCopied(true)
-                setTimeout(() => setCmdCopied(false), 2000)
-              }}
-              className="absolute top-2 right-2 p-0.5 hover:bg-white rounded cursor-pointer flex-shrink-0"
-              title="Copy test prompt"
-            >
-              {cmdCopied ? <Check size={12} className="text-[#2D7A5E]" /> : <Copy size={12} className="text-[#6B727E]" />}
-            </button>
-          </div>
         </div>
 
         <button
           onClick={() => { if (confirm(`Delete agent "${selected.name}"?`)) onDelete(selected.id) }}
-          className="w-full text-[10px] text-[#999] hover:text-red-400 py-0.5 cursor-pointer transition-colors"
+          className="w-full text-[12px] font-medium text-[#999] hover:text-red-400 py-0 -mt-2 cursor-pointer transition-colors leading-tight"
         >
           Delete Agent
         </button>
@@ -1112,9 +1108,10 @@ function DepositWithdrawButtons({ agent, onDeposited, pendingAmount, curatorName
 /* ═══════════════════════════════════════════════
    Right Panel — Wallet & Rewards
 ═══════════════════════════════════════════════ */
-function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefreshKarma }: {
+function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefreshKarma, isAdmin = false }: {
   agent: Agent; onRefresh: () => void;
   karma: import("@/lib/api").OnchainKarma | null; karmaLoading: boolean; karmaError: string | null; onRefreshKarma: () => void;
+  isAdmin?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"queries" | "ledger" | "rewards">("queries")
   const [queries, setQueries] = useState<any[]>([])
@@ -1141,13 +1138,13 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
 
   const loadRewards = () => {
     if (!agent.name) return
-    import("@/lib/api").then(({ fetchAllRewards }) =>
-      fetchAllRewards().then((data: any[]) => {
-        const total = data.reduce((s: number, r: any) => s + (r.total ?? 0), 0)
-        const pending = data.reduce((s: number, r: any) => s + (r.pending ?? 0), 0)
-        import("@/lib/api").then(({ fetchCuratorRewards }) => {
+    if (isAdmin) {
+      // 관리자: 전체 큐레이터 보상 현황
+      import("@/lib/api").then(({ fetchAllRewards, fetchCuratorRewards }) =>
+        fetchAllRewards().then((data: any[]) => {
+          const total = data.reduce((s: number, r: any) => s + (r.total ?? 0), 0)
+          const pending = data.reduce((s: number, r: any) => s + (r.pending ?? 0), 0)
           if (data.length > 0) {
-            // pending 있는 큐레이터 우선. 없으면 total 많은 순(data[0]).
             const withPending = data.find((r: any) => (r.pending ?? 0) > 0)
             const chosen = withPending ?? data[0]
             const chosenName = chosen.curator_name
@@ -1158,9 +1155,23 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
           } else {
             setRewardData({ pending: 0, withdrawn: 0, total: 0, rewards: [], curatorName: null, chosenPending: 0 })
           }
-        })
-      }).catch(() => {})
-    )
+        }).catch(() => {})
+      )
+    } else {
+      // 일반 유저: 자기 에이전트 이름으로만 조회
+      import("@/lib/api").then(({ fetchCuratorRewards }) =>
+        fetchCuratorRewards(agent.name).then((d: any) => {
+          setRewardData({
+            pending: d.pending ?? 0,
+            withdrawn: d.withdrawn ?? 0,
+            total: d.total ?? 0,
+            rewards: d.rewards ?? [],
+            curatorName: agent.name,
+            chosenPending: d.pending ?? 0,
+          })
+        }).catch(() => setRewardData({ pending: 0, withdrawn: 0, total: 0, rewards: [], curatorName: agent.name, chosenPending: 0 }))
+      )
+    }
   }
 
   useEffect(() => {
@@ -1177,7 +1188,17 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-[15px] font-bold text-[#1A1626]">Wallet & Rewards</h3>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="text-[15px] font-bold text-[#1A1626]">Wallet & Rewards</h3>
+        <div className="flex items-center gap-1.5">
+          <Wallet size={13} className="text-[#7B5EA7]" />
+          <span className="text-[12px] font-mono font-semibold text-[#1A1626]">
+            {agent.walletAddress && agent.walletAddress.length > 12
+              ? `${agent.walletAddress.slice(0, 6)}...${agent.walletAddress.slice(-4)}`
+              : agent.walletAddress || "—"}
+          </span>
+        </div>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-2.5">
@@ -1528,8 +1549,8 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
 
   const tabs = [
     { key: "dashboard" as const, label: "Dashboard" },
+    { key: "curation" as const, label: "Knowledge Curation" },
     ...(isAdmin ? [
-      { key: "curation" as const, label: "Knowledge Curation" },
       { key: "template" as const, label: "Prompt Templates" },
     ] : []),
   ]
@@ -1541,8 +1562,8 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
         <h2 className="text-[16px] lg:text-[18px] font-extrabold text-[#1A1626] mb-2 lg:mb-3" style={{ letterSpacing: "-0.3px" }}>
           Dashboard
         </h2>
-        {tabs.length > 1 && (
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+          {tabs.length > 1 ? (
             <div className="flex gap-0 overflow-x-auto">
               {tabs.map((t) => (
                 <button
@@ -1559,11 +1580,11 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
                 </button>
               ))}
             </div>
-            <div className="flex-shrink-0 pb-2 lg:pb-0">
-              <CompactPrivacyToggle />
-            </div>
+          ) : <div />}
+          <div className="flex-shrink-0 pb-2 lg:pb-0">
+            <CompactPrivacyToggle />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -1605,7 +1626,7 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
               </div>
               {/* Right — Wallet & Rewards */}
               <div className="flex-1 rounded-xl border border-[#E4E1EE] bg-white p-4 lg:p-5 min-w-0 overflow-y-auto">
-                {selectedAgent ? <WalletPanel agent={selectedAgent} onRefresh={loadAgents} karma={onchainKarma} karmaLoading={karmaLoading} karmaError={karmaError} onRefreshKarma={refreshOnchainKarma} /> : (
+                {selectedAgent ? <WalletPanel agent={selectedAgent} onRefresh={loadAgents} karma={onchainKarma} karmaLoading={karmaLoading} karmaError={karmaError} onRefreshKarma={refreshOnchainKarma} isAdmin={isAdmin} /> : (
                   <div className="flex items-center justify-center h-full text-[13px] text-[#999]">Register an agent</div>
                 )}
               </div>
@@ -1614,7 +1635,7 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
         )}
         {activeTab === "curation" && (
           <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA]">
-            <KnowledgeCurationPanel />
+            <KnowledgeCurationPanel isAdmin={isAdmin} />
           </div>
         )}
         {activeTab === "template" && (

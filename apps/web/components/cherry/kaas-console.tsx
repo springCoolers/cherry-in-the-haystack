@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react"
 import { cn } from "@/lib/utils"
 import { Send, ExternalLink, ChevronDown, Shield, Bot, Cherry, Minus, X, Trash2 } from "lucide-react"
-import { purchaseConcept, followConcept } from "@/lib/api"
+import { purchaseConcept, followConcept, chatWithAgent } from "@/lib/api"
 import { SelfReportLog } from "./kaas-dashboard-page"
 
 /* ═══════════════════════════════════════════════
@@ -117,9 +117,9 @@ type Provenance = { hash: string; chain: string; explorerUrl: string; onChain: b
 type Message =
   | { role: "user"; text: string }
   | { role: "agent"; action: string; endpoint: string; mcpTool: string; actionType: Action; budget: number }
-  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; _id?: string; privacy?: boolean }
-  | { role: "agent-chat"; reply: string; privacy?: boolean }
-  | { role: "kaas-chat"; reply: string; privacy?: boolean }
+  | { role: "cherry"; answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsBefore: number; provenance: Provenance | null; teeProvenance?: Provenance | null; _id?: string; privacy?: boolean }
+  | { role: "agent-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
+  | { role: "kaas-chat"; reply: string; privacy?: boolean; provenance?: Provenance | null }
   | { role: "agent-done"; hash: string; blocked?: boolean }
   | { role: "agent-report"; reportData: any; agentId: string; agentName: string; generatedAt: string }
   | { role: "room"; from: "user" | "claude" | "cherry"; to: "user" | "claude" | "cherry"; content: string; ts: string }
@@ -149,7 +149,7 @@ function search(q: string, act: Action) {
 ═══════════════════════════════════════════════ */
 export type KaasConsoleRef = {
   query: (conceptTitle: string, action: string, conceptId?: string) => void
-  notify: (message: string, privacy?: boolean) => void
+  notify: (message: string, privacy?: boolean, provenance?: Provenance | null) => void
 }
 
 /* ═══════════════════════════════════════════════
@@ -199,6 +199,15 @@ function CherryMsg({ msg }: { msg: Message & { role: "cherry" } }) {
             🔒 NEAR AI TEE
           </span>
         )}
+        {msg.privacy && msg.teeProvenance?.onChain && msg.teeProvenance.hash ? (
+          <a href={msg.teeProvenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+            <Shield size={9} />
+            <span className="font-mono">{msg.teeProvenance.hash.slice(0, 10)}...{msg.teeProvenance.hash.slice(-6)}</span>
+            <ExternalLink size={8} />
+          </a>
+        ) : msg.privacy && msg.teeProvenance === undefined ? (
+          <div className="w-3 h-3 border-[1.5px] border-[#7B5EA7] border-t-transparent rounded-full animate-spin" />
+        ) : null}
       </p>
       <div className={cn(
         "bg-[#1A1520] border-l-2 rounded-lg px-3 py-2 max-w-[90%]",
@@ -330,6 +339,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
   const [actionType, setActionType] = useState<Action>("purchase")
   const [credits, setCredits] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
 
@@ -388,6 +398,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
   const [typedText, setTypedText] = useState("")
   // Cherry Console 버튼 / 패널 shake — "I've got a cold" 농담 나올 때 부르르
   const [consoleShake, setConsoleShake] = useState(false)
+  const lastShakeRef = useRef(0)
   // 대화 삭제 확인 팝오버
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
@@ -596,11 +607,15 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
       lastCasualIdx = idx
       setTypedText(text)
       setBubbleVisible(true)
-      // 감기 농담 → 콘솔 부르르 떨림 (애니메이션 0.7s 보다 살짝 여유)
+      // 감기 농담 → 콘솔 부르르 떨림. 한 번 떨고 나면 60초 cooldown
       if (text === SHAKE_PHRASE) {
-        setConsoleShake(false)          // 직전 잔여 상태 초기화 (연속 트리거 대비)
-        requestAnimationFrame(() => setConsoleShake(true))
-        setTimeout(() => setConsoleShake(false), 750)
+        const now = Date.now()
+        if (now - lastShakeRef.current >= 60000) {
+          lastShakeRef.current = now
+          setConsoleShake(false)
+          requestAnimationFrame(() => setConsoleShake(true))
+          setTimeout(() => setConsoleShake(false), 750)
+        }
       }
       t1 = setTimeout(() => {
         setBubbleVisible(false)
@@ -659,10 +674,10 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
     ;(async () => {
       try {
         const { io } = await import("socket.io-client")
-        const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/api.*$/, "")
+        const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
         socketInstance = io(`${base}/kaas`, {
           auth: { api_key: currentApiKey, role: "user" },  // ← web은 user role
-          transports: ["websocket"],
+          transports: ["polling", "websocket"],  // polling 먼저 → WebSocket 불가 시 fallback
           reconnection: true,
         })
         roomSocketRef.current = socketInstance
@@ -768,6 +783,20 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         let res: { answer: string; concepts: string[]; evidence: Evidence[]; qualityScore: number; creditsConsumed: number; creditsRemaining?: number; privacy?: boolean }
         let provData: Provenance | null = null
 
+        // 단계별 진행 메시지 (3초 간격)
+        const phases = [
+          "Connecting to Cherry KaaS…",
+          "Verifying agent credentials…",
+          "Processing on-chain transaction…",
+          "Finalizing purchase…",
+        ]
+        let phaseIdx = 0
+        setLoadingPhase(phases[0])
+        const phaseTimer = setInterval(() => {
+          phaseIdx++
+          if (phaseIdx < phases.length) setLoadingPhase(phases[phaseIdx])
+        }, 3000)
+
         try {
           const apiKey = apiKeyRef.current
           if (!apiKey) throw new Error("Please select an agent")
@@ -781,19 +810,6 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
 
           // 🔒 Privacy Mode: 구매 intent(concept_id)를 NEAR TEE로 통과시킨 뒤 서버로 전달
           let isPrivate = false
-          try {
-            const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
-            if (getPrivacyMode()) {
-              const { chatWithAgent } = await import("@/lib/api")
-              await chatWithAgent(
-                apiKey,
-                "",
-                `[TEE relay] Purchase intent: agent wants to ${act} concept "${conceptId}". Respond OK.`,
-                true,
-              ).then(() => { isPrivate = true })
-                .catch(() => { /* TEE 통과 실패해도 구매 진행 */ })
-            }
-          } catch { /* import 실패 무시 */ }
 
           // 선택된 체인 읽기 (Status / NEAR)
           let selectedChain: "status" | "near" = "status"
@@ -806,6 +822,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             ? await purchaseConcept(apiKey, conceptId, selectedChain)
             : await followConcept(apiKey, conceptId, selectedChain)
 
+          clearInterval(phaseTimer)
+
           // 기본 답변 = 서버가 준 summary
           let agentReply = apiResult.answer
           if (apiResult.content_md) {
@@ -813,18 +831,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
               const { chatWithAgent } = await import("@/lib/api")
               const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
               const privacy = getPrivacyMode()
-              if (privacy) {
-                // 🔒 Privacy Mode: content_md를 NEAR AI TEE로 한 번 통과만 시킴 (답변 생성 X)
-                // 서버 summary를 그대로 쓰고, 배지만 부착
-                await chatWithAgent(
-                  apiKey,
-                  "",
-                  `[TEE relay] Purchased content: ${apiResult.content_md.slice(0, 1500)}. Respond OK.`,
-                  true,
-                ).catch(() => { /* TEE 통과 실패해도 구매 진행 */ })
-                isPrivate = true
-              } else {
-                // 일반 모드: 기존 그대로 LLM이 요약 생성
+              if (!privacy) {
+                // 일반 모드: LLM이 요약 생성
                 const llmQuestion = `I just learned the "${apiResult.concepts?.[0] ?? conceptId}" concept. Please summarize the core points concisely.`
                 const llmResult = await chatWithAgent(apiKey, apiResult.content_md, llmQuestion, false)
                 if (llmResult.reply && !llmResult.error) agentReply = llmResult.reply
@@ -832,6 +840,12 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             } catch { /* LLM 실패 시 기본 summary 사용 */ }
           }
 
+          // privacy 플래그는 TEE 백그라운드 완료 후 업데이트됨
+          let privacyMode = false
+          try {
+            const { getPrivacyMode } = await import("@/components/cherry/kaas-dashboard-page")
+            privacyMode = getPrivacyMode()
+          } catch {}
           res = {
             answer: agentReply,
             concepts: apiResult.concepts,
@@ -839,7 +853,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             qualityScore: apiResult.quality_score,
             creditsConsumed: apiResult.credits_consumed,
             creditsRemaining: apiResult.credits_remaining,
-            privacy: isPrivate,
+            privacy: privacyMode,
           }
           if (apiResult.provenance) {
             const p = apiResult.provenance as any
@@ -854,6 +868,7 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             }
           }
         } catch (err: any) {
+          clearInterval(phaseTimer)
           // ALREADY_OWNED — 사용자가 Compare 안 하고 이미 보유한 지식을 사려고 한 경우
           if (err?.code === 'ALREADY_OWNED' || /already.*owned|이미 보유/i.test(err?.message ?? '')) {
             const friendly = `⚠ Purchase blocked — this knowledge is already in your agent's memory. Run Compare in the catalog to see what you already own.`
@@ -871,40 +886,51 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         // 실제 온체인 tx가 있을 때만 provenance 설정, 없으면 null
         const prov = provData
 
-        // Cherry 응답 + provenance 한번에 표시
+        // Privacy Mode 체크 — 구매 성공(실제 온체인 tx 발생)한 경우에만 TEE 활성화
+        let _privacyOn = false
+        try { const m = await import("@/components/cherry/kaas-dashboard-page"); _privacyOn = m.getPrivacyMode() } catch {}
+        const purchaseSucceeded = !!(prov && prov.onChain)
+        const teeActive = _privacyOn && purchaseSucceeded
+
+        // Cherry 응답 즉시 표시
         const remaining = (res as any).creditsRemaining ?? 0
         const before = remaining + res.creditsConsumed
         setCredits(remaining)
-        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: `cherry-${Date.now()}`, privacy: (res as any).privacy }
+        const msgId = `cherry-${Date.now()}`
+        const cherryMsg: Message = { role: "cherry", ...res, creditsBefore: before, provenance: prov, _id: msgId, privacy: teeActive }
         setMessages((m) => [...m, cherryMsg])
         scrollToBottom()
+
+        // 🔒 Privacy Mode: TEE relay를 백그라운드 실행 → 완료 시 스피너 → tx 링크로 변환
+        if (teeActive) {
+          chatWithAgent(apiKeyRef.current, "", `[TEE relay] Purchased content. Respond OK.`, true)
+            .then((teeResult: any) => {
+              const teeProv = teeResult?.provenance ? {
+                hash: teeResult.provenance.hash, chain: teeResult.provenance.chain,
+                explorerUrl: teeResult.provenance.explorer_url, onChain: teeResult.provenance.on_chain,
+              } as Provenance : null
+              setMessages((m) => m.map((msg) =>
+                (msg as any)._id === msgId ? { ...msg, privacy: true, teeProvenance: teeProv } : msg
+              ))
+            })
+            .catch(() => {
+              // TEE 실패 — 뱃지 유지, 스피너 멈춤 (onChain: false로 링크 대신 빈 상태)
+              setMessages((m) => m.map((msg) =>
+                (msg as any)._id === msgId ? { ...msg, privacy: true, teeProvenance: { hash: "", chain: "failed", explorerUrl: "", onChain: false } } : msg
+              ))
+            })
+        }
 
         // Agent done (1.5s later)
         setTimeout(() => {
             setMessages((m) => [...m, { role: "agent-done", hash: prov?.hash ?? "", blocked: prov?.chain === "blocked" }])
-            setLoading(false)
+            setLoading(false); setLoadingPhase("")
             scrollToBottom()
             // 잔액 + knowledge 갱신
             if (apiKeyRef.current) {
               import("@/lib/api").then(({ fetchBalance, fetchAgents }) => {
                 fetchBalance(apiKeyRef.current).then((b: any) => setCredits(b?.balance ?? 0)).catch(() => {})
-                fetchAgents().then(async (agents: any[]) => {
-                  const agent = agents.find((a: any) => a.api_key === apiKeyRef.current)
-                  const knowledge: Array<{ topic: string; lastUpdated: string }> = (() => {
-                    try { const r = agent?.knowledge; return typeof r === 'string' ? JSON.parse(r) : (Array.isArray(r) ? r : []) } catch { return [] }
-                  })()
-                  if (knowledge.length > 0) {
-                    const lines = knowledge.map((k) => `  ✓ ${k.topic} (${k.lastUpdated})`).join("\n")
-                    // Privacy Mode 상태 읽어서 배지 부착
-                    let knowPrivacy = false
-                    try {
-                      const mod = await import("@/components/cherry/kaas-dashboard-page")
-                      knowPrivacy = mod.getPrivacyMode()
-                    } catch { /* ignore */ }
-                    setMessages((m) => [...m, { role: "agent-chat", reply: `📚 Knowledge submitted (${knowledge.length} topics):\n${lines}`, privacy: knowPrivacy }])
-                    scrollToBottom()
-                  }
-                }).catch(() => {})
+                fetchAgents().catch(() => {})
               })
             }
             window.dispatchEvent(new Event("kaas-agents-changed"))
@@ -1020,7 +1046,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
           setMessages((m) => [...m, { role: "agent-chat", reply: BUSY_MSG }])
         } else {
           const isPrivate = !!(privacy && result.privacy)
-          setMessages((m) => [...m, { role: "kaas-chat", reply, privacy: isPrivate }])
+          const prov = result.provenance ? { hash: result.provenance.hash, chain: result.provenance.chain, explorerUrl: result.provenance.explorer_url, onChain: result.provenance.on_chain } as Provenance : null
+          setMessages((m) => [...m, { role: "kaas-chat", reply, privacy: isPrivate, provenance: prov }])
         }
       } catch {
         setMessages((m) => [...m, { role: "agent-chat", reply: "지금은 체리가 중요한 업무를 처리중입니다. 차후에 응대해 드리겠습니다." }])
@@ -1046,8 +1073,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         conceptId
       )
     },
-    notify: (message: string, privacy?: boolean) => {
-      setMessages((m) => [...m, { role: "agent-chat", reply: message, privacy }])
+    notify: (message: string, privacy?: boolean, provenance?: Provenance | null) => {
+      setMessages((m) => [...m, { role: "agent-chat", reply: message, privacy, provenance }])
       setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
     },
   }), [executeQuery])
@@ -1194,17 +1221,8 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                 <button
                   key={q}
                   onClick={() => {
-                    // 하드코딩 답변 — LLM 토큰 낭비 방지.
-                    // 다만 LLM 느낌 살리려고 2초 "생각 중" 로딩 표시 후 답변 출력.
                     setOpen(true)
-                    setMessages((m) => [...m, { role: "user", text: q }])
-                    setLoading(true)
-                    scrollToBottom()
-                    setTimeout(() => {
-                      setMessages((m) => [...m, { role: "kaas-chat", reply: EXAMPLE_ANSWERS[q] }])
-                      setLoading(false)
-                      scrollToBottom()
-                    }, 2000)
+                    sendText(q)
                   }}
                   disabled={loading}
                   className="text-[11.5px] text-left px-3 py-2 rounded-lg bg-[#1A1520] border border-[#333] text-[#E0E0E0] hover:bg-[#241B2C] hover:border-[#444] cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1230,6 +1248,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                       🔒 NEAR AI TEE
                     </span>
                   )}
+                  {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+                    <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+                      <Shield size={9} />
+                      <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+                      <ExternalLink size={8} />
+                    </a>
+                  )}
                 </p>
                 <div className="bg-[#1A1520] border-l-2 border-[#7B5EA7] rounded-lg px-3 py-2 max-w-[90%]">
                   <p className="text-[12px] text-[#D0D0D0] leading-relaxed whitespace-pre-line">{msg.reply}</p>
@@ -1244,6 +1269,13 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
                     <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#7B5EA7] text-white uppercase tracking-wide">
                       🔒 NEAR AI TEE
                     </span>
+                  )}
+                  {msg.privacy && msg.provenance?.onChain && msg.provenance.hash && (
+                    <a href={msg.provenance.explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-[#7B5EA7] hover:underline">
+                      <Shield size={9} />
+                      <span className="font-mono">{msg.provenance.hash.slice(0, 10)}...{msg.provenance.hash.slice(-6)}</span>
+                      <ExternalLink size={8} />
+                    </a>
                   )}
                 </p>
                 <div className={cn(
@@ -1294,15 +1326,14 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
         })}
 
         {loading && (() => {
-          // Cherry 응답이 아직 안 온 동안 계속 스피너 표시.
-          // user 메시지 직후 / agent action 메시지 직후 모두 대응.
           const lastRole = messages[messages.length - 1]?.role
           const waitingForCherry = lastRole === "user" || lastRole === "agent"
           if (!waitingForCherry) return null
+          const phase = loadingPhase || (lastRole === "agent" ? "Cherry is processing…" : "Thinking…")
           return (
-            <div className="flex items-center gap-1.5 text-[11px] text-[#555] py-2">
+            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#C0B8D0] py-2">
               <div className="w-3 h-3 border-[1.5px] border-[#C94B6E] border-t-transparent rounded-full animate-spin" />
-              {lastRole === "agent" ? "Waiting for Cherry KaaS..." : "Agent is working..."}
+              {phase}
             </div>
           )
         })()}
