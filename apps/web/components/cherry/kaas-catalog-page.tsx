@@ -234,7 +234,7 @@ function ConceptCard({
     <button
       onClick={onSelect}
       className={cn(
-        "w-full text-left rounded-md p-4 transition-all duration-150 cursor-pointer",
+        "block w-full text-left rounded-md p-4 transition-all duration-150 cursor-pointer",
         "border hover:shadow-sm relative bg-white",
         isSelected
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
