@@ -853,9 +853,18 @@ export const KaasConsole = forwardRef<KaasConsoleRef, { currentPage?: string }>(
             `[DIAG purchase] sending to backend: chain=${selectedChain} preSignedTx=${preSignedTx ? preSignedTx.slice(0, 10) + '...' : 'undefined'}`,
           )
 
+          // Privacy Mode 플래그를 서버에 전달 — 켜져 있으면 response_snapshot에 해시만 저장됨
+          let privacyOnForPurchase = false
+          try {
+            const m = await import("@/components/cherry/kaas-dashboard-page")
+            privacyOnForPurchase = m.getPrivacyMode()
+          } catch {}
+          const purchaseOpts: any = {}
+          if (preSignedTx) purchaseOpts.preSignedTx = preSignedTx
+          if (privacyOnForPurchase) purchaseOpts.privacyMode = true
           const apiResult = act === "purchase"
-            ? await purchaseConcept(apiKey, conceptId, selectedChain, preSignedTx ? { preSignedTx } : undefined)
-            : await followConcept(apiKey, conceptId, selectedChain, preSignedTx ? { preSignedTx } : undefined)
+            ? await purchaseConcept(apiKey, conceptId, selectedChain, Object.keys(purchaseOpts).length ? purchaseOpts : undefined)
+            : await followConcept(apiKey, conceptId, selectedChain, Object.keys(purchaseOpts).length ? purchaseOpts : undefined)
 
           clearInterval(phaseTimer)
 

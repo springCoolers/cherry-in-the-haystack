@@ -446,7 +446,7 @@ export async function purchaseConcept(
   apiKey: string,
   conceptId: string,
   chain?: "status" | "near" | "mock",
-  opts?: { preSignedTx?: string },
+  opts?: { preSignedTx?: string; privacyMode?: boolean },
 ) {
   const res = await fetch(`${KAAS_BASE}/purchase`, {
     method: "POST",
@@ -456,6 +456,7 @@ export async function purchaseConcept(
       api_key: apiKey,
       ...(chain ? { chain } : {}),
       ...(opts?.preSignedTx ? { pre_signed_tx: opts.preSignedTx } : {}),
+      ...(opts?.privacyMode ? { privacy_mode: true } : {}),
     }),
   })
   if (!res.ok) {
@@ -473,7 +474,7 @@ export async function followConcept(
   apiKey: string,
   conceptId: string,
   chain?: "status" | "near" | "mock",
-  opts?: { preSignedTx?: string },
+  opts?: { preSignedTx?: string; privacyMode?: boolean },
 ) {
   const res = await fetch(`${KAAS_BASE}/follow`, {
     method: "POST",
@@ -483,6 +484,7 @@ export async function followConcept(
       api_key: apiKey,
       ...(chain ? { chain } : {}),
       ...(opts?.preSignedTx ? { pre_signed_tx: opts.preSignedTx } : {}),
+      ...(opts?.privacyMode ? { privacy_mode: true } : {}),
     }),
   })
   if (!res.ok) {

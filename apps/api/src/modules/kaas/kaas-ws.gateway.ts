@@ -108,6 +108,8 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
           agentId, '_tee', 'tee-submit', 0,
           { topicCount: topics.length, topics: topics.map(t => t.topic) },
           'near',
+          undefined,
+          { privacy: true },
         );
         provenance = {
           hash: prov.provenanceHash,
