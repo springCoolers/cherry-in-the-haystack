@@ -51,14 +51,14 @@ const getCategoryColor = (code: string) => CATEGORY_COLORS[code] ?? "#9E97B3"
    Skeleton placeholder data
 ───────────────────────────────────────────── */
 const SKELETON_CATEGORIES: FrameworkCategoryItem[] = [
-  { id: "sk1", code: "agent",        name: "Agent",            entities: [{ id: "e1", name: "LangGraph", isSpotlight: true }, { id: "e2", name: "CrewAI", isSpotlight: false }] },
-  { id: "sk2", code: "fine-tuning",  name: "Fine-Tuning",      entities: [{ id: "e3", name: "LoRA", isSpotlight: false }] },
-  { id: "sk3", code: "rag",          name: "RAG",              entities: [{ id: "e4", name: "LlamaIndex", isSpotlight: true }] },
-  { id: "sk4", code: "prompt-eng",   name: "Prompt Engineering",entities: [{ id: "e5", name: "DSPy", isSpotlight: false }] },
-  { id: "sk5", code: "serving",      name: "Serving",          entities: [{ id: "e6", name: "vLLM", isSpotlight: false }] },
-  { id: "sk6", code: "data-storage", name: "Data & Storage",   entities: [{ id: "e7", name: "Weaviate", isSpotlight: false }] },
-  { id: "sk7", code: "llmops",       name: "LLMOps",           entities: [{ id: "e8", name: "Weights & Biases", isSpotlight: false }] },
-  { id: "sk8", code: "observability","name": "Observability",  entities: [{ id: "e9", name: "LangSmith", isSpotlight: false }] },
+  { id: "sk1", code: "agent",        name: "Agent",            sortOrder: 1, entities: [{ id: "e1", name: "LangGraph", url: null, isSpotlight: true }, { id: "e2", name: "CrewAI", url: null, isSpotlight: false }] },
+  { id: "sk2", code: "fine-tuning",  name: "Fine-Tuning",      sortOrder: 2, entities: [{ id: "e3", name: "LoRA", url: null, isSpotlight: false }] },
+  { id: "sk3", code: "rag",          name: "RAG",              sortOrder: 3, entities: [{ id: "e4", name: "LlamaIndex", url: null, isSpotlight: true }] },
+  { id: "sk4", code: "prompt-eng",   name: "Prompt Engineering",sortOrder: 4, entities: [{ id: "e5", name: "DSPy", url: null, isSpotlight: false }] },
+  { id: "sk5", code: "serving",      name: "Serving",          sortOrder: 5, entities: [{ id: "e6", name: "vLLM", url: null, isSpotlight: false }] },
+  { id: "sk6", code: "data-storage", name: "Data & Storage",   sortOrder: 6, entities: [{ id: "e7", name: "Weaviate", url: null, isSpotlight: false }] },
+  { id: "sk7", code: "llmops",       name: "LLMOps",           sortOrder: 7, entities: [{ id: "e8", name: "Weights & Biases", url: null, isSpotlight: false }] },
+  { id: "sk8", code: "observability","name": "Observability",  sortOrder: 8, entities: [{ id: "e9", name: "LangSmith", url: null, isSpotlight: false }] },
 ]
 
 const SKELETON_RISINGSTAR: FrameworksRisingstar = {
@@ -169,25 +169,25 @@ function RisingStarCard({ rs, loading }: { rs: FrameworksRisingstar; loading?: b
 
   return (
     <div
-      className="flex flex-col lg:flex-row items-start gap-5 rounded-[10px] border p-5"
+      className="relative flex flex-col lg:flex-row items-center gap-5 rounded-[10px] border p-5"
       style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div className="flex-1 min-w-0">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border mb-2 ${txt}`}
-          style={{ backgroundColor: "#F3EFFA", color: "#7B5EA7", borderColor: "#D4C9EE" }}
+      <div className="flex-1 min-w-0 lg:pl-12">
+        <span className={`inline-block text-[11px] font-semibold mb-2 ${txt}`}
+          style={{ color: "#7B5EA7" }}
         >
           Rising Star — Framework to Watch
         </span>
         <div className="flex items-center gap-2 mb-1">
           <h3 className={`text-[20px] font-bold text-[#1A1626] ${txt}`}>{rs.categoryName}</h3>
-          {!loading && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
-              style={{ backgroundColor: rs.isNew ? "#E94057" : "#7B5EA7" }}
-            >
-              {rs.isNew ? "NEW" : "HOT"}
-            </span>
-          )}
         </div>
+        {!loading && (
+          <span className="absolute top-0 left-0 px-2.5 py-1 text-[10px] font-bold text-white rounded-tl-[5px] rounded-br-[4px]"
+            style={{ backgroundColor: rs.isNew ? "#E94057" : "#7B5EA7" }}
+          >
+            {rs.isNew ? "NEW" : "HOT"}
+          </span>
+        )}
         <p className={`text-[13px] leading-relaxed mb-4 ${txt}`} style={{ color: "#3D3652" }}>{summary}</p>
         <div className={`flex items-center gap-5 ${txt}`}>
           <div>
@@ -204,7 +204,7 @@ function RisingStarCard({ rs, loading }: { rs: FrameworksRisingstar; loading?: b
           )}
         </div>
       </div>
-      <div className="w-full lg:w-[180px] lg:flex-shrink-0">
+      <div className="w-full lg:w-[180px] lg:flex-shrink-0 lg:mr-12">
         <div className="rounded-[10px] border p-3" style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE" }}>
           <p className="text-[9px] font-bold uppercase tracking-[0.6px] text-[#9E97B3] mb-2">Trend</p>
           <Sparkline />
@@ -226,15 +226,9 @@ function ArticleItem({ item, loading }: { item: FrameworksArticleItem; loading?:
 
   return (
     <div
-      className="bg-white rounded-[10px] border border-[#E4E1EE] p-4 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white rounded-[10px] border border-[#E4E1EE] p-4 pl-6 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow"
       style={{ borderLeft: `3px solid ${style.color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 border"
-        style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-      >
-        <span className={txt}>{initials}</span>
-      </div>
       <div className="flex-1 min-w-0">
         <p className={`text-[15px] font-bold text-[#1A1626] mb-1 leading-snug ${txt}`}>{item.title}</p>
         <p className={`text-[13px] text-[#9E97B3] leading-relaxed mb-2 line-clamp-2 ${txt}`}>{item.oneLiner}</p>

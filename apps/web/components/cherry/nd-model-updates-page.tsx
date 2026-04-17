@@ -25,6 +25,16 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: strin
 const DEFAULT_STYLE = { color: "#9E97B3", bg: "#FFFFFF", border: "#E4E1EE", track: "#F2F0F7" }
 const getCat = (name: string) => CATEGORY_COLORS[name] ?? DEFAULT_STYLE
 
+const CATEGORY_LOGOS: Record<string, string> = {
+  "OpenAI Family":    "/logos/openai.svg",
+  "Anthropic Family": "/logos/anthropic.svg",
+  "Google Family":    "/logos/google.svg",
+  "xAI Family":       "/logos/xai.svg",
+  "Meta Family":      "/logos/meta.svg",
+  "DeepSeek Family":  "/logos/deepseek.svg",
+  "Mistral Family":   "/logos/mistral.svg",
+}
+
 /* ─────────────────────────────────────────────
    Skeleton placeholder data
 ───────────────────────────────────────────── */
@@ -51,7 +61,7 @@ const SKELETON_ARTICLES: PatchNoteItem[] = Array.from({ length: 5 }, (_, i) => (
 /* ─────────────────────────────────────────────
    Stars
 ───────────────────────────────────────────── */
-function Stars({ count, color = "#C94B6E" }: { count: number; color?: string }) {
+function Stars({ count, color = "#D4854A" }: { count: number; color?: string }) {
   return (
     <span className="flex items-center gap-[1px] text-[12px]" style={{ color }}>
       {Array.from({ length: 5 }).map((_, i) => (
@@ -62,20 +72,9 @@ function Stars({ count, color = "#C94B6E" }: { count: number; color?: string }) 
 }
 
 /* ─────────────────────────────────────────────
-   Progress Bar
-───────────────────────────────────────────── */
-function ProgressBar({ value, color, trackColor = "#EEF2FD" }: { value: number; color: string; trackColor?: string }) {
-  return (
-    <div className="w-full h-[6px] rounded-full overflow-hidden" style={{ backgroundColor: trackColor }}>
-      <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────
    Sparkline SVG
 ───────────────────────────────────────────── */
-function Sparkline({ color = "#C94B6E" }: { color?: string }) {
+function Sparkline({ color = "#D4854A" }: { color?: string }) {
   const points = "10,70 40,62 70,54 100,44 130,32 160,20 190,12"
   return (
     <div className="rounded-[8px] border p-3" style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE" }}>
@@ -99,47 +98,120 @@ function Sparkline({ color = "#C94B6E" }: { color?: string }) {
 /* ─────────────────────────────────────────────
    Rank Card
 ───────────────────────────────────────────── */
-function RankCard({ item, maxCount, isLead, loading }: { item: ModelUpdatesRankItem; maxCount: number; isLead: boolean; loading?: boolean }) {
+function RankCard({ item, size = "sm", loading }: { item: ModelUpdatesRankItem; size?: "lg" | "md" | "sm"; loading?: boolean }) {
   const style = getCat(item.category_name)
-  const barWidth = !loading && maxCount > 0 ? Math.round((item.article_count / maxCount) * 100) : 0
-  const topEntity = item.top_entities_json[0]
+  const logo = CATEGORY_LOGOS[item.category_name]
+  const topEntities = [...item.top_entities_json].sort((a, b) => b.article_count - a.article_count).slice(0, 3)
   const pct = item.change_pct !== null ? Number(item.change_pct) : null
   const txt = loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
 
+  const logoSize = size === "lg" ? "w-12 h-12" : size === "md" ? "w-6 h-6" : "w-5 h-5"
+  const entityIndent = size === "lg" ? "" : size === "md" ? "pl-8" : "pl-7"
+  const titleSize = size === "lg" ? "text-[24px]" : size === "md" ? "text-[15px]" : "text-[13px]"
+  const entitySize = size === "lg" ? "text-[13px]" : "text-[10px]"
+  const entityWeight = size === "lg"
+  const entityCountSize = size === "lg" ? "text-[12px]" : "text-[10px]"
+  const entityGap = size === "lg" ? "gap-2.5" : "gap-1.5"
+  const padding = size === "lg" ? "pt-10 px-6 pb-3" : size === "md" ? "pt-10 px-4 pb-2" : "pt-4 px-4 pb-2"
+
+  // 1위(lg) 카드는 보라 테마 — 상승 뱃지도 보라 계열로. 하락은 그대로 체리(시각 경고 유지).
+  const badge = !loading && item.prev_rank === null ? (
+    <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold" style={{ backgroundColor: "#C94B6E", color: "#FFF" }}>NEW</span>
+  ) : !loading && pct !== null && pct !== 0 ? (
+    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${txt}`}
+      style={{
+        backgroundColor: pct > 0
+          ? (size === "lg" ? "#F3EFFA" : "#EFF7F3")
+          : "#FDF0F3",
+        color: pct > 0
+          ? (size === "lg" ? "#5B3D87" : "#2D7A5E")
+          : "#C94B6E",
+      }}
+    >
+      {pct > 0 ? "↑" : "↓"} {Math.abs(pct)}%
+    </span>
+  ) : null
+
   return (
     <div
-      className={`rounded-[10px] border p-4 transition-shadow hover:shadow-md ${isLead ? "lg:col-span-3" : ""}`}
-      style={{ backgroundColor: style.bg, borderColor: style.border, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+      className={`rounded-[10px] border ${padding} transition-colors hover:!border-[#7B5EA7] h-full flex flex-col relative`}
+      style={{ backgroundColor: size === "lg" ? "#F3EFFA" : "#FFFFFF", borderColor: size === "lg" ? "#C7B8E8" : "#E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div className="flex items-center gap-2 mb-1 h-5">
-        <span className={`text-[11px] font-bold text-[#9E97B3] ${txt}`}>#{item.rank}</span>
-        {!loading && item.prev_rank === null ? (
-          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold" style={{ backgroundColor: "#C94B6E", color: "#FFF" }}>NEW</span>
-        ) : !loading && pct !== null && pct !== 0 ? (
-          <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${txt}`}
-            style={{ backgroundColor: pct > 0 ? "#EFF7F3" : "#FDF0F3", color: pct > 0 ? "#2D7A5E" : "#C94B6E" }}
-          >
-            {pct > 0 ? "↑" : "↓"} {Math.abs(pct)}%
-          </span>
-        ) : null}
-      </div>
-
-      <p className={`font-bold text-[#1A1626] mb-1 ${isLead ? "text-[16px]" : "text-[14px]"} ${txt}`}>
-        {item.category_name.replace(" Family", "")}
-      </p>
-
-      <p className={`font-bold mb-2 ${isLead ? "text-[22px]" : "text-[18px]"} ${txt}`} style={{ color: style.color }}>
-        {loading ? "—" : `${item.article_count} articles`}
-      </p>
-
-      <ProgressBar value={barWidth} color={style.color} trackColor={style.track} />
-
-      <div className={`flex items-center justify-between mt-2 ${txt}`}>
-        {topEntity && <p className="text-[11px] text-[#9E97B3] truncate">{topEntity.name}</p>}
-        {!loading && item.prev_article_count > 0 && (
-          <p className="text-[10px] text-[#9E97B3] flex-shrink-0 ml-2">prev {item.prev_article_count}</p>
-        )}
-      </div>
+      {badge && <div className="absolute top-3 right-3 flex flex-col items-end gap-1">{badge}</div>}
+      <span className={`absolute bottom-3 right-3 ${size === "sm" ? "text-[9px]" : "text-[11px]"} font-bold text-[#9E97B3] ${txt}`}>#{item.rank}</span>
+      {size === "lg" ? (
+        <>
+          <div className="flex flex-col items-center justify-center gap-1.5 flex-1">
+            {logo && (
+              <img src={logo} alt="" className={`${logoSize} flex-shrink-0`} style={{ color: "#7B5EA7" }} />
+            )}
+            <p className={`font-bold ${titleSize} ${txt}`} style={{ color: "#5B3D87" }}>
+              {item.category_name.replace(" Family", "")}
+            </p>
+          </div>
+          <div className={`flex flex-col ${entityGap} ${txt}`}>
+            {!loading && topEntities.length > 0 ? (
+              topEntities.map((entity, idx) => (
+                <div key={entity.id}>
+                  <span className={`truncate ${idx === 0 ? "font-bold" : "font-medium"} ${entitySize}`} style={{ color: idx === 0 ? "#7B5EA7" : "#5B3D87" }}>
+                    {entity.name}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <span className="text-[13px] text-[#9E97B3]">—</span>
+            )}
+          </div>
+        </>
+      ) : size === "md" ? (
+        <>
+          <div className="flex flex-col items-center justify-end gap-1.5 flex-1">
+            {logo && (
+              <img src={logo} alt="" className={`${logoSize} flex-shrink-0`} style={{ color: style.color }} />
+            )}
+            <p className={`font-bold text-[#1A1626] ${titleSize} ${txt}`}>
+              {item.category_name.replace(" Family", "")}
+            </p>
+          </div>
+          <div className={`flex flex-col ${entityGap} ${txt}`}>
+            {!loading && topEntities.length > 0 ? (
+              topEntities.map((entity, idx) => (
+                <div key={entity.id}>
+                  <span className={`truncate ${idx === 0 ? "font-medium" : "font-normal"} ${entitySize}`} style={{ color: idx === 0 ? "#7B5EA7" : "#5B3D87" }}>
+                    {entity.name}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <span className="text-[13px] text-[#9E97B3]">—</span>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-1">
+            {logo && (
+              <img src={logo} alt="" className={`${logoSize} flex-shrink-0`} style={{ color: style.color }} />
+            )}
+            <p className={`font-bold text-[#1A1626] truncate ${titleSize} ${txt}`}>
+              {item.category_name.replace(" Family", "")}
+            </p>
+          </div>
+          <div className={`flex flex-col gap-1 flex-1 ${txt}`}>
+            {!loading && topEntities.length > 0 ? (
+              topEntities.map((entity, idx) => (
+                <div key={entity.id}>
+                  <span className={`truncate ${idx === 0 ? "font-medium" : "font-normal"} ${entitySize}`} style={{ color: idx === 0 ? "#7B5EA7" : "#5B3D87" }}>
+                    {entity.name}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <span className="text-[13px] text-[#9E97B3]">—</span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -151,48 +223,50 @@ function RisingStarCard({ star, loading }: { star: ModelUpdatesRisingstar; loadi
   const style = getCat(star.categoryName)
   const topEntity = star.topEntities[0]
   const pct = star.changePct !== null ? Number(star.changePct) : null
+  const summary = topEntity
+    ? `${topEntity.article_count} articles this week featuring ${topEntity.name}.${star.isNew ? " First time in rankings." : pct && pct > 0 ? ` Up ${pct}% from last week.` : ""}`
+    : `${star.articleCount} articles this week in ${star.categoryName}.`
   const txt = loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
 
   return (
     <div
-      className="flex flex-col lg:flex-row items-start gap-6 rounded-[10px] border p-5"
-      style={{ backgroundColor: "#FFF8EF", borderColor: "#F0D8B0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+      className="relative flex flex-col lg:flex-row items-center gap-5 rounded-[10px] border p-5"
+      style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E1EE", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div className="flex-1 min-w-0">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border mb-2 ${txt}`}
-          style={{ backgroundColor: "#FEF3E2", color: "#D4854A", borderColor: "#F0D8B0" }}
+      <div className="flex-1 min-w-0 lg:pl-12">
+        <span className={`inline-block text-[11px] font-semibold mb-2 ${txt}`}
+          style={{ color: "#7B5EA7" }}
         >
-          {star.isNew ? "New Entry" : "Rising Star"} — This Week
+          Rising Star — Model to Watch
         </span>
-
-        <h3 className={`text-[16px] font-bold text-[#1A1626] mb-1 ${txt}`}>
-          {topEntity?.name ?? star.categoryName}
-        </h3>
-
-        <p className={`text-[13px] text-[#9E97B3] mb-1 ${txt}`}>{star.categoryName}</p>
-
-        <p className={`text-[13px] leading-relaxed mt-2 mb-4 ${txt}`} style={{ color: "#3D3652" }}>
-          {topEntity
-            ? `${topEntity.article_count} articles this week featuring ${topEntity.name}. ${star.isNew ? "First time in rankings." : pct && pct > 0 ? `Up ${pct}% from last week.` : ""}`
-            : `${star.articleCount} articles this week in ${star.categoryName}.`}
-        </p>
-
-        <div className={`flex items-center gap-4 ${txt}`}>
-          {[
-            { num: String(star.articleCount), label: "articles" },
-            pct !== null ? { num: `${pct > 0 ? "+" : ""}${pct}%`, label: "vs prev week" } : null,
-            { num: star.isNew ? "NEW" : "#1", label: star.isNew ? "entry" : "rank" },
-          ].filter(Boolean).map((s) => s && (
-            <div key={s.label}>
-              <p className="text-[16px] font-bold text-[#1A1626]">{s.num}</p>
-              <p className="text-[10px] text-[#9E97B3]">{s.label}</p>
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className={`text-[20px] font-bold text-[#1A1626] ${txt}`}>{topEntity?.name ?? star.categoryName}</h3>
+        </div>
+        {!loading && (
+          <span className="absolute top-0 left-0 px-2.5 py-1 text-[10px] font-bold text-white rounded-tl-[5px] rounded-br-[4px]"
+            style={{ backgroundColor: "#7B5EA7" }}
+          >
+            {star.isNew ? "NEW" : "HOT"}
+          </span>
+        )}
+        <p className={`text-[13px] leading-relaxed mb-4 ${txt}`} style={{ color: "#3D3652" }}>{summary}</p>
+        <div className={`flex items-center gap-5 ${txt}`}>
+          <div>
+            <p className="text-[14px] font-bold text-[#1A1626]">{star.articleCount}</p>
+            <p className="text-[11px] text-[#9E97B3]">articles this week</p>
+          </div>
+          {pct !== null && (
+            <div>
+              <p className="text-[14px] font-bold" style={{ color: pct >= 0 ? "#10B981" : "#C94B6E" }}>
+                {pct >= 0 ? "+" : ""}{pct}%
+              </p>
+              <p className="text-[11px] text-[#9E97B3]">vs last week</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
-
-      <div className="w-full lg:w-[200px] lg:flex-shrink-0">
-        <Sparkline color={style.color} />
+      <div className="w-full lg:w-[180px] lg:flex-shrink-0 lg:mr-12">
+        <Sparkline color="#7B5EA7" />
       </div>
     </div>
   )
@@ -210,15 +284,9 @@ function ArticleItem({ item, loading }: { item: PatchNoteItem; loading?: boolean
 
   return (
     <div
-      className="bg-white rounded-[10px] border border-[#E4E1EE] p-4 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white rounded-[10px] border border-[#E4E1EE] p-4 pl-6 flex gap-3.5 cursor-pointer hover:shadow-md transition-shadow"
       style={{ borderLeft: `3px solid ${style.color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
     >
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 border"
-        style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-      >
-        <span className={txt}>{initials}</span>
-      </div>
       <div className="flex-1 min-w-0">
         <p className={`text-[15px] font-bold text-[#1A1626] mb-1 leading-snug ${txt}`}>{item.title}</p>
         <p className={`text-[13px] text-[#9E97B3] leading-relaxed mb-2 line-clamp-2 ${txt}`}>{item.oneLiner}</p>
@@ -257,7 +325,7 @@ export function NDModelUpdatesPage() {
   const displayRanks = loading ? SKELETON_RANKS : (rankData?.ranks ?? SKELETON_RANKS)
   const displayStar  = loading ? SKELETON_STAR  : (rankData?.risingStars[0] ?? null)
   const displayArticles = loading ? SKELETON_ARTICLES : articles
-  const maxCount = loading ? 1 : (rankData ? Math.max(...rankData.ranks.map((r) => r.article_count)) : 1)
+
 
   return (
     <div className="max-w-[900px]">
@@ -271,29 +339,45 @@ export function NDModelUpdatesPage() {
           : "—"}
       </p>
 
-      {/* ── Section 1: Leaderboard ── */}
-      <div className="mb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
-          Major Players — Article Count This Week
-        </p>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[10px]">
-          {displayRanks.map((item, i) => (
-            <RankCard key={item.category_name} item={item} maxCount={maxCount} isLead={i === 0} loading={loading} />
-          ))}
+      {/* ── Section 1: Major Players ── */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-[15px] font-bold text-[#1A1626] whitespace-nowrap">Major Players</h2>
+          <div className="flex-1 border-t border-[#E4E1EE]" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 lg:grid-rows-[auto_auto_auto] gap-[10px]">
+          {displayRanks.map((item, i) => {
+            const size = i === 0 ? "lg" : i <= 2 ? "md" : "sm"
+            const gridClass =
+              i === 0 ? "lg:col-span-2 lg:row-span-2" :
+              i === 1 ? "lg:col-span-2" :
+              i === 2 ? "lg:col-span-2" :
+              ""
+            return (
+              <div key={item.category_name} className={gridClass}>
+                <RankCard item={item} size={size} loading={loading} />
+              </div>
+            )
+          })}
         </div>
       </div>
 
       {/* ── Section 2: Rising Star ── */}
-      <div className="mb-6">
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-[15px] font-bold text-[#1A1626] whitespace-nowrap">Rising Star</h2>
+          <div className="flex-1 border-t border-[#E4E1EE]" />
+        </div>
         <RisingStarCard star={displayStar ?? SKELETON_STAR} loading={loading || !displayStar} />
       </div>
 
-      {/* ── Section 3: Articles ── */}
+      {/* ── Section 3: All Model Updates ── */}
       <div className="mb-8">
-        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
-          All Model Updates This Week
-        </p>
-        <div className="flex flex-col gap-[10px]">
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-[15px] font-bold text-[#1A1626] whitespace-nowrap">All Model Updates</h2>
+          <div className="flex-1 border-t border-[#E4E1EE]" />
+        </div>
+        <div className="flex flex-col gap-3">
           {displayArticles.map((item, i) => (
             <ArticleItem key={loading ? `sk-${i}` : item.id} item={item} loading={loading} />
           ))}

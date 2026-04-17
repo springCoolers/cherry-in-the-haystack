@@ -68,7 +68,43 @@ const CHERRY_CREDIT_ABI = [
   "event ProvenanceRecorded(bytes32 indexed hash, address indexed agent, string conceptId, uint256 timestamp)",
 ];
 
-const EXPLORER_BASE = "https://sepoliascan.status.network/tx/";
+const EXPLORER_BASE =
+  (process.env.STATUS_EXPLORER_URL || "https://sepoliascan.status.network").replace(/\/$/, "") + "/tx/";
+const HOODI_EXPLORER_BASE =
+  (process.env.STATUS_HOODI_EXPLORER_URL || "https://hoodiscan.status.network").replace(/\/$/, "");
+
+// Status Network Karma (ERC20-compatible soulbound token)
+const KARMA_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+];
+// KarmaTiers — Status Network tier calculation contract
+const KARMA_TIERS_ABI = [
+  "function getTierIdByKarmaBalance(uint256 karmaBalance) view returns (uint8)",
+  "function getTierById(uint8 tierId) view returns (tuple(uint256 minKarma, uint256 maxKarma, string name, uint32 txPerEpoch))",
+];
+
+/** Map Status Network onchain tier name → legacy 4-tier (KaaS discount table) */
+export function mapOnchainTier(onchainName: string): KarmaTier["tier"] {
+  switch (onchainName) {
+    case "none":
+    case "entry":
+    case "newbie":
+      return "Bronze";
+    case "basic":
+    case "active":
+      return "Silver";
+    case "regular":
+    case "power":
+      return "Gold";
+    case "pro":
+    case "high-throughput":
+    case "s-tier":
+    case "legendary":
+      return "Platinum";
+    default:
+      return "Bronze";
+  }
+}
 
 export class StatusAdapter implements IChainAdapter {
   private provider: ethers.JsonRpcProvider;
@@ -131,11 +167,47 @@ export class StatusAdapter implements IChainAdapter {
   }
 
   async getKarmaTier(address: string): Promise<KarmaTier> {
-    const balance = 1250; // mock — Karma 컨트랙트 연동 예정
-    let tier: KarmaTier["tier"] = "Bronze";
-    if (balance >= 10000) tier = "Platinum";
-    else if (balance >= 1000) tier = "Gold";
-    else if (balance >= 100) tier = "Silver";
-    return { tier, balance };
+    const karmaAddr = process.env.STATUS_KARMA_ADDRESS;
+    const tiersAddr = process.env.STATUS_KARMA_TIERS_ADDRESS;
+    const hoodiRpc = process.env.STATUS_HOODI_RPC_URL;
+
+    // Karma is a Hoodi-only primitive — gracefully no-op when not configured
+    if (!karmaAddr || !tiersAddr || !hoodiRpc) {
+      return { tier: "Bronze", balance: 0 };
+    }
+
+    try {
+      // Use a dedicated Hoodi provider for Karma reads
+      // (this.provider points to whichever STATUS_RPC_URL is set — usually Sepolia today)
+      const hoodiNetwork = new ethers.Network("status-hoodi", 374);
+      const hoodiProvider = new ethers.JsonRpcProvider(hoodiRpc, hoodiNetwork, { staticNetwork: hoodiNetwork });
+      const karma = new ethers.Contract(karmaAddr, KARMA_ABI, hoodiProvider);
+      const tiers = new ethers.Contract(tiersAddr, KARMA_TIERS_ABI, hoodiProvider);
+
+      // 1) Read Karma balance (wei — 18 decimals)
+      const balanceWei: bigint = await karma.balanceOf(address);
+      // 2) Resolve tier ID from onchain KarmaTiers contract
+      const tierId: number = Number(await tiers.getTierIdByKarmaBalance(balanceWei));
+      // 3) Fetch tier details (name, txPerEpoch)
+      const tierInfo = await tiers.getTierById(tierId);
+      const onchainName: string = tierInfo.name;
+      const txPerEpoch: number = Number(tierInfo.txPerEpoch);
+
+      const balance = Number(ethers.formatUnits(balanceWei, 18));
+      const tier = mapOnchainTier(onchainName);
+
+      return {
+        tier,
+        balance,
+        onchainTierId: tierId,
+        onchainTierName: onchainName,
+        txPerEpoch,
+      };
+    } catch (e: any) {
+      // On any RPC failure, fall back to safe default so KaaS flow doesn't break
+      // eslint-disable-next-line no-console
+      console.warn(`[StatusAdapter] getKarmaTier failed: ${e?.message ?? e}`);
+      return { tier: "Bronze", balance: 0 };
+    }
   }
 }

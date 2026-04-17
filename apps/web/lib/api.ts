@@ -1,5 +1,11 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 
+/** JWT 인증 헤더 — localStorage에서 토큰 읽어서 Bearer 헤더 생성 */
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
+
 export interface PatchNoteItem {
   id: string
   articleStateId: string
@@ -371,26 +377,46 @@ export async function fetchConcept(conceptId: string) {
   return res.json()
 }
 
-/** 에이전트 등록 */
+/** 에이전트 등록 (JWT 인증 필요) */
 export async function registerAgent(data: { name: string; wallet_address?: string; llm_provider?: string; llm_model?: string; llm_api_key?: string; domain_interests: string[] }) {
   const res = await fetch(`${KAAS_BASE}/agents/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error("Failed to register agent")
   return res.json()
 }
 
+/** 에이전트 삭제 (JWT 인증 필요) */
 export async function deleteAgent(agentId: string) {
-  const res = await fetch(`${KAAS_BASE}/agents/${agentId}`, { method: "DELETE" })
+  const res = await fetch(`${KAAS_BASE}/agents/${agentId}`, { method: "DELETE", headers: authHeaders() })
   if (!res.ok) throw new Error("Failed to delete agent")
 }
 
-/** 에이전트 목록 */
+/** 에이전트 목록 (JWT 인증 필요 — 로그인 유저의 에이전트만) */
 export async function fetchAgents() {
-  const res = await fetch(`${KAAS_BASE}/agents`)
+  const res = await fetch(`${KAAS_BASE}/agents`, { headers: authHeaders() })
   if (!res.ok) throw new Error("Failed to fetch agents")
+  return res.json()
+}
+
+/** Live onchain Karma read from Status Network */
+export interface OnchainKarma {
+  walletAddress: string | null
+  tier: "Bronze" | "Silver" | "Gold" | "Platinum"
+  balance: number
+  onchainTierId?: number
+  onchainTierName?: string
+  txPerEpoch?: number
+  chain: string
+  karmaContract: string | null
+  karmaTiersContract: string | null
+}
+
+export async function fetchAgentKarma(agentId: string): Promise<OnchainKarma> {
+  const res = await fetch(`${KAAS_BASE}/agents/${agentId}/karma`, { cache: "no-store", headers: authHeaders() })
+  if (!res.ok) throw new Error("Failed to fetch onchain karma")
   return res.json()
 }
 
@@ -444,6 +470,13 @@ export async function followConcept(apiKey: string, conceptId: string, chain?: "
 export async function fetchHistory(apiKey: string) {
   const res = await fetch(`${KAAS_BASE}/credits/history?api_key=${apiKey}`)
   if (!res.ok) throw new Error("Failed to fetch history")
+  return res.json()
+}
+
+/** 크레딧 Ledger (deposit + consume 원장) */
+export async function fetchLedger(apiKey: string, limit = 50) {
+  const res = await fetch(`${KAAS_BASE}/credits/ledger?api_key=${apiKey}&limit=${limit}`)
+  if (!res.ok) throw new Error("Failed to fetch ledger")
   return res.json()
 }
 
@@ -523,6 +556,22 @@ export async function fetchCuratorRewards(curatorName: string) {
 export async function fetchAllRewards() {
   const res = await fetch(`${KAAS_BASE}/rewards/all`)
   if (!res.ok) throw new Error("Failed to fetch rewards")
+  return res.json()
+}
+
+/** 큐레이터 보상 인출 — pending 전부 합산해서 한 번에 온체인 체결.
+ *  응답: { ok, withdrawn, txHash, onChain, explorerUrl?, error?, rowsUpdated }
+ */
+export async function withdrawRewards(curatorName: string) {
+  const res = await fetch(`${KAAS_BASE}/rewards/withdraw`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ curator: curatorName }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Withdraw failed" }))
+    throw new Error(err.message ?? "Withdraw failed")
+  }
   return res.json()
 }
 

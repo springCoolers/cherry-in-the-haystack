@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
-import { Search, X, GitCompare, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, ChevronDown } from "lucide-react"
+import { Search, X, GitCompare, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, ChevronDown, ExternalLink } from "lucide-react"
 import { MOCK_AGENTS } from "./kaas-dashboard-page"
 import { fetchCatalog, fetchAgents, compareKnowledge, elicitKnowledge } from "@/lib/api"
 
@@ -35,128 +35,128 @@ const MOCK_CONCEPTS: Concept[] = [
     id: "rag",
     title: "Retrieval-Augmented Generation",
     category: "Basics",
-    summary: "인퍼런스 시점에 외부 지식을 동적으로 주입하여 LLM 응답의 정확도를 높이는 기법. 벡터 DB 기반 검색과 생성 모델을 결합하여 hallucination을 줄이고 최신 정보를 반영한다.",
+    summary: "A technique that dynamically injects external knowledge into LLM responses at inference time to improve accuracy. Combines vector DB search with generative models to reduce hallucination and reflect up-to-date information.",
     qualityScore: 4.8,
     sourceCount: 12,
     updatedAt: "2026-04-11",
     relatedConcepts: ["Embeddings", "Vector Databases", "Hybrid Search"],
     evidence: [
-      { id: "rag-ev-001", source: "Chip Huyen — AI Engineering", summary: "Retrieval-first mental model. Precision@k가 핵심 지표. 청킹 전략이 모델 선택보다 중요하다.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "가장 접근성 좋은 RAG 입문 자료. 실무 적용 시 chunking 섹션 필독." },
-      { id: "rag-ev-002", source: "LlamaIndex Docs — Production Patterns", summary: "기본 naive RAG는 검색 정확도 ~60%. Hybrid + rerank로 85%+ 달성 가능.", curator: "Minjun Park", curatorTier: "Silver", comment: "Production gap 이해에 핵심. 수치 기반 비교가 설득력 있음." },
-      { id: "rag-ev-003", source: "Anthropic Cookbook — Contextual Retrieval", summary: "Context prefix를 청크에 추가하여 검색 실패율 67% 감소.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "2026년 기준 SOTA 기법. 구현 난이도 낮고 효과 큼." },
+      { id: "rag-ev-001", source: "Chip Huyen — AI Engineering", summary: "Retrieval-first mental model. Precision@k is the key metric. Chunking strategy matters more than model choice.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "가장 접근성 좋은 RAG 입문 자료. 실무 적용 시 chunking 섹션 필독." },
+      { id: "rag-ev-002", source: "LlamaIndex Docs — Production Patterns", summary: "Naive RAG reaches only ~60% accuracy. Hybrid + rerank brings it to 85%+.", curator: "Minjun Park", curatorTier: "Silver", comment: "Production gap 이해에 핵심. 수치 기반 비교가 설득력 있음." },
+      { id: "rag-ev-003", source: "Anthropic Cookbook — Contextual Retrieval", summary: "Adding a context prefix to chunks reduces retrieval failures by 67%.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "2026년 기준 SOTA 기법. 구현 난이도 낮고 효과 큼." },
     ],
   },
   {
     id: "chain-of-thought",
     title: "Chain-of-Thought Prompting",
     category: "Advanced",
-    summary: "LLM이 최종 답변 전에 중간 추론 단계를 명시적으로 생성하도록 유도하는 프롬프팅 기법. 수학, 논리, 다단계 추론 문제에서 성능을 크게 향상시킨다.",
+    summary: "A prompting technique that makes LLMs explicitly produce intermediate reasoning steps before the final answer. Greatly improves performance on math, logic, and multi-step reasoning.",
     qualityScore: 4.5,
     sourceCount: 8,
     updatedAt: "2026-04-08",
     relatedConcepts: ["Prompting Techniques", "Self-Consistency", "Tree-of-Thought"],
     evidence: [
-      { id: "cot-ev-001", source: "Wei et al. — Chain-of-Thought Prompting (2022)", summary: "few-shot CoT가 GSM8K 벤치마크에서 기존 프롬프팅 대비 +20% 정확도 향상.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "CoT 분야의 foundational paper. 반드시 읽어야 할 논문." },
-      { id: "cot-ev-002", source: "Kojima et al. — Zero-shot CoT", summary: "'Let's think step by step' 한 줄 추가만으로 zero-shot 추론 성능이 대폭 향상.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "실무에서 바로 적용 가능한 가장 간단한 CoT 기법." },
+      { id: "cot-ev-001", source: "Wei et al. — Chain-of-Thought Prompting (2022)", summary: "Few-shot CoT improves GSM8K accuracy by +20% over baseline prompting.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "CoT 분야의 foundational paper. 반드시 읽어야 할 논문." },
+      { id: "cot-ev-002", source: "Kojima et al. — Zero-shot CoT", summary: "Adding the single line 'Let's think step by step' dramatically improves zero-shot reasoning.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "실무에서 바로 적용 가능한 가장 간단한 CoT 기법." },
     ],
   },
   {
     id: "embeddings",
     title: "Embeddings & Vector Databases",
     category: "Basics",
-    summary: "텍스트를 고차원 밀집 벡터로 변환하여 의미적 유사도를 계산하는 기술. 벡터 DB는 이 임베딩을 저장하고 ANN 검색으로 빠르게 유사 문서를 찾는다.",
+    summary: "A technique that converts text into high-dimensional dense vectors to measure semantic similarity. Vector DBs store these embeddings and use ANN search to find similar documents quickly.",
     qualityScore: 4.2,
     sourceCount: 15,
     updatedAt: "2026-04-12",
     relatedConcepts: ["RAG", "Semantic Search", "Dimensionality Reduction"],
     evidence: [
-      { id: "emb-ev-001", source: "OpenAI — Embedding Guide", summary: "text-embedding-3-large 모델은 3072 차원, Matryoshka 표현으로 차원 축소 가능.", curator: "Minjun Park", curatorTier: "Silver", comment: "OpenAI 임베딩 모델 선택 시 첫 번째 참고 자료." },
-      { id: "emb-ev-002", source: "Pinecone — Vector Database 101", summary: "HNSW 인덱스가 recall-latency 트레이드오프에서 가장 범용적.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "벡터 DB 입문자에게 추천. 인덱스 비교가 명확." },
-      { id: "emb-ev-003", source: "Weaviate Blog — Hybrid Search", summary: "BM25 + 벡터 검색 결합으로 키워드 매칭과 의미 검색의 장점을 동시에 확보.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "Hybrid search 구현 시 필독. 실제 벤치마크 포함." },
+      { id: "emb-ev-001", source: "OpenAI — Embedding Guide", summary: "text-embedding-3-large uses 3072 dims with Matryoshka representation enabling dimension reduction.", curator: "Minjun Park", curatorTier: "Silver", comment: "OpenAI 임베딩 모델 선택 시 첫 번째 참고 자료." },
+      { id: "emb-ev-002", source: "Pinecone — Vector Database 101", summary: "HNSW index offers the most general-purpose recall-latency tradeoff.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "벡터 DB 입문자에게 추천. 인덱스 비교가 명확." },
+      { id: "emb-ev-003", source: "Weaviate Blog — Hybrid Search", summary: "Combining BM25 + vector search captures both keyword and semantic search benefits.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "Hybrid search 구현 시 필독. 실제 벤치마크 포함." },
     ],
   },
   {
     id: "fine-tuning",
     title: "Fine-tuning & PEFT",
     category: "Basics",
-    summary: "사전 학습된 LLM을 특정 도메인/태스크에 맞게 추가 학습하는 기법. LoRA, QLoRA 등 파라미터 효율적 방법으로 GPU 비용을 대폭 줄이면서 전문성을 확보한다.",
+    summary: "Additional training of pre-trained LLMs for a specific domain or task. Parameter-efficient methods like LoRA and QLoRA cut GPU cost dramatically while preserving expertise.",
     qualityScore: 4.6,
     sourceCount: 10,
     updatedAt: "2026-03-28",
     relatedConcepts: ["LoRA", "QLoRA", "Instruction Tuning"],
     evidence: [
-      { id: "ft-ev-001", source: "Hu et al. — LoRA (2021)", summary: "전체 파라미터의 0.1%만 학습하면서 full fine-tuning 대비 동등한 성능 달성.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "PEFT의 시작점. LoRA 원리 이해에 필수." },
-      { id: "ft-ev-002", source: "Dettmers et al. — QLoRA (2023)", summary: "4-bit 양자화 + LoRA로 단일 GPU에서 65B 모델 fine-tuning 가능.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "GPU 자원이 제한적인 환경에서 반드시 알아야 할 기법." },
+      { id: "ft-ev-001", source: "Hu et al. — LoRA (2021)", summary: "Trains only 0.1% of parameters while matching full fine-tuning performance.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "PEFT의 시작점. LoRA 원리 이해에 필수." },
+      { id: "ft-ev-002", source: "Dettmers et al. — QLoRA (2023)", summary: "4-bit quantization + LoRA enables 65B model fine-tuning on a single GPU.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "GPU 자원이 제한적인 환경에서 반드시 알아야 할 기법." },
     ],
   },
   {
     id: "multi-agent",
     title: "Multi-Agent Systems",
     category: "Advanced",
-    summary: "여러 AI 에이전트가 역할을 분담하고 협력하여 복잡한 태스크를 수행하는 아키텍처. 에이전트 간 통신 프로토콜, 메모리 공유, 태스크 분배가 핵심이다.",
+    summary: "Architectures where multiple AI agents divide roles and collaborate on complex tasks. Inter-agent communication protocols, memory sharing, and task distribution are core.",
     qualityScore: 4.3,
     sourceCount: 7,
     updatedAt: "2026-04-10",
     relatedConcepts: ["Agent Architectures", "CrewAI", "LangGraph"],
     evidence: [
-      { id: "ma-ev-001", source: "Wu et al. — AutoGen (2023)", summary: "대화 기반 멀티에이전트 프레임워크로 코드 생성, 수학 문제 풀이에서 단일 에이전트 대비 +15% 성능.", curator: "Minjun Park", curatorTier: "Silver", comment: "멀티에이전트 입문에 최적. 코드 예시가 풍부." },
-      { id: "ma-ev-002", source: "CrewAI Documentation", summary: "역할 기반 에이전트 오케스트레이션으로 복잡한 워크플로우를 자연어로 정의.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "실무 오케스트레이션 패턴 이해에 좋음." },
+      { id: "ma-ev-001", source: "Wu et al. — AutoGen (2023)", summary: "Conversation-based multi-agent framework yielding +15% over single-agent in code generation and math problem solving.", curator: "Minjun Park", curatorTier: "Silver", comment: "멀티에이전트 입문에 최적. 코드 예시가 풍부." },
+      { id: "ma-ev-002", source: "CrewAI Documentation", summary: "Role-based agent orchestration that lets you define complex workflows in natural language.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "실무 오케스트레이션 패턴 이해에 좋음." },
     ],
   },
   {
     id: "evaluation",
     title: "LLM Evaluation & Benchmarks",
     category: "Basics",
-    summary: "LLM 출력의 품질을 체계적으로 측정하는 방법론. 자동 메트릭(BLEU, ROUGE), LLM-as-judge, 인간 평가를 조합하여 정확도, 유용성, 안전성을 평가한다.",
+    summary: "A methodology for systematically measuring LLM output quality. Combines automatic metrics (BLEU, ROUGE), LLM-as-judge, and human evaluation to assess accuracy, usefulness, and safety.",
     qualityScore: 4.1,
     sourceCount: 9,
     updatedAt: "2026-04-05",
     relatedConcepts: ["Benchmarks", "LLM-as-Judge", "Red Teaming"],
     evidence: [
-      { id: "eval-ev-001", source: "Zheng et al. — Judging LLM-as-a-Judge (2023)", summary: "GPT-4 판정이 인간 평가와 80%+ 일치. 비용 대비 효과적인 평가 방법.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "LLM 평가 자동화의 현실적 방법론." },
-      { id: "eval-ev-002", source: "Anthropic — Measuring Model Performance", summary: "다차원 평가(정확도, 유해성, 편향)가 단일 벤치마크보다 신뢰할 수 있다.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "평가 프레임워크 설계 시 참고할 관점." },
+      { id: "eval-ev-001", source: "Zheng et al. — Judging LLM-as-a-Judge (2023)", summary: "GPT-4 judgments agree with human evaluation 80%+. Cost-effective evaluation method.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "LLM 평가 자동화의 현실적 방법론." },
+      { id: "eval-ev-002", source: "Anthropic — Measuring Model Performance", summary: "Multi-dimensional evaluation (accuracy, toxicity, bias) is more reliable than a single benchmark.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "평가 프레임워크 설계 시 참고할 관점." },
     ],
   },
   {
     id: "prompt-engineering",
     title: "Prompt Engineering",
     category: "Basics",
-    summary: "LLM에 전달하는 프롬프트를 체계적으로 설계하여 원하는 출력을 이끌어내는 기법. Few-shot, system prompt, 역할 부여 등 다양한 전략을 조합한다.",
+    summary: "A technique for systematically designing prompts to elicit desired LLM outputs. Combines strategies like few-shot, system prompts, and role assignment.",
     qualityScore: 4.4,
     sourceCount: 11,
     updatedAt: "2026-04-02",
     relatedConcepts: ["Chain-of-Thought", "Few-shot Learning", "System Prompts"],
     evidence: [
-      { id: "pe-ev-001", source: "OpenAI — Prompt Engineering Guide", summary: "구체적 지시, 구분자 사용, 단계별 분해가 프롬프트 품질의 80%를 결정한다.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "프롬프트 작성 기본기. 모든 LLM 사용자 필독." },
-      { id: "pe-ev-002", source: "Anthropic — Prompt Design Best Practices", summary: "XML 태그와 역할 부여로 Claude의 응답 일관성이 40% 향상.", curator: "Minjun Park", curatorTier: "Silver", comment: "Claude 특화 팁이 많지만 범용적으로도 유용." },
+      { id: "pe-ev-001", source: "OpenAI — Prompt Engineering Guide", summary: "Specific instructions, delimiter usage, and step-by-step decomposition determine ~80% of prompt quality.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "프롬프트 작성 기본기. 모든 LLM 사용자 필독." },
+      { id: "pe-ev-002", source: "Anthropic — Prompt Design Best Practices", summary: "XML tags and role assignment improve Claude response consistency by ~40%.", curator: "Minjun Park", curatorTier: "Silver", comment: "Claude 특화 팁이 많지만 범용적으로도 유용." },
     ],
   },
   {
     id: "agent-architectures",
     title: "Agent Architectures",
     category: "Advanced",
-    summary: "LLM 기반 자율 에이전트의 설계 패턴. ReAct, Plan-and-Execute, Reflection 등 다양한 아키텍처로 도구 사용, 계획 수립, 자기 교정을 구현한다.",
+    summary: "Design patterns for LLM-based autonomous agents. Implements tool use, planning, and self-correction via architectures like ReAct, Plan-and-Execute, and Reflection.",
     qualityScore: 4.7,
     sourceCount: 8,
     updatedAt: "2026-04-09",
     relatedConcepts: ["Multi-Agent Systems", "Tool Use", "ReAct"],
     evidence: [
-      { id: "aa-ev-001", source: "Yao et al. — ReAct (2022)", summary: "추론(Reasoning)과 행동(Acting)을 교차하는 패턴이 HotpotQA에서 기존 대비 +6% 정확도.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "에이전트 아키텍처의 기초 논문. ReAct 패턴 이해 필수." },
-      { id: "aa-ev-002", source: "LangChain — Agent Concepts", summary: "Tool-calling 에이전트가 가장 보편적. 계획→실행→관찰→반복 루프가 핵심.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "Production 에이전트 구현 시 가장 참고하기 좋은 문서." },
+      { id: "aa-ev-001", source: "Yao et al. — ReAct (2022)", summary: "Interleaving Reasoning and Acting yields +6% accuracy on HotpotQA.", curator: "Donghyun Lee", curatorTier: "Gold", comment: "에이전트 아키텍처의 기초 논문. ReAct 패턴 이해 필수." },
+      { id: "aa-ev-002", source: "LangChain — Agent Concepts", summary: "Tool-calling agents are most common. The plan→execute→observe loop is the core.", curator: "Soyeon Choi", curatorTier: "Silver", comment: "Production 에이전트 구현 시 가장 참고하기 좋은 문서." },
     ],
   },
   {
     id: "semantic-search",
     title: "Semantic Search",
     category: "Technique",
-    summary: "키워드 매칭이 아닌 의미 기반으로 문서를 검색하는 기술. 쿼리와 문서를 같은 임베딩 공간에 투영하여 코사인 유사도로 관련성을 측정한다.",
+    summary: "Searches documents by meaning rather than keyword matching. Projects queries and documents into the same embedding space and measures relevance via cosine similarity.",
     qualityScore: 4.0,
     sourceCount: 6,
     updatedAt: "2026-03-15",
     relatedConcepts: ["Embeddings", "RAG", "BM25"],
     evidence: [
-      { id: "ss-ev-001", source: "Karpukhin et al. — DPR (2020)", summary: "Dense Passage Retrieval이 BM25 대비 Open-domain QA에서 +9% recall 향상.", curator: "Minjun Park", curatorTier: "Silver", comment: "Dense retrieval의 시작점. BM25 비교가 명확." },
-      { id: "ss-ev-002", source: "Cohere — Rerank Guide", summary: "초기 검색 + reranking 2단계 파이프라인이 단일 모델 대비 정확도와 비용 균형을 달성.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "Reranking 도입 효과를 수치로 보여줌. 실무 도입 근거." },
+      { id: "ss-ev-001", source: "Karpukhin et al. — DPR (2020)", summary: "Dense Passage Retrieval improves recall by +9% over BM25 on open-domain QA.", curator: "Minjun Park", curatorTier: "Silver", comment: "Dense retrieval의 시작점. BM25 비교가 명확." },
+      { id: "ss-ev-002", source: "Cohere — Rerank Guide", summary: "A two-stage pipeline (initial retrieval + reranking) balances accuracy and cost vs. a single model.", curator: "Hyejin Kim", curatorTier: "Gold", comment: "Reranking 도입 효과를 수치로 보여줌. 실무 도입 근거." },
     ],
   },
 ]
@@ -214,14 +214,18 @@ function ConceptCard({
   onSelect,
   compareStatus,
   owned,
+  onSale,
 }: {
   concept: Concept
   isSelected: boolean
   onSelect: () => void
   compareStatus: CompareStatus | null
   owned?: boolean
+  onSale?: boolean
 }) {
   const badge = getBadge(concept.category)
+  // 세일 카드는 우상단 모서리만 기본 rounded-xl(12px)의 절반인 6px로 — SALE 탭이 시각적으로 더 날카롭게 눈에 띔
+  const saleCornerRadius = 6
   return (
     <button
       onClick={onSelect}
@@ -232,16 +236,33 @@ function ConceptCard({
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
           : "border-[#E4E1EE] hover:border-[#C7B8E8]"
       )}
+      style={onSale ? { borderTopRightRadius: saleCornerRadius } : undefined}
     >
-      {/* Owned badge (ownership-based, always visible) or Compare status badge */}
+      {/* SALE 코너 탭 — 카드 우상단 모서리에 딱 붙음. 카드의 우상단을 6px로 줄였으므로 탭도 같은 값으로 매칭 */}
+      {onSale && (
+        <span
+          className="absolute top-0 right-0 text-[9px] font-extrabold uppercase bg-[#C94B6E] text-white z-[2]"
+          style={{
+            padding: "3px 9px",
+            borderTopRightRadius: saleCornerRadius,
+            borderBottomLeftRadius: saleCornerRadius,
+            letterSpacing: "0.1em",
+          }}
+          title="On sale"
+        >
+          SALE
+        </span>
+      )}
+
+      {/* 지식 비교 / 소유 뱃지 — 우하단 */}
       {owned ? (
-        <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0]">
+        <span className="absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0] z-[2]">
           ✓ Owned
         </span>
-      ) : compareStatus && (
+      ) : compareStatus ? (
         <span
           className={cn(
-            "absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1",
+            "absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 z-[2]",
             compareStatus === "up-to-date"
               ? "bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0]"
               : compareStatus === "outdated"
@@ -253,7 +274,7 @@ function ConceptCard({
           {compareStatus === "outdated" && <><RefreshCw size={9} /> Update available</>}
           {compareStatus === "gap" && "Gap"}
         </span>
-      )}
+      ) : null}
 
       {/* Quality + Category */}
       <div className="flex items-center gap-2 mb-2.5">
@@ -299,6 +320,7 @@ function DetailModal({
   disabled,
   owned,
   agentConnected,
+  onSale,
 }: {
   concept: Concept
   onClose: () => void
@@ -310,13 +332,20 @@ function DetailModal({
   disabled?: boolean
   owned?: boolean
   agentConnected?: boolean
+  onSale?: boolean
 }) {
-  // 구매/팔로우 차단 사유 우선순위: 이미 보유 > 에이전트 미연결
+  // 세일 카드면 20% 할인 — 20cr → 16cr, 25cr → 20cr
+  const SALE_DISCOUNT = 0.2
+  const purchaseBase = 20
+  const followBase = 25
+  const purchasePrice = onSale ? Math.round(purchaseBase * (1 - SALE_DISCOUNT)) : purchaseBase
+  const followPrice = onSale ? Math.round(followBase * (1 - SALE_DISCOUNT)) : followBase
+  // Block reason priority: already owned > agent not connected
   const blocked = owned || !agentConnected
   const blockReason = owned
-    ? "이미 보유한 지식입니다 — 재구매 불필요"
+    ? "Already in your knowledge — no need to repurchase"
     : !agentConnected
-      ? "에이전트가 연결되지 않았습니다"
+      ? "Agent is not connected"
       : null
   const blockLabel = owned ? "Already Owned" : !agentConnected ? "Agent Not Connected" : ""
   const badge = getBadge(concept.category)
@@ -327,7 +356,7 @@ function DetailModal({
 
       {/* Modal */}
       <div
-        className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+        className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header bar — title + close */}
@@ -450,6 +479,12 @@ function DetailModal({
               {blockReason}
             </div>
           )}
+          {onSale && !blocked && (
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-[var(--cherry)] font-semibold">
+              <span className="inline-block px-1.5 py-0.5 rounded bg-[#C94B6E] text-white text-[9px] font-extrabold tracking-[0.08em]">SALE</span>
+              <span>20% off applied at checkout</span>
+            </div>
+          )}
           <div className="flex items-center justify-end gap-2">
             <button
               disabled={blocked}
@@ -461,7 +496,18 @@ function DetailModal({
                   : "border-[#E4E1EE] text-[#3D3652] hover:border-[var(--cherry)] hover:text-[var(--cherry)] cursor-pointer",
               )}
             >
-              {blocked ? blockLabel : <>Purchase <span className="font-normal">20 cr</span></>}
+              {blocked ? blockLabel : (
+                <>Purchase{" "}
+                  {onSale ? (
+                    <>
+                      <span className="font-normal line-through text-[#B5AECB] mr-1">{purchaseBase} cr</span>
+                      <span className="font-semibold text-[var(--cherry)]">{purchasePrice} cr</span>
+                    </>
+                  ) : (
+                    <span className="font-normal">{purchaseBase} cr</span>
+                  )}
+                </>
+              )}
             </button>
             <button
               disabled={blocked}
@@ -473,7 +519,18 @@ function DetailModal({
                   : "bg-[var(--cherry)] text-white hover:opacity-90 cursor-pointer",
               )}
             >
-              {blocked ? blockLabel : <>Follow <span className="font-normal opacity-80">25 cr</span></>}
+              {blocked ? blockLabel : (
+                <>Follow{" "}
+                  {onSale ? (
+                    <>
+                      <span className="font-normal line-through opacity-60 mr-1">{followBase} cr</span>
+                      <span className="font-normal opacity-95">{followPrice} cr</span>
+                    </>
+                  ) : (
+                    <span className="font-normal opacity-80">{followBase} cr</span>
+                  )}
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -490,7 +547,7 @@ type CompareStatus = "up-to-date" | "outdated" | "gap"
 type AgentKnowledge = { topic: string; lastUpdated: string }
 
 type GapResult = {
-  upToDate: { conceptId: string; qualityScore: number }[]
+  upToDate: { conceptId: string; title: string; qualityScore: number }[]
   outdated: { conceptId: string; title: string; agentDate: string; catalogDate: string; newEvidence: number }[]
   gaps: { conceptId: string; title: string; qualityScore: number }[]
   recommendations: { conceptId: string; suggestedDepth: string; estimatedCredits: number; reason: string }[]
@@ -517,7 +574,7 @@ function analyzeGaps(agentKnowledge: AgentKnowledge[]): GapResult {
       const catalogTime = new Date(concept.updatedAt).getTime()
 
       if (agentTime >= catalogTime) {
-        upToDate.push({ conceptId: concept.id, qualityScore: concept.qualityScore })
+        upToDate.push({ conceptId: concept.id, title: concept.title, qualityScore: concept.qualityScore })
       } else {
         const daysBehind = Math.floor((catalogTime - agentTime) / 86400000)
         outdated.push({
@@ -698,6 +755,20 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
 
   const isOwned = (conceptId: string) => ownedConceptIds.has(conceptId)
 
+  // 카테고리별 대표 SALE 1개씩 (Basics / Advanced / Technique).
+  // 각 카테고리에서 qualityScore 최고인 컨셉을 선정 → deterministic.
+  const onSaleIds = useMemo(() => {
+    const ids = new Set<string>()
+    const categories = Array.from(new Set(concepts.map((c) => c.category)))
+    for (const cat of categories) {
+      const top = concepts
+        .filter((c) => c.category === cat)
+        .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))[0]
+      if (top) ids.add(top.id)
+    }
+    return ids
+  }, [concepts])
+
   const categories = ["All", ...Array.from(new Set(concepts.map((c) => c.category)))]
 
   const filtered = concepts.filter((c) => {
@@ -716,12 +787,36 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
       {/* Header + Compare button */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1
-            className="font-extrabold text-[#1A1626] leading-none mb-2 text-[20px] lg:text-[28px]"
-            style={{ letterSpacing: "-0.5px" }}
-          >
-            Knowledge Catalog
-          </h1>
+          <div className="flex flex-col lg:flex-row lg:items-start gap-2 lg:gap-3 mb-2">
+            <h1
+              className="font-extrabold text-[#1A1626] leading-none text-[20px] lg:text-[28px]"
+              style={{ letterSpacing: "-0.5px" }}
+            >
+              Knowledge Market
+            </h1>
+            <a
+              href="https://market.near.ai/agents/cherry_kaas_agent"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Registered as a worker on NEAR Agent Market — click to view public profile (cherry_kaas_agent)."
+              className="group self-start inline-flex items-center gap-2 px-2.5 py-1 rounded-md border border-[#E4E1EE] bg-white hover:border-[#1A1626] hover:bg-[#FAFAFB] transition-all cursor-pointer"
+            >
+              <span className="flex flex-col leading-tight">
+                <span className="text-[9px] uppercase tracking-[0.08em] text-[#6B727E] font-semibold">
+                  Listed on
+                </span>
+                <span className="text-[11px] font-bold text-[#1A1626]">
+                  NEAR Agent Market
+                </span>
+              </span>
+              <svg
+                width="10" height="10" viewBox="0 0 10 10" fill="none"
+                className="text-[#6B727E] group-hover:text-[#1A1626] transition-colors ml-0.5"
+              >
+                <path d="M2 8L8 2M8 2H3.5M8 2V6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </a>
+          </div>
           <p className="text-[13px] text-text-muted">
             Browse curated AI concepts · {filtered.length} concept{filtered.length !== 1 ? "s" : ""}
             {gapResult && (
@@ -769,7 +864,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             )}
           </div>
           ) : (
-            <span className="text-[11px] text-[#999]">Dashboard에서 에이전트를 등록하세요</span>
+            <span className="text-[11px] text-[#999]">Register an agent in the Dashboard</span>
           )}
 
           <button
@@ -835,7 +930,8 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
             isSelected={selectedId === c.id}
             onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
             compareStatus={getCompareStatus(c.id)}
-            owned={isOwned(c.id)}
+            owned={submitted && isOwned(c.id)}
+            onSale={onSaleIds.has(c.id)}
           />
         ))}
       </div>
@@ -863,8 +959,9 @@ export function KaasCatalogPage({ onQuery, onCompareResult }: {
           onNavigate={(id) => setSelectedId(id)}
           allConcepts={concepts}
           disabled={false}
-          owned={isOwned(selected.id)}
+          owned={submitted && isOwned(selected.id)}
           agentConnected={!!(selectedAgent && (selectedAgent as any).is_active !== false && (selectedAgent as any).api_key)}
+          onSale={onSaleIds.has(selected.id)}
           onQuery={(title, depth, conceptId) => {
             onQuery?.(title, depth, conceptId)
           }}

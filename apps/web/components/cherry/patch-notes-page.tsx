@@ -352,7 +352,7 @@ export function PatchNotesPage() {
               How to read Patch Notes
             </p>
             <p className="text-[12px] text-text-muted leading-relaxed">
-              Items are sorted newest first. Click any item to mark as read. Faded items are already read.
+              Items are sorted newest first. Click any item to mark as read — read items will be hidden on your next visit.
             </p>
           </div>
         </div>

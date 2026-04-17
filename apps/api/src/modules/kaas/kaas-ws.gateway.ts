@@ -29,6 +29,8 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(socket: Socket) {
     const apiKey = socket.handshake.auth?.api_key || socket.handshake.headers?.['x-api-key'];
+    // role: "agent" (MCP stdio) | "user" (web viewer). 기본은 agent (기존 호환).
+    const role = (socket.handshake.auth?.role as string) || 'agent';
     if (!apiKey) {
       socket.emit('error', { message: 'API key required' });
       socket.disconnect();
@@ -38,9 +40,23 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const agent = await this.agentService.authenticate(apiKey as string);
       socket.data.agentId = agent.id;
       socket.data.agentName = agent.name;
-      this.agentSockets.set(agent.id, socket);
-      this.logger.log(`WS connected: ${agent.name} (${agent.id})`);
-      socket.emit('connected', { agentId: agent.id, agentName: agent.name });
+      socket.data.role = role;
+
+      // 모두 room에 참여 (agent_id 기반)
+      socket.join(`room:${agent.id}`);
+
+      // "agent" role만 agentSockets에 등록 (MCP 리다이렉트 대상)
+      if (role === 'agent') {
+        // 동일 agent_id 기존 연결 있으면 해제 (중복 응답 방지)
+        const existing = this.agentSockets.get(agent.id);
+        if (existing && existing.id !== socket.id) {
+          this.logger.log(`Disconnecting stale agent socket for ${agent.id}`);
+          try { existing.disconnect(true); } catch { /* ignore */ }
+        }
+        this.agentSockets.set(agent.id, socket);
+      }
+      this.logger.log(`WS connected: ${agent.name} (${agent.id}) as role=${role}`);
+      socket.emit('connected', { agentId: agent.id, agentName: agent.name, role });
     } catch {
       socket.emit('error', { message: 'Invalid API key' });
       socket.disconnect();
@@ -49,9 +65,10 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(socket: Socket) {
     const agentId = socket.data?.agentId;
+    const role = socket.data?.role;
     if (agentId) {
-      this.agentSockets.delete(agentId);
-      this.logger.log(`WS disconnected: ${socket.data.agentName}`);
+      if (role === 'agent') this.agentSockets.delete(agentId);
+      this.logger.log(`WS disconnected: ${socket.data.agentName} (role=${role})`);
     }
   }
 
@@ -72,13 +89,17 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket.emit('knowledge_saved', { count: topics.length });
   }
 
-  /** 에이전트가 self-report 제출 (tool call 또는 request 응답) → 모든 웹 클라이언트에 broadcast */
+  /** 에이전트가 self-report 제출.
+   *  - `triggered_by === 'request'` (HTTP가 요청해서 응답으로 온 것): `requestSelfReport()`의 `socket.once`가 받아 HTTP로 반환. 브로드캐스트 X.
+   *  - 그 외(자발적/autonomous): 모든 웹 클라이언트에 브로드캐스트.
+   *  이렇게 해야 HTTP 경로와 WS 경로가 같은 payload를 중복 전송하지 않는다. */
   @SubscribeMessage('submit_self_report')
   handleAgentReport(@ConnectedSocket() socket: Socket, @MessageBody() report: any) {
     const agentId = socket.data?.agentId;
     if (!agentId) return;
-    this.logger.log(`Self-report pushed from agent=${agentId} (${report?.reporter ?? 'unknown'}, triggered_by=${report?.triggered_by ?? 'request'})`);
-    // 네임스페이스 전체에 broadcast. 웹은 agentId 일치 확인 후 수신.
+    const triggeredBy = report?.triggered_by ?? 'request';
+    this.logger.log(`Self-report from agent=${agentId} (${report?.reporter ?? 'unknown'}, triggered_by=${triggeredBy})`);
+    if (triggeredBy === 'request') return; // HTTP 경로에서 socket.once로 처리하므로 여기서는 skip
     this.server?.emit('agent_report_pushed', { agentId, report });
   }
 
@@ -188,4 +209,105 @@ export class KaasWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       connectedAt: s.handshake.time,
     }));
   }
+
+  /* ════════════════════════════════════════════════════════════
+     Chat Room — User ↔ Claude ↔ Cherry 3자 대화
+     모든 참여자가 한 room에 있고 {from, to, content}로 라우팅.
+     ════════════════════════════════════════════════════════════ */
+
+  /** Room에 메시지 분배.
+   *  - user role 소켓(웹): 모든 메시지 볼 수 있게 broadcast
+   *  - claude 대상: canonical agent socket 하나에만 emit (중복 응답 방지)
+   *  - cherry 대상: 서버 내부 bot 트리거
+   *
+   *  NOTE: @WebSocketServer 로 주입된 this.server 는 이미 /kaas 네임스페이스.
+   *  따라서 this.server.in(room).fetchSockets() 로 접근. .of('/kaas') 하면 중첩됨. */
+  private async emitToRoom(agentId: string, msg: RoomMessage, exceptSocketId?: string) {
+    const room = `room:${agentId}`;
+    // 1) user role 소켓(웹)에 broadcast — 중복 방지 위해 직접 iterate
+    try {
+      const sockets = await this.server.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (exceptSocketId && s.id === exceptSocketId) continue;
+        if ((s.data as any)?.role === 'user') s.emit('room_message', msg);
+      }
+    } catch { /* ignore */ }
+
+    // 2) Claude 대상 → canonical agent socket 1개에만 전달 (중복 응답 방지)
+    if (msg.to === 'claude' && msg.from !== 'claude') {
+      const agentSocket = this.agentSockets.get(agentId);
+      if (agentSocket) agentSocket.emit('room_message', msg);
+    }
+    // 3) Cherry 대상 → 서버 내부 bot
+    if (msg.to === 'cherry' && msg.from !== 'cherry') {
+      this.handleCherryBot(agentId, msg);
+    }
+  }
+
+  /** 웹 사용자가 room_message 보냄 */
+  @SubscribeMessage('room_message')
+  async handleRoomMessage(@ConnectedSocket() socket: Socket, @MessageBody() msg: RoomMessage) {
+    const agentId = socket.data?.agentId;
+    if (!agentId) return;
+    const room = `room:${agentId}`;
+    socket.join(room);
+    const normalized: RoomMessage = {
+      ...msg,
+      timestamp: msg.timestamp ?? new Date().toISOString(),
+    };
+    this.logger.log(`[room ${agentId}] ${normalized.from} → ${normalized.to}: ${(normalized.content ?? '').slice(0, 60)}`);
+    this.emitToRoom(agentId, normalized, socket.id);
+  }
+
+  /** Cherry bot — to="cherry"인 메시지에 LLM으로 응답 */
+  private async handleCherryBot(agentId: string, msg: RoomMessage) {
+    try {
+      // 카탈로그 컨텍스트 포함한 시스템 프롬프트
+      const concepts = await this.knowledge.findAll();
+      const catalogCtx = concepts.slice(0, 10).map((c: any) => `- ${c.id}: ${c.title} (${c.summary?.slice(0, 50) ?? ''})`).join('\n');
+      const systemPrompt = `너는 Cherry KaaS 지식 큐레이터야. 현재 카탈로그에 다음 개념들이 있어:\n\n${catalogCtx}\n\n누군가 질문하면 카탈로그 기반으로 한국어 1~2문장으로 간결히 답해. 가격은 구매 20cr / 팔로우 25cr.`;
+
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4.1-nano',
+          max_tokens: 256,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: msg.content },
+          ],
+        }),
+      });
+      const data: any = await res.json();
+      const reply = data.choices?.[0]?.message?.content ?? '(Cherry 응답 없음)';
+
+      const out: RoomMessage = {
+        from: 'cherry',
+        to: msg.from,
+        content: reply,
+        timestamp: new Date().toISOString(),
+      };
+      this.emitToRoom(agentId, out);
+    } catch (err: any) {
+      this.logger.warn(`Cherry bot error: ${err.message}`);
+      this.emitToRoom(agentId, {
+        from: 'cherry',
+        to: msg.from,
+        content: `Cherry 오류: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }
+
+export type RoomMessage = {
+  from: 'user' | 'claude' | 'cherry';
+  to: 'user' | 'claude' | 'cherry';
+  content: string;
+  timestamp?: string;
+  meta?: Record<string, any>;
+};

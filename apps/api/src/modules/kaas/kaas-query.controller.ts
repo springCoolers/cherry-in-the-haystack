@@ -26,10 +26,8 @@ export class KaasQueryController {
   ) {}
 
   private async findAgent(apiKey?: string) {
-    if (apiKey) return this.agentService.authenticate(apiKey);
-    const agents = await this.agentService.findByUserId('00000000-0000-0000-0000-000000000000');
-    if (agents.length === 0) throw new NotFoundException('No agent registered');
-    return agents[0];
+    if (!apiKey) throw new NotFoundException('API Key required');
+    return this.agentService.authenticate(apiKey);
   }
 
   /** 에이전트가 이미 해당 concept을 보유하고 있는지 확인 (topic ↔ concept_id 퍼지 매칭) */
@@ -75,8 +73,11 @@ export class KaasQueryController {
         });
       }
 
+      // SALE 대상이면 20% 할인 추가 (Karma 할인과 곱연산으로 스택)
+      const onSale = await this.knowledge.isOnSale(dto.concept_id);
       const { consumed, remaining } = await this.credit.consume(
         agent.id, ACTION_PRICE.purchase, agent.karma_tier as KarmaTierName, dto.concept_id, 'purchase',
+        { saleDiscount: onSale ? 0.2 : 0 },
       );
 
       const responseData = {
@@ -140,8 +141,10 @@ export class KaasQueryController {
       });
     }
 
+    const onSaleFollow = await this.knowledge.isOnSale(dto.concept_id);
     const { consumed, remaining } = await this.credit.consume(
       agent.id, ACTION_PRICE.follow, agent.karma_tier as KarmaTierName, dto.concept_id, 'follow',
+      { saleDiscount: onSaleFollow ? 0.2 : 0 },
     );
 
     const responseData = {
@@ -186,25 +189,18 @@ export class KaasQueryController {
   @HttpCode(200)
   @ApiOperation({ summary: 'KaaS 지식 기반 GPT 채팅' })
   async llmChat(@Body() body: { question: string; content_md?: string; api_key?: string; privacy_mode?: boolean }) {
-    // 카탈로그 개념들을 컨텍스트로 활용
-    const concepts = await this.knowledge.findAll();
-    const catalogCtx = concepts.slice(0, 10)
-      .map((c) => `- ${c.title}: ${c.summary}`)
-      .join('\n');
-
     const systemPrompt = body.content_md
-      ? `너는 Cherry KaaS 어시스턴트야. 다음 구매한 지식을 바탕으로 답해:\n\n${body.content_md}`
-      : `너는 Cherry KaaS 어시스턴트야. AI/ML 지식을 큐레이션해서 AI 에이전트에게 판매하는 플랫폼이야.
+      ? `You are a knowledge assistant. Answer the user's question using only the purchased knowledge below. Do not promote, upsell, or recommend purchasing anything.\n\n${body.content_md}`
+      : `You are the Cherry app help assistant.
 
-우리 카탈로그에 있는 개념들:
-${catalogCtx}
-
-규칙:
-- 사용자가 AI/ML 관련 질문을 하면, 해당 개념이 카탈로그에 있는지 확인하고 구매를 권유해
-- "Compare 기능으로 당신의 에이전트가 이 지식을 갖고 있는지 먼저 확인해보세요"라고 안내해
-- 지식이 없다면 "Catalog에서 [개념명]을 구매하면 전체 내용을 얻을 수 있어요"라고 유도해
-- 직접 상세한 기술 설명은 하지 말고, 카탈로그 구매로 연결해
-- 한국어로 간결하게 2-3문장으로 답해`;
+Rules (strict):
+- If the user message contains a "[Page Manual ...]" prefix, follow those rules exactly. Only describe features documented in that manual.
+- Never recommend purchasing anything. Never say "buy", "purchase", "구매", or "Catalog에서 ... 구매".
+- Never tell the user to use the "Compare" feature unless their current page is the Catalog.
+- Never tell the user to navigate to another page.
+- No promotional language, no upsell, no sales pitches, no "you can also try ..." suggestions.
+- Match the user's language (Korean if they wrote Korean, English if English).
+- Be concise — 2-3 sentences when possible. Answer factually.`;
 
     // 🔒 Privacy Mode: NEAR AI Cloud (TEE) 경유
     if (body.privacy_mode) {
@@ -272,6 +268,25 @@ ${catalogCtx}
     }
   }
 
+  /** 에이전트 보유 지식 REST 제출 (cherry-kaas-agent 패키지용) */
+  @Post('agents/:id/knowledge')
+  @HttpCode(200)
+  @ApiOperation({ summary: '에이전트 보유 지식 제출 (REST)' })
+  async submitKnowledge(
+    @Param('id') agentId: string,
+    @Body() body: { api_key?: string; knowledge?: Array<{ topic: string; lastUpdated?: string }> },
+  ) {
+    const agent = body.api_key
+      ? await this.agentService.authenticate(body.api_key)
+      : await this.agentService.findById(agentId);
+    if (!agent) throw new NotFoundException({ code: 'AGENT_NOT_FOUND', message: `Agent ${agentId} not found` });
+    if (agent.id !== agentId) throw new BadRequestException({ code: 'AGENT_MISMATCH', message: 'API key does not match agent ID' });
+
+    const topics = body.knowledge ?? [];
+    await this.agentService.addToKnowledge(agent.id, topics.map(t => t.topic).join(','));
+    return { ok: true, count: topics.length };
+  }
+
   /** DB 기반 Knowledge Diff — 에이전트 연결 안 됐을 때 fallback */
   @Get('agents/:id/knowledge-diff')
   @ApiOperation({ summary: 'DB 기반 지식 이력 (fallback)' })
@@ -291,7 +306,7 @@ ${catalogCtx}
         const chain = log.chain ?? 'mock';
         const explorerUrl = txHash
           ? chain === 'near' ? `https://testnet.nearblocks.io/txns/${txHash}`
-          : chain === 'status' ? `https://sepoliascan.status.network/tx/${txHash}`
+          : chain === 'status' ? `${(process.env.STATUS_EXPLORER_URL || 'https://sepoliascan.status.network').replace(/\/$/, '')}/tx/${txHash}`
           : '' : '';
         return {
           at: log.created_at, action: log.action_type, conceptId: log.concept_id,

@@ -1,0 +1,33 @@
+{
+  "name": "cherry-kaas-agent",
+  "version": "1.0.0",
+  "description": "Cherry KaaS agent — connects your Claude Code to the Cherry Knowledge Market via MCP + WebSocket",
+  "bin": {
+    "cherry-kaas-agent": "./bin/agent.js"
+  },
+  "files": [
+    "bin/",
+    "lib/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "socket.io-client": "^4.8.3"
+  },
+  "keywords": [
+    "cherry",
+    "kaas",
+    "knowledge",
+    "agent",
+    "mcp",
+    "claude",
+    "ai"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/cherry-in-the-haystack"
+  }
+}

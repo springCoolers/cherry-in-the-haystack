@@ -98,6 +98,7 @@ export class PatchNotesService {
         ON sc.id = uas.side_category_id
       WHERE uas.user_id = :systemUserId::UUID
         AND uas.revoked_at IS NULL
+        AND uas.read_at IS NULL
         AND ar.published_at >= :from
         AND ar.published_at < :to
       ORDER BY ar.published_at DESC

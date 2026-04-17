@@ -12,8 +12,16 @@ export interface TxResult {
 }
 
 export interface KarmaTier {
+  /** Legacy 4-tier (Bronze/Silver/Gold/Platinum) — mapped from onchain tier name for KaaS discount table */
   tier: "Bronze" | "Silver" | "Gold" | "Platinum";
+  /** Karma balance (human-readable, already divided by 10^18) */
   balance: number;
+  /** Status Network Karma onchain tier ID (0=none, 1=entry, 2=newbie, 3=basic, 4=active, 5=regular, 6=power, 7=pro, 8=high-throughput, 9=s-tier, 10=legendary) */
+  onchainTierId?: number;
+  /** Onchain tier name (e.g. "active", "pro") — raw value from KarmaTiers contract */
+  onchainTierName?: string;
+  /** Number of gasless transactions allowed per epoch at this tier */
+  txPerEpoch?: number;
 }
 
 export interface IChainAdapter {

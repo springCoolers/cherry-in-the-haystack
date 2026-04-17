@@ -10,4 +10,4 @@ if [ -z "$TS_NODE" ]; then
   exit 1
 fi
 
-exec node "$TS_NODE" -r tsconfig-paths/register src/mcp-server.ts
+exec node "$TS_NODE" -r tsconfig-paths/register src/mcp-server.ts 2>/tmp/cherry-mcp.log
