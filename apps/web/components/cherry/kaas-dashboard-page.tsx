@@ -163,7 +163,7 @@ export function SelfReportLog({
         ) : (
             data.localSkills.items.map((s: any) => {
               // dir 끝의 폴더명에서 conceptId 추출 (cherry-{uuid}) → DB title로 치환
-              const folderName = (s.dir ?? "").split("/").filter(Boolean).pop() ?? "unknown"
+              const folderName = (s.dir ?? "").split(/[\\/]/).filter(Boolean).pop() ?? "unknown"
               const extractedId = folderName.startsWith("cherry-") ? folderName.slice(7) : ""
               const resolvedTitle = extractedId ? titleMap.get(extractedId) : undefined
               const displayName = resolvedTitle ?? folderName

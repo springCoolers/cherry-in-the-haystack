@@ -703,7 +703,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
     const ownedIds = new Set<string>()
     for (const s of r.report?.local_skills?.items ?? []) {
       if (!s?.hasSkillMd) continue
-      const folder = (s.dir ?? "").split("/").filter(Boolean).pop() ?? ""
+      const folder = (s.dir ?? "").split(/[\\/]/).filter(Boolean).pop() ?? ""
       if (folder.startsWith("cherry-")) ownedIds.add(folder.slice(7))
     }
     writeOwned(agentId, ownedIds)
@@ -814,7 +814,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
       const ids = new Set<string>()
       for (const s of items) {
         if (!s?.hasSkillMd) continue
-        const folder = (s.dir ?? "").split("/").filter(Boolean).pop() ?? ""
+        const folder = (s.dir ?? "").split(/[\\/]/).filter(Boolean).pop() ?? ""
         if (folder.startsWith("cherry-")) ids.add(folder.slice(7))
       }
       writeOwned(eventAgentId, ids)
