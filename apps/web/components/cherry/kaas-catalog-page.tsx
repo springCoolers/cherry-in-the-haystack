@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { Search, X, GitCompare, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, ChevronDown, ExternalLink } from "lucide-react"
 import { MOCK_AGENTS } from "./kaas-dashboard-page"
@@ -233,7 +234,7 @@ function ConceptCard({
     <button
       onClick={onSelect}
       className={cn(
-        "w-full text-left rounded-xl p-4 transition-all duration-150 cursor-pointer",
+        "w-full text-left rounded-md p-4 transition-all duration-150 cursor-pointer",
         "border hover:shadow-sm relative bg-white",
         isSelected
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
@@ -257,25 +258,22 @@ function ConceptCard({
         </span>
       )}
 
-      {/* 지식 비교 / 소유 뱃지 — 우하단 */}
+      {/* 지식 비교 / 소유 표시 — 우하단. owned/up-to-date는 텍스트만, gap만 뱃지 유지 */}
       {owned ? (
-        <span className="absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0] z-[2]">
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#2D7A5E] z-[2]">
           ✓ Owned
         </span>
-      ) : compareStatus ? (
-        <span
-          className={cn(
-            "absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 z-[2]",
-            compareStatus === "up-to-date"
-              ? "bg-[#EFF7F3] text-[#2D7A5E] border border-[#A8D4C0]"
-              : compareStatus === "outdated"
-                ? "bg-[#FDF6EE] text-[#D4854A] border border-[#F0D8B0]"
-                : "bg-[#FDF0F3] text-[var(--cherry)] border border-[#F2C4CE]"
-          )}
-        >
-          {compareStatus === "up-to-date" && "✓ Up to date"}
-          {compareStatus === "outdated" && <><RefreshCw size={9} /> Update available</>}
-          {compareStatus === "gap" && "Gap"}
+      ) : compareStatus === "up-to-date" ? (
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#2D7A5E] z-[2]">
+          ✓ Up to date
+        </span>
+      ) : compareStatus === "outdated" ? (
+        <span className="absolute bottom-3 right-3 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-[#D4854A] z-[2]">
+          <RefreshCw size={10} /> Update available
+        </span>
+      ) : compareStatus === "gap" ? (
+        <span className="absolute bottom-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1 bg-[#FDF0F3] text-[var(--cherry)] border border-[#F2C4CE] z-[2]">
+          Gap
         </span>
       ) : null}
 
@@ -896,32 +894,35 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
           placeholder="Search concepts..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-[#E4E1EE] bg-white placeholder:text-text-muted focus:outline-none focus:border-[var(--cherry)] focus:ring-1 focus:ring-[var(--cherry)]/20 transition-colors"
+          className="w-full pl-9 pr-3 py-2 text-[13px] rounded-md border border-[#E4E1EE] bg-white placeholder:text-text-muted focus:outline-none focus:border-[var(--cherry)] focus:ring-1 focus:ring-[var(--cherry)]/20 transition-colors"
         />
       </div>
 
-      {/* Category filter chips */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Category filter — tab bar with continuous faint line + active dark segment */}
+      <div className="pl-[3px]"><div className="flex items-center gap-5 flex-wrap">
         {categories.map((cat) => {
           const isActive = activeCategory === cat
-          const badge = cat === "All" ? DEFAULT_BADGE : getBadge(cat)
           return (
             <button
               key={cat}
               onClick={() => { setActiveCategory(cat); setSelectedId(null) }}
               className={cn(
-                "text-[11px] font-semibold px-3 py-1 rounded-full border transition-all cursor-pointer",
-                isActive
-                  ? "bg-[#1A1626] text-white border-[#1A1626]"
-                  : "bg-white border-[#E4E1EE] hover:border-[#C7B8E8]"
+                "relative text-[12px] font-semibold pb-1.5 cursor-pointer transition-colors",
+                isActive ? "text-[#1A1626]" : "text-[#9E97B3] hover:text-[#3D3652]"
               )}
-              style={isActive ? undefined : { color: badge.text }}
             >
               {cat}
+              {isActive && (
+                <motion.span
+                  layoutId="catalog-active-underline"
+                  className="absolute left-0 right-0 -bottom-px h-[2px] bg-[#1A1626]"
+                  transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                />
+              )}
             </button>
           )
         })}
-      </div>
+      </div></div>
 
       {/* Cards grid — each card shows compare status after submit */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

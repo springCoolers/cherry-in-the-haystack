@@ -122,6 +122,11 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
   const [addingEvidence, setAddingEvidence] = useState(false)
 
   const [saving, setSaving] = useState(false)
+  const [savedKey, setSavedKey] = useState<string | null>(null)
+  const showSaved = (key: string) => {
+    setSavedKey(key)
+    setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 2000)
+  }
 
   // 로그인 유저 ID (JWT에서 추출)
   const [userId, setUserId] = useState<string | null>(null)
@@ -189,6 +194,7 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         sale_discount: editSaleDiscount,
       })
       await loadConcepts()
+      showSaved("info")
     } finally { setSaving(false) }
   }
 
@@ -198,6 +204,7 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
     try {
       await updateConceptAdmin(selectedId, { content_md: contentMd })
       await loadConcepts()
+      showSaved("content")
     } finally { setSaving(false) }
   }
 
@@ -207,6 +214,8 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
     const id = uuidv7()
     try {
       await createConceptAdmin({ id, title: newTitle, category: newCategory, summary: newSummary, created_by: isAdmin ? '__SYSTEM__' : (userId ?? '__SYSTEM__') })
+      // 일부러 최소 0.5초 스피닝 — 사용자가 변화를 인지할 수 있도록
+      await new Promise((r) => setTimeout(r, 500))
       setShowCreate(false)
       setNewTitle(""); setNewCategory(""); setNewSummary("")
       setSelectedId(id)
@@ -343,7 +352,10 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
                 </div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={() => setShowCreate(false)} className={btnSecondary}>Cancel</button>
-                  <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "Creating…" : "Create"}</button>
+                  <button onClick={handleCreate} disabled={saving || !newTitle || !newCategory || !newSummary} className={cn(btnPrimary, "disabled:opacity-40 inline-flex items-center gap-1.5")}>
+                    {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {saving ? "Creating…" : "Create"}
+                  </button>
                 </div>
               </div>
               <div className="mt-6 rounded-lg bg-[#FAFAFA] border border-[#E0E0E0] p-4">
@@ -407,8 +419,9 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
                       <input type="number" min="1" max="90" value={editSaleDiscount} onChange={(e) => setEditSaleDiscount(Number(e.target.value))} disabled={!editOnSale} className={cn(inputBase, "mt-1", !editOnSale && "bg-[#F9F7F5] opacity-50")} />
                     </div>
                   </div>
-                  <div className="pt-2">
-                    <button onClick={handleSaveInfo} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
+                  <div className="pt-2 flex items-center gap-3">
+                    <button onClick={handleSaveInfo} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")}>저장</button>
+                    {savedKey === "info" && <span className="text-[12px] text-[#2D7A5E] font-medium">✓ 저장되었습니다</span>}
                   </div>
                 </div>
               )}
@@ -424,12 +437,17 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
                         <Eye className="mr-1 inline h-3.5 w-3.5" />Preview
                       </button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input ref={fileInputRef} type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
-                      <button onClick={() => fileInputRef.current?.click()} className={cn(btnSecondary, "flex items-center gap-1")}>
-                        <Upload className="h-3.5 w-3.5" />Upload .md
-                      </button>
-                      <button onClick={handleSaveContent} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")} >{saving ? "저장 중..." : "저장"}</button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <input ref={fileInputRef} type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
+                        <button onClick={() => fileInputRef.current?.click()} className={cn(btnSecondary, "flex items-center gap-1")}>
+                          <Upload className="h-3.5 w-3.5" />Upload .md
+                        </button>
+                        <button onClick={handleSaveContent} disabled={saving} className={cn(btnPrimary, "disabled:opacity-40")}>저장</button>
+                      </div>
+                      <div className="h-[18px]">
+                        {savedKey === "content" && <span className="text-[12px] text-[#2D7A5E] font-medium">✓ 저장되었습니다</span>}
+                      </div>
                     </div>
                   </div>
 
