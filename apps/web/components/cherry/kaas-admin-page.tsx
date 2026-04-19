@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils"
 import { Search, Plus, Trash2, Upload, Eye, Edit3, FileText, BookOpen, Loader2, EyeOff, Globe, X, ChevronDown } from "lucide-react"
 import {
   fetchConceptsAdmin,
-  fetchConceptAdmin,
   createConceptAdmin,
   updateConceptAdmin,
   deleteConceptAdmin,
@@ -14,14 +13,27 @@ import {
   addEvidenceAdmin,
   updateEvidenceAdmin,
   deleteEvidenceAdmin,
-  fetchConceptPublication,
-  setConceptPublication,
-  patchConceptPage,
   type AdminConcept,
   type AdminEvidence,
-  type ConceptPublication,
-  type ProgressiveRef,
 } from "@/lib/api"
+
+/* 컨셉페이지 대시보드 전용 로컬 타입 — 전부 mock, API 연결 없음. */
+interface ProgressiveRef {
+  concept_id?: string
+  external?: string
+  title: string
+  learn: string
+  adds?: string
+}
+interface ConceptPublication {
+  isPublished: boolean
+  publishedAt: string | null
+  slug: string
+  name: string
+  existsOnPublicPage: boolean
+  relatedConcepts: string[]
+  progressiveRefs: ProgressiveRef[]
+}
 import { TemplateEditorBody } from "@/app/template/edit/page"
 
 /* ═══════════════════════════════════════════
@@ -711,6 +723,149 @@ const MOCK_GRAPH_REFS: Array<{ id: string; label: string; labelColor: string; ti
   { id: "graph:ref-4", label: "DEEP DIVE →", labelColor: "#9E97B3", title: "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction", learn: "Academic foundation for late interaction retrieval. For building custom retrievers.", adds: "Research-level depth", depth: 3 },
 ]
 
+/* Mock concept list — 컨셉페이지 대시보드 전용 가상 데이터. API 연결 없음. */
+const MOCK_CONCEPTS: AdminConcept[] = [
+  {
+    id: "mock-rag",
+    title: "Retrieval Augmented Generation",
+    category: "Advanced",
+    summary: "Retrieve relevant documents, then generate answers grounded in them.",
+    contentMd: `RAG combines a retriever with a generator.
+The retriever fetches top-k passages from a knowledge base.
+The generator (an LLM) conditions its output on those passages.
+This lets the model answer questions beyond its training cutoff.
+Typical pipeline: query → embed → vector search → rerank → prompt → generate.
+Quality depends on chunking, embedding model, and retrieval recall.
+Failure modes: irrelevant context, stale index, hallucination despite context.
+Hybrid search (dense + BM25) often beats dense-only.
+Reranking lifts precision at top-k.
+Contextual retrieval adds prefix context per chunk before embedding.`,
+    qualityScore: 4,
+    sourceCount: 5,
+    updatedAt: "2026-04-15T10:00:00Z",
+    relatedConcepts: [],
+    isActive: true,
+    createdBy: "admin",
+    createdByLabel: "Admin",
+    revokedAt: null,
+    evidence: [
+      { id: "ev-rag-1", source: "Chip Huyen — AI Engineering Ch.6", summary: "Retrieval-first mental model; RAG as default for production LLMs.", curator: "Admin", curatorTier: "Gold", comment: "Great first read." },
+      { id: "ev-rag-2", source: "Anthropic Cookbook — Contextual Retrieval", summary: "Prefix each chunk with doc-level context before embedding. -67% retrieval failures.", curator: "Admin", curatorTier: "Gold", comment: "" },
+    ],
+  },
+  {
+    id: "mock-embeddings",
+    title: "Embeddings",
+    category: "Basic",
+    summary: "Dense vector representations of text for similarity search.",
+    contentMd: `Embeddings map text to fixed-dimensional vectors.
+Semantically similar inputs produce geometrically close vectors.
+Cosine similarity and dot product measure closeness.
+Modern models: text-embedding-3-small/large, voyage-3, bge-large.
+Embedding dim typically 384–3072.
+Used for retrieval, clustering, classification, deduplication.
+Quality is task-dependent — benchmark on your data (MTEB ≠ your domain).
+Normalize vectors if using cosine or IP indices that assume unit length.
+Re-embed when you upgrade the model — old vectors are incompatible.
+Cost scales with token count; batch aggressively.`,
+    qualityScore: 4,
+    sourceCount: 3,
+    updatedAt: "2026-04-10T10:00:00Z",
+    relatedConcepts: [],
+    isActive: true,
+    createdBy: "admin",
+    createdByLabel: "Admin",
+    revokedAt: null,
+    evidence: [],
+  },
+  {
+    id: "mock-vector-db",
+    title: "Vector Databases",
+    category: "Technique",
+    summary: "Specialized stores for high-dimensional vector similarity search.",
+    contentMd: `Vector DBs index embeddings for fast approximate nearest-neighbor (ANN) search.
+Popular engines: Pinecone, Weaviate, Qdrant, Milvus, pgvector.
+Indexing algorithms: HNSW (graph), IVF (partitioning), ScaNN.
+Tradeoff: recall vs. latency vs. memory — tune ef_construction, ef_search.
+Support filtered search (metadata predicates + ANN) for production workloads.
+Hybrid search blends dense vectors with sparse (BM25) scores.
+Serverless options shift cost model from instance hours to query volume.
+pgvector gives you ANN inside Postgres — simpler ops, tighter transactional story.
+Schema design matters: store chunk text + metadata alongside the vector.
+Rebuild indices periodically as data drifts.`,
+    qualityScore: 4,
+    sourceCount: 4,
+    updatedAt: "2026-04-05T10:00:00Z",
+    relatedConcepts: [],
+    isActive: true,
+    createdBy: "admin",
+    createdByLabel: "Admin",
+    revokedAt: null,
+    evidence: [],
+  },
+]
+
+const MOCK_PUBLICATIONS: Record<string, ConceptPublication> = {
+  "mock-rag": {
+    isPublished: true,
+    publishedAt: "2026-04-16T12:00:00Z",
+    slug: "rag",
+    name: "Retrieval Augmented Generation",
+    existsOnPublicPage: true,
+    relatedConcepts: ["mock-embeddings"],
+    progressiveRefs: [],
+  },
+  "mock-embeddings": {
+    isPublished: false,
+    publishedAt: null,
+    slug: "embeddings",
+    name: "Embeddings",
+    existsOnPublicPage: false,
+    relatedConcepts: [],
+    progressiveRefs: [],
+  },
+  "mock-vector-db": {
+    isPublished: false,
+    publishedAt: null,
+    slug: "vector-databases",
+    name: "Vector Databases",
+    existsOnPublicPage: false,
+    relatedConcepts: [],
+    progressiveRefs: [],
+  },
+}
+
+/* Progressive Reference phase label — 편집 시 드롭다운으로 선택. */
+const PHASE_OPTIONS = ["START HERE", "NEXT →", "THEN →", "DEEP DIVE →"] as const
+type Phase = typeof PHASE_OPTIONS[number]
+type LocalRef = ProgressiveRef & { phase?: Phase }
+
+const PHASE_COLOR: Record<Phase, string> = {
+  "START HERE": "#C94B6E",
+  "NEXT →": "#9E97B3",
+  "THEN →": "#9E97B3",
+  "DEEP DIVE →": "#9E97B3",
+}
+
+/* Contributors — 홈페이지 concept-reader "Knowledge Team" 카드와 동일 구조. */
+type Contributor = { id: string; initials: string; name: string; role: string }
+
+const MOCK_CONTRIBUTORS: Record<string, Contributor[]> = {
+  "mock-rag": [
+    { id: "c-1", initials: "KJ", name: "Keanu J.", role: "Lead reviewer" },
+    { id: "c-2", initials: "SY", name: "Soyeon Y.", role: "Evidence sourcing" },
+    { id: "c-3", initials: "MH", name: "Min H.", role: "Concept mapping" },
+    { id: "c-4", initials: "JP", name: "Jiwon P.", role: "Editor" },
+  ],
+  "mock-embeddings": [
+    { id: "c-1", initials: "KJ", name: "Keanu J.", role: "Lead reviewer" },
+    { id: "c-2", initials: "SY", name: "Soyeon Y.", role: "Evidence sourcing" },
+  ],
+  "mock-vector-db": [
+    { id: "c-1", initials: "MH", name: "Min H.", role: "Concept mapping" },
+  ],
+}
+
 export function ConceptPagePublishPanel() {
   const [concepts, setConcepts] = useState<AdminConcept[]>([])
   const [loading, setLoading] = useState(true)
@@ -739,34 +894,34 @@ export function ConceptPagePublishPanel() {
   const [hiddenBaselineChildren, setHiddenBaselineChildren] = useState<string[]>([])
 
   // Progressive References editor — content.concept_page.progressive_refs
-  const [refsDraft, setRefsDraft] = useState<ProgressiveRef[]>([])
+  const [refsDraft, setRefsDraft] = useState<LocalRef[]>([])
   const [refsSaving, setRefsSaving] = useState(false)
   const [refsSavedFlash, setRefsSavedFlash] = useState(false)
   // Hidden graph-baseline refs (local-only until hide-override column exists)
   const [hiddenBaselineRefs, setHiddenBaselineRefs] = useState<string[]>([])
 
+  // Slug input — visual only (no API call)
+  const [slugDraft, setSlugDraft] = useState("")
+  const [slugSaving] = useState(false)
+  const [slugSavedFlash, setSlugSavedFlash] = useState(false)
+
   // Cherries (kaas.evidence) CRUD — same backend as Evidence tab, inline here
   const [addingCherry, setAddingCherry] = useState(false)
   const [editingCherryId, setEditingCherryId] = useState<string | null>(null)
 
+  // Contributors (Knowledge Team) — 홈페이지 concept-reader의 Contributors 카드에 노출.
+  const [contributorsDraft, setContributorsDraft] = useState<Contributor[]>([])
+  const [contributorsSavedFlash, setContributorsSavedFlash] = useState(false)
+
   // Preview mode — renders using concept-reader style
   const [previewMode, setPreviewMode] = useState(false)
 
-  // Mount-only load. selectedId는 의존성에서 제외 — setState 업데이터로 초기 선택만 처리.
-  const loadConcepts = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true)
-    try {
-      const data = await fetchConceptsAdmin()
-      setConcepts(data)
-      setSelectedId((prev) => prev ?? data[0]?.id ?? null)
-    } catch (err) {
-      console.error("[concept-page-publish] fetchConceptsAdmin failed:", err)
-    } finally {
-      if (!opts?.silent) setLoading(false)
-    }
+  // Mock 초기화 — API 호출 없음. 마운트 시 1회만.
+  useEffect(() => {
+    setConcepts(MOCK_CONCEPTS)
+    setSelectedId((prev) => prev ?? MOCK_CONCEPTS[0]?.id ?? null)
+    setLoading(false)
   }, [])
-
-  useEffect(() => { loadConcepts() }, [loadConcepts])
 
   const selected = concepts.find((c) => c.id === selectedId) ?? null
 
@@ -777,161 +932,134 @@ export function ConceptPagePublishPanel() {
     setOverviewSavedFlash(false)
   }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSaveOverview() {
+  function handleSaveOverview() {
     if (!selectedId) return
-    setOverviewSaving(true)
-    console.log(`[concept-page-publish] saving overview: conceptId=${selectedId} length=${overviewDraft.length}`)
-    try {
-      await updateConceptAdmin(selectedId, { content_md: overviewDraft })
-      // Optimistic: 리스트 전체 재요청 없이 현재 concept의 contentMd만 갱신
-      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? { ...c, contentMd: overviewDraft } : c)))
-      setOverviewSavedFlash(true)
-      setTimeout(() => setOverviewSavedFlash(false), 2000)
-      console.log(`[concept-page-publish] overview saved`)
-    } catch (err) {
-      console.error("[concept-page-publish] handleSaveOverview failed:", err)
-      alert("Failed to save overview. Check console for details.")
-    } finally {
-      setOverviewSaving(false)
-    }
+    // Mock: 로컬 state만 업데이트
+    setConcepts((prev) => prev.map((c) => (c.id === selectedId ? { ...c, contentMd: overviewDraft } : c)))
+    setOverviewSavedFlash(true)
+    setTimeout(() => setOverviewSavedFlash(false), 2000)
   }
 
-  // Load publication state whenever selection changes
+  // Mock publication 로드 — selection 바뀔 때마다 로컬 맵에서 읽기. API 호출 없음.
   useEffect(() => {
     if (!selectedId) {
       setPublicationState(null)
       setChildIds([])
       setRefsDraft([])
+      setSlugDraft("")
+      setContributorsDraft([])
       return
     }
-    let cancelled = false
-    setPublicationLoading(true)
-    console.log(`[concept-page-publish] loading publication state: conceptId=${selectedId}`)
-    fetchConceptPublication(selectedId)
-      .then((pub) => {
-        if (cancelled) return
-        setPublicationState(pub)
-        setChildIds(pub.relatedConcepts ?? [])
-        setRefsDraft(pub.progressiveRefs ?? [])
-        setChildPickerOpen(false)
-        setChildPickerSearch("")
-      })
-      .catch((err) => {
-        console.error("[concept-page-publish] fetchConceptPublication failed:", err)
-        if (!cancelled) {
-          setPublicationState(null)
-          setChildIds([])
-          setRefsDraft([])
-        }
-      })
-      .finally(() => { if (!cancelled) setPublicationLoading(false) })
-    return () => { cancelled = true }
-  }, [selectedId])
-
-  async function handleTogglePublish(nextPublished: boolean) {
-    if (!selectedId) return
-    setPublishing(true)
-    console.log(`[concept-page-publish] toggling publication: conceptId=${selectedId} → published=${nextPublished}`)
-    try {
-      const updated = await setConceptPublication(selectedId, nextPublished)
-      setPublicationState(updated)
-      setChildIds(updated.relatedConcepts ?? [])
-      setRefsDraft(updated.progressiveRefs ?? [])
-      setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 2000)
-      console.log(`[concept-page-publish] publication updated: slug=${updated.slug} isPublished=${updated.isPublished}`)
-    } catch (err) {
-      console.error("[concept-page-publish] setConceptPublication failed:", err)
-      alert("Failed to update publication state. Check console for details.")
-    } finally {
-      setPublishing(false)
+    const pub = MOCK_PUBLICATIONS[selectedId] ?? {
+      isPublished: false,
+      publishedAt: null,
+      slug: "",
+      name: concepts.find((c) => c.id === selectedId)?.title ?? "",
+      existsOnPublicPage: false,
+      relatedConcepts: [],
+      progressiveRefs: [],
     }
+    setPublicationState(pub)
+    setChildIds(pub.relatedConcepts ?? [])
+    setRefsDraft(pub.progressiveRefs ?? [])
+    setSlugDraft(pub.slug ?? "")
+    setContributorsDraft(MOCK_CONTRIBUTORS[selectedId] ?? [])
+    setChildPickerOpen(false)
+    setChildPickerSearch("")
+    setPublicationLoading(false)
+  }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Slug Save — visual only, no API call
+  function handleSaveSlug() {
+    setSlugSavedFlash(true)
+    setTimeout(() => setSlugSavedFlash(false), 2000)
   }
 
-  async function handleSaveChildren() {
+  function handleTogglePublish(nextPublished: boolean) {
     if (!selectedId) return
-    setChildSaving(true)
-    console.log(`[concept-page-publish] saving children: conceptId=${selectedId} count=${childIds.length}`)
-    try {
-      const updated = await patchConceptPage(selectedId, { related_concepts: childIds })
-      setPublicationState(updated)
-      setChildIds(updated.relatedConcepts ?? [])
-      setChildSavedFlash(true)
-      setTimeout(() => setChildSavedFlash(false), 2000)
-      console.log(`[concept-page-publish] children saved`)
-    } catch (err) {
-      console.error("[concept-page-publish] handleSaveChildren failed:", err)
-      alert("Failed to save child concepts. Check console for details.")
-    } finally {
-      setChildSaving(false)
-    }
+    // Mock: 로컬 publication state만 업데이트
+    setPublicationState((prev) => {
+      const base = prev ?? {
+        isPublished: false,
+        publishedAt: null,
+        slug: slugDraft,
+        name: concepts.find((c) => c.id === selectedId)?.title ?? "",
+        existsOnPublicPage: false,
+        relatedConcepts: childIds,
+        progressiveRefs: refsDraft,
+      }
+      return {
+        ...base,
+        isPublished: nextPublished,
+        publishedAt: nextPublished ? (base.publishedAt ?? new Date().toISOString()) : base.publishedAt,
+        existsOnPublicPage: true,
+      }
+    })
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 2000)
   }
 
-  async function handleSaveRefs() {
+  function handleSaveChildren() {
     if (!selectedId) return
-    setRefsSaving(true)
-    console.log(`[concept-page-publish] saving refs: conceptId=${selectedId} count=${refsDraft.length}`)
-    try {
-      const updated = await patchConceptPage(selectedId, { progressive_refs: refsDraft })
-      setPublicationState(updated)
-      setRefsDraft(updated.progressiveRefs ?? [])
-      setRefsSavedFlash(true)
-      setTimeout(() => setRefsSavedFlash(false), 2000)
-      console.log(`[concept-page-publish] refs saved`)
-    } catch (err) {
-      console.error("[concept-page-publish] handleSaveRefs failed:", err)
-      alert("Failed to save progressive references. Check console for details.")
-    } finally {
-      setRefsSaving(false)
-    }
+    setPublicationState((prev) => (prev ? { ...prev, relatedConcepts: childIds } : prev))
+    setChildSavedFlash(true)
+    setTimeout(() => setChildSavedFlash(false), 2000)
   }
 
-  // Cherry CRUD — mirrors Evidence tab handlers but refetches just this concept
-  async function handleAddCherry(data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
+  function handleSaveRefs() {
     if (!selectedId) return
-    console.log(`[concept-page-publish] adding cherry: conceptId=${selectedId} source="${data.source}"`)
-    try {
-      await addEvidenceAdmin(selectedId, data)
-      const fresh = await fetchConceptAdmin(selectedId)
-      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
-      setAddingCherry(false)
-    } catch (err) {
-      console.error("[concept-page-publish] handleAddCherry failed:", err)
-      alert("Failed to add cherry. Check console for details.")
-    }
+    setPublicationState((prev) => (prev ? { ...prev, progressiveRefs: refsDraft } : prev))
+    setRefsSavedFlash(true)
+    setTimeout(() => setRefsSavedFlash(false), 2000)
   }
-  async function handleUpdateCherry(evidenceId: string, data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
+
+  // Cherry CRUD — Mock: 로컬 concepts state만 업데이트. API 호출 없음.
+  function handleAddCherry(data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
     if (!selectedId) return
-    console.log(`[concept-page-publish] updating cherry: conceptId=${selectedId} evidenceId=${evidenceId}`)
-    try {
-      await updateEvidenceAdmin(selectedId, evidenceId, data)
-      const fresh = await fetchConceptAdmin(selectedId)
-      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
-      setEditingCherryId(null)
-    } catch (err) {
-      console.error("[concept-page-publish] handleUpdateCherry failed:", err)
-      alert("Failed to update cherry. Check console for details.")
+    const newEv: AdminEvidence = {
+      id: `ev-mock-${Date.now()}`,
+      source: data.source,
+      summary: data.summary,
+      curator: data.curator,
+      curatorTier: data.curator_tier,
+      comment: data.comment,
     }
+    setConcepts((prev) => prev.map((c) => (c.id === selectedId ? { ...c, evidence: [...(c.evidence ?? []), newEv], sourceCount: (c.sourceCount ?? 0) + 1 } : c)))
+    setAddingCherry(false)
   }
-  async function handleDeleteCherry(evidenceId: string) {
+  function handleUpdateCherry(evidenceId: string, data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
+    if (!selectedId) return
+    setConcepts((prev) => prev.map((c) => {
+      if (c.id !== selectedId) return c
+      return {
+        ...c,
+        evidence: (c.evidence ?? []).map((ev) => ev.id === evidenceId ? {
+          ...ev,
+          source: data.source,
+          summary: data.summary,
+          curator: data.curator,
+          curatorTier: data.curator_tier,
+          comment: data.comment,
+        } : ev),
+      }
+    }))
+    setEditingCherryId(null)
+  }
+  function handleDeleteCherry(evidenceId: string) {
     if (!selectedId) return
     if (!confirm("Delete this cherry? This cannot be undone.")) return
-    console.log(`[concept-page-publish] deleting cherry: conceptId=${selectedId} evidenceId=${evidenceId}`)
-    try {
-      await deleteEvidenceAdmin(selectedId, evidenceId)
-      const fresh = await fetchConceptAdmin(selectedId)
-      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
-    } catch (err) {
-      console.error("[concept-page-publish] handleDeleteCherry failed:", err)
-      alert("Failed to delete cherry. Check console for details.")
-    }
+    setConcepts((prev) => prev.map((c) => {
+      if (c.id !== selectedId) return c
+      const nextEv = (c.evidence ?? []).filter((ev) => ev.id !== evidenceId)
+      return { ...c, evidence: nextEv, sourceCount: Math.max(0, (c.sourceCount ?? 0) - 1) }
+    }))
   }
 
   function toggleChild(id: string) {
     setChildIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  function updateRef(idx: number, patch: Partial<ProgressiveRef>) {
+  function updateRef(idx: number, patch: Partial<LocalRef>) {
     setRefsDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
   }
   function removeRef(idx: number) {
@@ -948,6 +1076,22 @@ export function ConceptPagePublishPanel() {
   }
   function addRef() {
     setRefsDraft((prev) => [...prev, { title: "", learn: "", adds: "" }])
+  }
+
+  // Contributors (Mock: 로컬 state만)
+  function addContributor() {
+    setContributorsDraft((prev) => [...prev, { id: `c-${Date.now()}`, initials: "", name: "", role: "" }])
+  }
+  function updateContributor(id: string, patch: Partial<Omit<Contributor, "id">>) {
+    setContributorsDraft((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  }
+  function removeContributor(id: string) {
+    setContributorsDraft((prev) => prev.filter((c) => c.id !== id))
+  }
+  function handleSaveContributors() {
+    // Mock: 실제 저장 없음, flash만
+    setContributorsSavedFlash(true)
+    setTimeout(() => setContributorsSavedFlash(false), 2000)
   }
 
   if (loading) {
@@ -1049,9 +1193,29 @@ export function ConceptPagePublishPanel() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] text-[#888] break-all">
-                    slug: <code className="rounded bg-white px-1 py-0.5 font-mono text-[10.5px] text-[#555] border border-[#E0E0E0]">{publication?.slug ?? selected.id}</code>
-                  </p>
+                  <div className="mt-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wide text-[#888] mb-1">URL slug</label>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] text-[#888] font-mono">/concepts/</span>
+                      <input
+                        value={slugDraft}
+                        onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9가-힣-]/g, ""))}
+                        placeholder="rag"
+                        className={cn(inputBase, "flex-1 min-w-[180px] text-[12px] py-1 font-mono")}
+                      />
+                      <button
+                        onClick={handleSaveSlug}
+                        disabled={slugSaving || slugDraft.trim() === (publication?.slug ?? "") || !slugDraft.trim()}
+                        className={cn(btnPrimary, "disabled:opacity-40 text-[11px] py-1 px-3")}
+                      >
+                        {slugSaving ? "Saving…" : "Save"}
+                      </button>
+                      {slugSavedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ saved</span>}
+                    </div>
+                    <p className="mt-1 text-[10px] text-[#999]">
+                      Lowercase letters, digits, Korean, and hyphens only. Auto-generated from title on first publish — override here if needed.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <div className="flex items-center gap-1.5">
@@ -1168,79 +1332,243 @@ export function ConceptPagePublishPanel() {
                     )}
                   </section>
 
-                  {/* 03 — Child Concepts */}
-                  <section className="mb-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">03 — Child Concepts</span>
-                      <div className="flex-1 h-px bg-[#E4E1EE]" />
-                    </div>
-                    {childIds.length === 0 ? (
-                      <p className="text-[12px] italic text-[#9E97B3]">(no child concepts)</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {childIds.map((cid) => {
-                          const child = concepts.find((c) => c.id === cid)
-                          if (!child) {
-                            return (
-                              <div key={cid} className="bg-[#FAFAFA] border border-[#E4E1EE] rounded-[8px] p-3 opacity-60">
-                                <span className="text-[10px] font-bold uppercase tracking-wide text-[#9E97B3]">ORPHANED</span>
-                                <p className="text-[13px] font-semibold text-[#9E97B3] mt-0.5">{cid.slice(0, 8)}…</p>
+                  {/* 03 — Child Concepts : graph baseline (visible) + manually pinned */}
+                  {(() => {
+                    const visibleBaseline = MOCK_GRAPH_CHILDREN.filter((x) => !hiddenBaselineChildren.includes(x.id))
+                    const totalCount = visibleBaseline.length + childIds.length
+                    return (
+                      <section className="mb-10">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">03 — Child Concepts</span>
+                          <div className="flex-1 h-px bg-[#E4E1EE]" />
+                        </div>
+                        {totalCount === 0 ? (
+                          <p className="text-[12px] italic text-[#9E97B3]">(no child concepts)</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {visibleBaseline.map((item) => (
+                              <div key={item.id} className="bg-white border border-[#E4E1EE] rounded-[8px] p-3 transition-colors hover:border-[#C94B6E]">
+                                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: item.color }}>{item.type}</span>
+                                <p className="text-[13px] font-semibold text-[#1A1626] mt-0.5">{item.label}</p>
+                                <p className="text-[11px] text-[#9E97B3] mt-0.5">{item.desc}</p>
                               </div>
-                            )
-                          }
-                          return (
-                            <div key={cid} className="bg-white border border-[#E4E1EE] rounded-[8px] p-3 transition-colors hover:border-[#C94B6E]">
-                              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7B5EA7]">RELATED</span>
-                              <p className="text-[13px] font-semibold text-[#1A1626] mt-0.5">{child.title}</p>
-                              <p className="text-[11px] text-[#9E97B3] mt-0.5">{child.summary}</p>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </section>
+                            ))}
+                            {childIds.map((cid) => {
+                              const child = concepts.find((c) => c.id === cid)
+                              if (!child) {
+                                return (
+                                  <div key={cid} className="bg-[#FAFAFA] border border-[#E4E1EE] rounded-[8px] p-3 opacity-60">
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#9E97B3]">ORPHANED</span>
+                                    <p className="text-[13px] font-semibold text-[#9E97B3] mt-0.5">{cid.slice(0, 8)}…</p>
+                                  </div>
+                                )
+                              }
+                              return (
+                                <div key={cid} className="bg-white border border-[#E4E1EE] rounded-[8px] p-3 transition-colors hover:border-[#C94B6E]">
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#7B5EA7]">RELATED</span>
+                                  <p className="text-[13px] font-semibold text-[#1A1626] mt-0.5">{child.title}</p>
+                                  <p className="text-[11px] text-[#9E97B3] mt-0.5">{child.summary}</p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    )
+                  })()}
 
-                  {/* 04 — Progressive References */}
+                  {/* 04 — Progressive References : graph baseline (visible) + manually authored */}
+                  {(() => {
+                    const visibleGraphRefs = MOCK_GRAPH_REFS.filter((x) => !hiddenBaselineRefs.includes(x.id))
+                    const totalCount = visibleGraphRefs.length + refsDraft.length
+                    return (
+                      <section className="mb-4">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">04 — Progressive References</span>
+                          <div className="flex-1 h-px bg-[#E4E1EE]" />
+                        </div>
+                        <p className="text-[11px] text-[#9E97B3] mb-4">
+                          MECE learning path — each reference adds what the previous didn&rsquo;t cover.
+                        </p>
+                        {totalCount === 0 ? (
+                          <p className="text-[12px] italic text-[#9E97B3]">(no references)</p>
+                        ) : (
+                          <div className="space-y-4">
+                            {visibleGraphRefs.map((item, i) => {
+                              const isFirst = i === 0
+                              const borderColor = isFirst ? "#C94B6E" : "#E4E1EE"
+                              return (
+                                <div key={item.id} className="pl-4 relative" style={{ borderLeft: `2px solid ${borderColor}` }}>
+                                  <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: borderColor }} />
+                                  <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: item.labelColor }}>{item.label}</span>
+                                  <p className="text-[13px] font-bold text-[#1A1626] mt-0.5">{item.title}</p>
+                                  <p className="text-[12px] text-[#6B6480] leading-[1.5] mt-1">
+                                    <strong className="text-[#3D3652]">What you&rsquo;ll learn:</strong> {item.learn}
+                                  </p>
+                                  <p className="text-[11px] italic text-[#7B5EA7] mt-1">Adds: {item.adds}</p>
+                                </div>
+                              )
+                            })}
+                            {refsDraft.map((ref, j) => {
+                              const globalIdx = visibleGraphRefs.length + j
+                              // ref.phase 선택값이 있으면 우선 사용, 없으면 인덱스 기반 폴백
+                              const fallbackLabel: Phase = globalIdx === 0 ? "START HERE" : globalIdx === 1 ? "NEXT →" : globalIdx === 2 ? "THEN →" : "DEEP DIVE →"
+                              const label: Phase = ref.phase ?? fallbackLabel
+                              const color = PHASE_COLOR[label]
+                              const borderColor = label === "START HERE" ? "#C94B6E" : "#E4E1EE"
+                              const refConcept = ref.concept_id ? concepts.find((c) => c.id === ref.concept_id) : null
+                              return (
+                                <div key={`manual-${j}`} className="pl-4 relative" style={{ borderLeft: `2px solid ${borderColor}` }}>
+                                  <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: borderColor }} />
+                                  <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color }}>{label}</span>
+                                  <p className="text-[13px] font-bold text-[#1A1626] mt-0.5">
+                                    {ref.title || <em className="italic text-[#9E97B3]">(no title)</em>}
+                                    {refConcept && <span className="ml-1 text-[10px] font-normal text-[#2D7A5E]">→ {refConcept.title}</span>}
+                                    {ref.external && (
+                                      <a href={ref.external} target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] font-normal text-[#7B5EA7] underline">
+                                        link ↗
+                                      </a>
+                                    )}
+                                  </p>
+                                  {ref.learn && (
+                                    <p className="text-[12px] text-[#6B6480] leading-[1.5] mt-1">
+                                      <strong className="text-[#3D3652]">What you&rsquo;ll learn:</strong> {ref.learn}
+                                    </p>
+                                  )}
+                                  {ref.adds && <p className="text-[11px] italic text-[#7B5EA7] mt-1">Adds: {ref.adds}</p>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    )
+                  })()}
+
+                  {/* 05 — Learning Roadmap (auto-drawn from Progressive References) */}
+                  {(() => {
+                    const PHASE_IDX: Record<Phase, number> = { "START HERE": 0, "NEXT →": 1, "THEN →": 2, "DEEP DIVE →": 3 }
+                    const visibleBaseline = MOCK_GRAPH_REFS.filter((x) => !hiddenBaselineRefs.includes(x.id))
+                    // baseline + manual을 합쳐 phase 순서로 정렬. manual은 phase 없으면 순서 fallback.
+                    const baselineRows = visibleBaseline.map((b) => ({
+                      phase: b.label as Phase,
+                      title: b.title,
+                      origin: "baseline" as const,
+                    }))
+                    const manualRows = refsDraft.map((r, i) => {
+                      const fallback: Phase = i === 0 ? "START HERE" : i === 1 ? "NEXT →" : i === 2 ? "THEN →" : "DEEP DIVE →"
+                      return {
+                        phase: (r.phase ?? fallback) as Phase,
+                        title: r.title || "(untitled)",
+                        origin: "manual" as const,
+                      }
+                    })
+                    const allRows = [...baselineRows, ...manualRows].sort((a, b) => PHASE_IDX[a.phase] - PHASE_IDX[b.phase])
+                    return (
+                      <section className="mb-10">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">05 — Learning Roadmap</span>
+                          <div className="flex-1 h-px bg-[#E4E1EE]" />
+                        </div>
+                        <div className="bg-white border border-[#E4E1EE] rounded-[12px] p-5 max-w-[360px] mx-auto">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-4">
+                            Learning Roadmap
+                          </p>
+
+                          {/* Current concept — 가장 위, cherry border */}
+                          <div className="rounded-[8px] border-2 border-[#C94B6E] bg-white px-3 py-2 text-center">
+                            <p className="text-[12px] font-bold text-[#C94B6E] truncate">{selected.title}</p>
+                            <p className="text-[9px] text-[#9E97B3] mt-0.5">(you are here)</p>
+                          </div>
+
+                          {allRows.length === 0 ? (
+                            <p className="mt-3 text-[11px] italic text-center text-[#9E97B3]">(no references — add in 04)</p>
+                          ) : (
+                            allRows.map((row, i) => (
+                              <div key={i} className="flex flex-col items-center">
+                                {/* Arrow */}
+                                <div className="my-1 flex flex-col items-center">
+                                  <div className="w-px h-3 bg-[#E4E1EE]" />
+                                  <div className="text-[#E4E1EE] text-[10px] leading-none">▼</div>
+                                </div>
+                                {/* Phase label */}
+                                <span
+                                  className="text-[9px] font-bold uppercase tracking-wide mb-1"
+                                  style={{ color: PHASE_COLOR[row.phase] }}
+                                >
+                                  {row.phase}
+                                </span>
+                                {/* Box */}
+                                <div
+                                  className={cn(
+                                    "w-full rounded-[6px] border px-3 py-1.5 text-center",
+                                    row.phase === "START HERE"
+                                      ? "border-[#C94B6E]/40 bg-[#FDF0F3]"
+                                      : "border-[#E4E1EE] bg-[#F2F0F7]",
+                                  )}
+                                >
+                                  <p className="text-[11px] font-medium text-[#3D3652] truncate" title={row.title}>
+                                    {row.title}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+
+                          {/* Legend */}
+                          <div className="mt-5 space-y-1 text-[9px] text-[#9E97B3]">
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-sm border-2 border-[#C94B6E] bg-white" />
+                              <span>Cherry border = Current</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-sm border border-[#C94B6E]/40 bg-[#FDF0F3]" />
+                              <span>Pink = Start here</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-sm border border-[#E4E1EE] bg-[#F2F0F7]" />
+                              <span>Gray = Next steps</span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[10px] text-center text-[#999]">
+                          Auto-drawn from 04 — Progressive References (baseline ∪ manually authored), ordered by phase.
+                        </p>
+                      </section>
+                    )
+                  })()}
+
+                  {/* 06 — Knowledge Team (contributors card) */}
                   <section className="mb-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">04 — Progressive References</span>
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">06 — Knowledge Team</span>
                       <div className="flex-1 h-px bg-[#E4E1EE]" />
                     </div>
-                    <p className="text-[11px] text-[#9E97B3] mb-4">
-                      MECE learning path — each reference adds what the previous didn&rsquo;t cover.
-                    </p>
-                    {refsDraft.length === 0 ? (
-                      <p className="text-[12px] italic text-[#9E97B3]">(no references)</p>
+                    {contributorsDraft.length === 0 ? (
+                      <p className="text-[12px] italic text-[#9E97B3]">(no contributors)</p>
                     ) : (
-                      <div className="space-y-4">
-                        {refsDraft.map((ref, i) => {
-                          const isFirst = i === 0
-                          const color = isFirst ? "#C94B6E" : "#9E97B3"
-                          const borderColor = isFirst ? "#C94B6E" : "#E4E1EE"
-                          const label = isFirst ? "START HERE" : i === 1 ? "NEXT →" : i === 2 ? "THEN →" : "DEEP DIVE →"
-                          const refConcept = ref.concept_id ? concepts.find((c) => c.id === ref.concept_id) : null
-                          return (
-                            <div key={i} className="pl-4 relative" style={{ borderLeft: `2px solid ${borderColor}` }}>
-                              <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: borderColor }} />
-                              <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color }}>{label}</span>
-                              <p className="text-[13px] font-bold text-[#1A1626] mt-0.5">
-                                {ref.title || <em className="italic text-[#9E97B3]">(no title)</em>}
-                                {refConcept && <span className="ml-1 text-[10px] font-normal text-[#2D7A5E]">→ {refConcept.title}</span>}
-                                {ref.external && (
-                                  <a href={ref.external} target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] font-normal text-[#7B5EA7] underline">
-                                    link ↗
-                                  </a>
-                                )}
-                              </p>
-                              {ref.learn && (
-                                <p className="text-[12px] text-[#6B6480] leading-[1.5] mt-1">
-                                  <strong className="text-[#3D3652]">What you&rsquo;ll learn:</strong> {ref.learn}
-                                </p>
-                              )}
-                              {ref.adds && <p className="text-[11px] italic text-[#7B5EA7] mt-1">Adds: {ref.adds}</p>}
+                      <div className="bg-white border border-[#E4E1EE] rounded-[12px] p-3.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] mb-3">
+                          Knowledge Team
+                        </p>
+                        <div className="space-y-2.5">
+                          {contributorsDraft.slice(0, 3).map((contrib) => (
+                            <div key={contrib.id} className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-[#F3EFFA] flex items-center justify-center text-[10px] font-bold text-[#6B6480]">
+                                {contrib.initials || "?"}
+                              </div>
+                              <div>
+                                <p className="text-[12px] font-medium text-[#1A1626]">{contrib.name || <em className="italic text-[#9E97B3]">(unnamed)</em>}</p>
+                                <p className="text-[10px] text-[#9E97B3]">{contrib.role || <em className="italic">(no role)</em>}</p>
+                              </div>
                             </div>
-                          )
-                        })}
+                          ))}
+                        </div>
+                        {contributorsDraft.length > 3 && (
+                          <a href="#" className="block mt-3 text-[11px] font-medium text-[#C94B6E] hover:underline">
+                            + {contributorsDraft.length - 3} contributors
+                          </a>
+                        )}
                       </div>
                     )}
                   </section>
@@ -1608,6 +1936,19 @@ export function ConceptPagePublishPanel() {
                             </button>
                           </div>
                         </div>
+                        <div className="mt-2">
+                          <label className={labelCls}>Phase</label>
+                          <select
+                            value={ref.phase ?? ""}
+                            onChange={(e) => updateRef(idx, { phase: (e.target.value || undefined) as Phase | undefined })}
+                            className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                          >
+                            <option value="">— auto (by order) —</option>
+                            {PHASE_OPTIONS.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                        </div>
                         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className={labelCls}>Title</label>
@@ -1679,6 +2020,84 @@ export function ConceptPagePublishPanel() {
                 <p className="mt-2 text-[10px] text-[#999]">
                   Stored as JSONB on <code className="font-mono">content.concept_page.progressive_refs</code> (treated as <strong>manual overrides</strong>). Final public list = <em>graph baseline (depth-sorted)</em> ∪ <em>authored</em>. Order = learning sequence.
                 </p>
+              </section>
+
+              {/* 05 — Contributors (Knowledge Team) */}
+              <section className="mt-6">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#7B5EA7]">
+                    05 — Contributors
+                    <span className="ml-2 text-[10px] font-normal text-[#888]">({contributorsDraft.length})</span>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveContributors}
+                      className={cn(btnPrimary, "disabled:opacity-40 text-[11px] py-1 px-3")}
+                    >
+                      Save
+                    </button>
+                    {contributorsSavedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ saved</span>}
+                  </div>
+                </div>
+                <p className="mt-1 text-[10px] text-[#999]">
+                  Shown as the &ldquo;Knowledge Team&rdquo; card on the public concept page. First 3 appear in-card; rest show as &ldquo;+ N contributors&rdquo; link.
+                </p>
+
+                <ul className="mt-3 space-y-2">
+                  {contributorsDraft.map((contrib) => (
+                    <li key={contrib.id} className="rounded-lg border border-[#E0E0E0] bg-white p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="w-8 h-8 shrink-0 rounded-full bg-[#F3EFFA] flex items-center justify-center text-[11px] font-bold text-[#6B6480]">
+                          {contrib.initials || "?"}
+                        </div>
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className={labelCls}>Initials</label>
+                            <input
+                              value={contrib.initials}
+                              onChange={(e) => updateContributor(contrib.id, { initials: e.target.value.toUpperCase().slice(0, 3) })}
+                              placeholder="KJ"
+                              className={cn(inputBase, "mt-1 text-[12px] py-1.5 font-mono")}
+                              maxLength={3}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Name</label>
+                            <input
+                              value={contrib.name}
+                              onChange={(e) => updateContributor(contrib.id, { name: e.target.value })}
+                              placeholder="Keanu J."
+                              className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Role</label>
+                            <input
+                              value={contrib.role}
+                              onChange={(e) => updateContributor(contrib.id, { role: e.target.value })}
+                              placeholder="Lead reviewer"
+                              className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeContributor(contrib.id)}
+                          className="rounded p-1 text-[#888] hover:bg-red-50 hover:text-red-400"
+                          title="Remove contributor"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={addContributor}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#E0E0E0] py-2 text-[12px] text-[#888] transition-colors hover:border-[#7B5EA7] hover:text-[#7B5EA7]"
+                >
+                  <Plus className="h-3 w-3" /> Add contributor
+                </button>
               </section>
             </div>
             )}

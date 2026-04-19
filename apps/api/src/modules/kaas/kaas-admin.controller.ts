@@ -67,38 +67,6 @@ export class KaasAdminController {
     await this.knowledge.revokeConcept(id);
   }
 
-  /* ───── Public Concept Page Publication ───── */
-
-  @Get('concepts/:id/publication')
-  @ApiOperation({ summary: 'Admin — 퍼블리싱 상태 조회 (content.concept_page)' })
-  async getPublication(@Param('id') id: string) {
-    const result = await this.knowledge.getPublication(id);
-    if (!result) throw new NotFoundException('Concept not found');
-    return result;
-  }
-
-  @Post('concepts/:id/publish')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Admin — 퍼블리싱 on/off + changelog 기록' })
-  async setPublication(
-    @Param('id') id: string,
-    @Body() body: { published: boolean },
-  ) {
-    return this.knowledge.setPublication(id, !!body.published);
-  }
-
-  @Patch('concepts/:id/concept-page')
-  @ApiOperation({ summary: 'Admin — 컨셉 페이지 드래프트 편집 (related_concepts / progressive_refs)' })
-  async patchConceptPage(
-    @Param('id') id: string,
-    @Body() body: { related_concepts?: string[]; progressive_refs?: unknown[] },
-  ) {
-    return this.knowledge.patchConceptPage(id, {
-      relatedConcepts: body.related_concepts,
-      progressiveRefs: body.progressive_refs,
-    });
-  }
-
   /* ───── Evidence CRUD ───── */
 
   @Post('concepts/:conceptId/evidence')
