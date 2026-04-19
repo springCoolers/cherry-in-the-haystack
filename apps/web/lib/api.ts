@@ -693,6 +693,55 @@ export async function deleteConceptAdmin(id: string) {
   if (!res.ok) throw new Error("Failed to delete concept")
 }
 
+/** Public Concept Page — publication state + draft fields (related_concepts, progressive_refs) */
+export interface ProgressiveRef {
+  concept_id?: string
+  external?: string
+  title: string
+  learn: string
+  adds?: string
+}
+
+export interface ConceptPublication {
+  isPublished: boolean
+  publishedAt: string | null
+  slug: string
+  name: string
+  existsOnPublicPage: boolean
+  relatedConcepts: string[]        // concept IDs
+  progressiveRefs: ProgressiveRef[]
+}
+
+export async function fetchConceptPublication(id: string): Promise<ConceptPublication> {
+  const res = await fetch(`${KAAS_BASE}/admin/concepts/${id}/publication`, { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to load publication state")
+  return res.json()
+}
+
+export async function setConceptPublication(id: string, published: boolean): Promise<ConceptPublication> {
+  const res = await fetch(`${KAAS_BASE}/admin/concepts/${id}/publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ published }),
+  })
+  if (!res.ok) throw new Error("Failed to update publication state")
+  return res.json()
+}
+
+/** Patch draft fields on content.concept_page. Creates row as draft (is_published=false) if missing. */
+export async function patchConceptPage(
+  id: string,
+  patch: { related_concepts?: string[]; progressive_refs?: ProgressiveRef[] },
+): Promise<ConceptPublication> {
+  const res = await fetch(`${KAAS_BASE}/admin/concepts/${id}/concept-page`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error("Failed to patch concept page draft")
+  return res.json()
+}
+
 export async function addEvidenceAdmin(conceptId: string, body: {
   source: string
   summary: string

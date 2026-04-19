@@ -6,7 +6,7 @@ import {
   Coins, ExternalLink, Shield, Wallet, ArrowUpRight, ArrowDownRight,
   Copy, Check, Globe, UserPlus, Plus, X, Key,
 } from "lucide-react"
-import { KnowledgeCurationPanel } from "./kaas-admin-page"
+import { KnowledgeCurationPanel, ConceptPagePublishPanel } from "./kaas-admin-page"
 import { TemplateEditorBody } from "@/app/template/edit/page"
 
 /* ═══════════════════════════════════════════════
@@ -1517,11 +1517,11 @@ function WalletPanel({ agent, onRefresh, karma, karmaLoading, karmaError, onRefr
 /* ═══════════════════════════════════════════════
    Main — 2 panel layout
 ═══════════════════════════════════════════════ */
-export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: boolean; onTabChange?: (tab: "dashboard" | "curation" | "template") => void }) {
+export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: boolean; onTabChange?: (tab: "dashboard" | "curation" | "concept-page" | "template") => void }) {
   const [agents, setAgents] = useState<Agent[]>([])
   const [selectedAgentId, setSelectedAgentId] = useState("")
   const [showRegister, setShowRegister] = useState(false)
-  const [activeTab, setActiveTab] = useState<"dashboard" | "curation" | "template">("dashboard")
+  const [activeTab, setActiveTab] = useState<"dashboard" | "curation" | "concept-page" | "template">("dashboard")
 
   // Karma state — 상위에서 관리하여 좌측(AgentPanel) + 우측(WalletPanel) 양쪽 접근 가능
   const [onchainKarma, setOnchainKarma] = useState<import("@/lib/api").OnchainKarma | null>(null)
@@ -1630,6 +1630,7 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
     { key: "dashboard" as const, label: "Dashboard" },
     { key: "curation" as const, label: "Knowledge Curation" },
     ...(isAdmin ? [
+      { key: "concept-page" as const, label: "Concept Page" },
       { key: "template" as const, label: "Prompt Templates" },
     ] : []),
   ]
@@ -1715,6 +1716,11 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
         {activeTab === "curation" && (
           <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA]">
             <KnowledgeCurationPanel isAdmin={isAdmin} />
+          </div>
+        )}
+        {activeTab === "concept-page" && (
+          <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA]">
+            <ConceptPagePublishPanel />
           </div>
         )}
         {activeTab === "template" && (

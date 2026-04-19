@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
-import { Search, Plus, Trash2, Upload, Eye, Edit3, FileText, BookOpen, Loader2, EyeOff } from "lucide-react"
+import { Search, Plus, Trash2, Upload, Eye, Edit3, FileText, BookOpen, Loader2, EyeOff, Globe, X, ChevronDown } from "lucide-react"
 import {
   fetchConceptsAdmin,
   fetchConceptAdmin,
@@ -14,8 +14,13 @@ import {
   addEvidenceAdmin,
   updateEvidenceAdmin,
   deleteEvidenceAdmin,
+  fetchConceptPublication,
+  setConceptPublication,
+  patchConceptPage,
   type AdminConcept,
   type AdminEvidence,
+  type ConceptPublication,
+  type ProgressiveRef,
 } from "@/lib/api"
 import { TemplateEditorBody } from "@/app/template/edit/page"
 
@@ -119,7 +124,6 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
   const [editCategory, setEditCategory] = useState("")
   const [editSummary, setEditSummary] = useState("")
   const [editQuality, setEditQuality] = useState(0)
-  const [editRelated, setEditRelated] = useState("")
   const [editOnSale, setEditOnSale] = useState(false)
   const [editSaleDiscount, setEditSaleDiscount] = useState(20)
 
@@ -176,7 +180,6 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
     setEditCategory(selected.category)
     setEditSummary(selected.summary)
     setEditQuality(selected.qualityScore)
-    setEditRelated((selected.relatedConcepts ?? []).join(", "))
     setEditOnSale((selected as any).isOnSale ?? false)
     setEditSaleDiscount((selected as any).saleDiscount ?? 20)
     setContentMd(selected.contentMd ?? "")
@@ -219,7 +222,6 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
         category: editCategory,
         summary: editSummary,
         quality_score: editQuality,
-        related_concepts: editRelated.split(",").map((s) => s.trim()).filter(Boolean),
         is_on_sale: editOnSale,
         sale_discount: editSaleDiscount,
       })
@@ -538,7 +540,6 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
                     <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#D4854A]">Quality Score</label><input type="number" step="0.1" min="0" max="5" value={editQuality} onChange={(e) => setEditQuality(Number(e.target.value))} className={cn(inputBase, "mt-1")} /></div>
                     <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#2D7A5E]">Source Count</label><input type="number" value={selected.sourceCount} disabled className={cn(inputBase, "mt-1 bg-[#F9F7F5]")} /></div>
                   </div>
-                  <div><label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#999]">Related Concepts (comma-separated)</label><input value={editRelated} onChange={(e) => setEditRelated(e.target.value)} placeholder="chain-of-thought, embeddings" className={cn(inputBase, "mt-1")} /></div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">Sale</label>
@@ -688,13 +689,929 @@ export function KnowledgeCurationPanel({ isAdmin = false }: { isAdmin?: boolean 
 }
 
 /* ═══════════════════════════════════════════
+   Concept Page Publish Panel
+   (content.concept_page + content.concept_changelog)
+═══════════════════════════════════════════ */
+export function ConceptPagePublishPanel() {
+  const [concepts, setConcepts] = useState<AdminConcept[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<"All" | Category>("All")
+
+  const [publication, setPublicationState] = useState<ConceptPublication | null>(null)
+  const [publicationLoading, setPublicationLoading] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  // Overview editor — binds to kaas.concept.content_md (same source as Content tab)
+  const [overviewDraft, setOverviewDraft] = useState("")
+  const [overviewMode, setOverviewMode] = useState<"edit" | "preview">("edit")
+  const [overviewSaving, setOverviewSaving] = useState(false)
+  const [overviewSavedFlash, setOverviewSavedFlash] = useState(false)
+
+  // Child Concepts editor — stores concept IDs in content.concept_page.related_concepts
+  const [childIds, setChildIds] = useState<string[]>([])
+  const [childPickerOpen, setChildPickerOpen] = useState(false)
+  const [childPickerSearch, setChildPickerSearch] = useState("")
+  const [childSaving, setChildSaving] = useState(false)
+  const [childSavedFlash, setChildSavedFlash] = useState(false)
+
+  // Progressive References editor — content.concept_page.progressive_refs
+  const [refsDraft, setRefsDraft] = useState<ProgressiveRef[]>([])
+  const [refsSaving, setRefsSaving] = useState(false)
+  const [refsSavedFlash, setRefsSavedFlash] = useState(false)
+
+  // Cherries (kaas.evidence) CRUD — same backend as Evidence tab, inline here
+  const [addingCherry, setAddingCherry] = useState(false)
+  const [editingCherryId, setEditingCherryId] = useState<string | null>(null)
+
+  // Preview mode — renders using concept-reader style
+  const [previewMode, setPreviewMode] = useState(false)
+
+  // Mount-only load. selectedId는 의존성에서 제외 — setState 업데이터로 초기 선택만 처리.
+  const loadConcepts = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
+    try {
+      const data = await fetchConceptsAdmin()
+      setConcepts(data)
+      setSelectedId((prev) => prev ?? data[0]?.id ?? null)
+    } catch (err) {
+      console.error("[concept-page-publish] fetchConceptsAdmin failed:", err)
+    } finally {
+      if (!opts?.silent) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadConcepts() }, [loadConcepts])
+
+  const selected = concepts.find((c) => c.id === selectedId) ?? null
+
+  // Sync overview draft when selection changes
+  useEffect(() => {
+    setOverviewDraft(selected?.contentMd ?? "")
+    setOverviewMode("edit")
+    setOverviewSavedFlash(false)
+  }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveOverview() {
+    if (!selectedId) return
+    setOverviewSaving(true)
+    console.log(`[concept-page-publish] saving overview: conceptId=${selectedId} length=${overviewDraft.length}`)
+    try {
+      await updateConceptAdmin(selectedId, { content_md: overviewDraft })
+      // Optimistic: 리스트 전체 재요청 없이 현재 concept의 contentMd만 갱신
+      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? { ...c, contentMd: overviewDraft } : c)))
+      setOverviewSavedFlash(true)
+      setTimeout(() => setOverviewSavedFlash(false), 2000)
+      console.log(`[concept-page-publish] overview saved`)
+    } catch (err) {
+      console.error("[concept-page-publish] handleSaveOverview failed:", err)
+      alert("Failed to save overview. Check console for details.")
+    } finally {
+      setOverviewSaving(false)
+    }
+  }
+
+  // Load publication state whenever selection changes
+  useEffect(() => {
+    if (!selectedId) {
+      setPublicationState(null)
+      setChildIds([])
+      setRefsDraft([])
+      return
+    }
+    let cancelled = false
+    setPublicationLoading(true)
+    console.log(`[concept-page-publish] loading publication state: conceptId=${selectedId}`)
+    fetchConceptPublication(selectedId)
+      .then((pub) => {
+        if (cancelled) return
+        setPublicationState(pub)
+        setChildIds(pub.relatedConcepts ?? [])
+        setRefsDraft(pub.progressiveRefs ?? [])
+        setChildPickerOpen(false)
+        setChildPickerSearch("")
+      })
+      .catch((err) => {
+        console.error("[concept-page-publish] fetchConceptPublication failed:", err)
+        if (!cancelled) {
+          setPublicationState(null)
+          setChildIds([])
+          setRefsDraft([])
+        }
+      })
+      .finally(() => { if (!cancelled) setPublicationLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedId])
+
+  async function handleTogglePublish(nextPublished: boolean) {
+    if (!selectedId) return
+    setPublishing(true)
+    console.log(`[concept-page-publish] toggling publication: conceptId=${selectedId} → published=${nextPublished}`)
+    try {
+      const updated = await setConceptPublication(selectedId, nextPublished)
+      setPublicationState(updated)
+      setChildIds(updated.relatedConcepts ?? [])
+      setRefsDraft(updated.progressiveRefs ?? [])
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2000)
+      console.log(`[concept-page-publish] publication updated: slug=${updated.slug} isPublished=${updated.isPublished}`)
+    } catch (err) {
+      console.error("[concept-page-publish] setConceptPublication failed:", err)
+      alert("Failed to update publication state. Check console for details.")
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function handleSaveChildren() {
+    if (!selectedId) return
+    setChildSaving(true)
+    console.log(`[concept-page-publish] saving children: conceptId=${selectedId} count=${childIds.length}`)
+    try {
+      const updated = await patchConceptPage(selectedId, { related_concepts: childIds })
+      setPublicationState(updated)
+      setChildIds(updated.relatedConcepts ?? [])
+      setChildSavedFlash(true)
+      setTimeout(() => setChildSavedFlash(false), 2000)
+      console.log(`[concept-page-publish] children saved`)
+    } catch (err) {
+      console.error("[concept-page-publish] handleSaveChildren failed:", err)
+      alert("Failed to save child concepts. Check console for details.")
+    } finally {
+      setChildSaving(false)
+    }
+  }
+
+  async function handleSaveRefs() {
+    if (!selectedId) return
+    setRefsSaving(true)
+    console.log(`[concept-page-publish] saving refs: conceptId=${selectedId} count=${refsDraft.length}`)
+    try {
+      const updated = await patchConceptPage(selectedId, { progressive_refs: refsDraft })
+      setPublicationState(updated)
+      setRefsDraft(updated.progressiveRefs ?? [])
+      setRefsSavedFlash(true)
+      setTimeout(() => setRefsSavedFlash(false), 2000)
+      console.log(`[concept-page-publish] refs saved`)
+    } catch (err) {
+      console.error("[concept-page-publish] handleSaveRefs failed:", err)
+      alert("Failed to save progressive references. Check console for details.")
+    } finally {
+      setRefsSaving(false)
+    }
+  }
+
+  // Cherry CRUD — mirrors Evidence tab handlers but refetches just this concept
+  async function handleAddCherry(data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
+    if (!selectedId) return
+    console.log(`[concept-page-publish] adding cherry: conceptId=${selectedId} source="${data.source}"`)
+    try {
+      await addEvidenceAdmin(selectedId, data)
+      const fresh = await fetchConceptAdmin(selectedId)
+      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
+      setAddingCherry(false)
+    } catch (err) {
+      console.error("[concept-page-publish] handleAddCherry failed:", err)
+      alert("Failed to add cherry. Check console for details.")
+    }
+  }
+  async function handleUpdateCherry(evidenceId: string, data: { source: string; summary: string; curator: string; curator_tier: string; comment: string }) {
+    if (!selectedId) return
+    console.log(`[concept-page-publish] updating cherry: conceptId=${selectedId} evidenceId=${evidenceId}`)
+    try {
+      await updateEvidenceAdmin(selectedId, evidenceId, data)
+      const fresh = await fetchConceptAdmin(selectedId)
+      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
+      setEditingCherryId(null)
+    } catch (err) {
+      console.error("[concept-page-publish] handleUpdateCherry failed:", err)
+      alert("Failed to update cherry. Check console for details.")
+    }
+  }
+  async function handleDeleteCherry(evidenceId: string) {
+    if (!selectedId) return
+    if (!confirm("Delete this cherry? This cannot be undone.")) return
+    console.log(`[concept-page-publish] deleting cherry: conceptId=${selectedId} evidenceId=${evidenceId}`)
+    try {
+      await deleteEvidenceAdmin(selectedId, evidenceId)
+      const fresh = await fetchConceptAdmin(selectedId)
+      setConcepts((prev) => prev.map((c) => (c.id === selectedId ? fresh : c)))
+    } catch (err) {
+      console.error("[concept-page-publish] handleDeleteCherry failed:", err)
+      alert("Failed to delete cherry. Check console for details.")
+    }
+  }
+
+  function toggleChild(id: string) {
+    setChildIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function updateRef(idx: number, patch: Partial<ProgressiveRef>) {
+    setRefsDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+  }
+  function removeRef(idx: number) {
+    setRefsDraft((prev) => prev.filter((_, i) => i !== idx))
+  }
+  function moveRef(idx: number, dir: -1 | 1) {
+    setRefsDraft((prev) => {
+      const next = [...prev]
+      const j = idx + dir
+      if (j < 0 || j >= next.length) return prev
+      ;[next[idx], next[j]] = [next[j], next[idx]]
+      return next
+    })
+  }
+  function addRef() {
+    setRefsDraft((prev) => [...prev, { title: "", learn: "", adds: "" }])
+  }
+
+  if (loading) {
+    return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#888]" /></div>
+  }
+
+  const CATEGORY_FILTERS = ["All", ...CATEGORY_OPTIONS] as const
+  const nonDeleted = concepts.filter((c) => !c.revokedAt && c.isActive)
+  const filtered = nonDeleted.filter((c) => {
+    const matchCat = categoryFilter === "All" || c.category === categoryFilter
+    const matchSearch = search === "" ||
+      c.title.toLowerCase().includes(search.toLowerCase()) ||
+      c.id.toLowerCase().includes(search.toLowerCase())
+    return matchCat && matchSearch
+  })
+
+  return (
+    <div className="flex flex-col lg:flex-row flex-1 gap-4 lg:gap-5 overflow-hidden p-4 lg:p-5">
+      {/* Left panel — concept list */}
+      <div className="flex w-full lg:w-[300px] shrink-0 flex-col rounded-xl border border-[#E0E0E0] bg-white overflow-hidden max-h-[40vh] lg:max-h-none">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+          <Globe className="h-4 w-4 text-[#7B5EA7]" />
+          <h3 className="text-[14px] font-bold text-[#1A1626]">Concept Pages</h3>
+        </div>
+        <div className="px-3 pt-2 pb-1">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#888]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              className="w-full rounded-lg border border-[#E0E0E0] bg-[#FBFAF8] py-1.5 pl-8 pr-3 text-[12px] outline-none placeholder:text-[#888] focus:border-[#1A1626] focus:bg-white"
+            />
+          </div>
+        </div>
+        <div className="flex gap-1 px-3 pb-2 flex-wrap">
+          {CATEGORY_FILTERS.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat as typeof categoryFilter)}
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors border",
+                categoryFilter === cat
+                  ? "bg-[#1A1626] text-white border-[#1A1626]"
+                  : "border-[#E0E0E0] text-[#888] hover:border-[#999] hover:text-[#555]",
+              )}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 pb-2">
+          {filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+              <BookOpen className="h-8 w-8 text-[#D4854A] mb-3 opacity-60" />
+              <p className="text-[13px] font-semibold text-[#3D3652]">No concepts</p>
+            </div>
+          )}
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedId(c.id)}
+              className={cn(
+                "group w-full rounded-lg px-3 py-2 text-left transition-colors",
+                selectedId === c.id ? "bg-[#FFF8F0]" : "hover:bg-[#FAFAFA]",
+              )}
+            >
+              <p className={cn("text-[12.5px] font-semibold", selectedId === c.id ? "text-[#D4854A]" : "text-[#1A1626]")}>
+                {c.title}
+              </p>
+              <p className="mt-0.5 text-[10px] text-[#888] truncate">{c.category} · {c.id.slice(0, 8)}…</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Right panel — publish controls + preview */}
+      <div className="flex flex-1 flex-col rounded-xl border border-[#E0E0E0] bg-white overflow-hidden">
+        {selected ? (
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {/* Status bar */}
+            <div className="rounded-xl border border-[#E0E0E0] bg-[#FBFAF8] p-4">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-[#7B5EA7]" />
+                    <span className={labelCls}>Public Concept Page</span>
+                    {publicationLoading && <Loader2 className="h-3 w-3 animate-spin text-[#888]" />}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {publication?.isPublished ? (
+                      <span className="rounded-full bg-[#E8F4EC] px-2 py-0.5 text-[11px] font-semibold text-[#2D7A5E]">● Published</span>
+                    ) : (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#888] border border-[#E0E0E0]">○ Not published</span>
+                    )}
+                    {publication?.publishedAt && (
+                      <span className="text-[11px] text-[#888]">
+                        first published: {new Date(publication.publishedAt).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#888] break-all">
+                    slug: <code className="rounded bg-white px-1 py-0.5 font-mono text-[10.5px] text-[#555] border border-[#E0E0E0]">{publication?.slug ?? selected.id}</code>
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setPreviewMode((v) => !v)}
+                      className={cn(
+                        "flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors border",
+                        previewMode
+                          ? "bg-[#1A1626] text-white border-[#1A1626]"
+                          : "bg-white text-[#555] border-[#E0E0E0] hover:border-[#1A1626] hover:text-[#1A1626]",
+                      )}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      {previewMode ? "Exit Preview" : "Preview"}
+                    </button>
+                    {publication?.isPublished ? (
+                      <button
+                        onClick={() => handleTogglePublish(false)}
+                        disabled={publishing}
+                        className={cn(btnSecondary, "disabled:opacity-40")}
+                      >
+                        {publishing ? "Updating…" : "Unpublish"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleTogglePublish(true)}
+                        disabled={publishing}
+                        className={cn(btnPrimary, "disabled:opacity-40")}
+                      >
+                        {publishing ? "Publishing…" : "Publish"}
+                      </button>
+                    )}
+                  </div>
+                  {savedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ changelog recorded</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Preview mode — mirrors public concept-reader-page layout */}
+            {previewMode && (
+              <div className="rounded-xl border border-[#E0E0E0] bg-white overflow-hidden">
+                <div className="border-b border-[#F0F0F0] bg-[#FBFAF8] px-4 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-[#7B5EA7]">Preview — public concept page</span>
+                  <span className="text-[10px] text-[#888]">
+                    {publication?.isPublished ? "rendering published + current drafts" : "rendering drafts (not yet published)"}
+                  </span>
+                </div>
+                <article className="px-6 lg:px-12 py-8 lg:py-10" style={{ maxWidth: "720px", margin: "0 auto" }}>
+                  {/* Category badge */}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EFFA] text-[#7B5EA7] mb-3">
+                    {selected.category}
+                  </span>
+
+                  {/* Title */}
+                  <h1 className="text-[22px] lg:text-[28px] font-extrabold text-[#1A1626] tracking-[-0.5px] leading-[1.2] mb-4">
+                    {selected.title}
+                  </h1>
+
+                  {/* Meta row */}
+                  <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#9E97B3] mb-8">
+                    <span>Updated {selected.updatedAt ? new Date(selected.updatedAt).toLocaleDateString() : "—"}</span>
+                    <span className="text-[#E4E1EE]">·</span>
+                    <span>{selected.sourceCount ?? 0} sources</span>
+                    <span className="text-[#E4E1EE]">·</span>
+                    <span>Quality {selected.qualityScore ?? 0}/5</span>
+                    {publication?.isPublished && (
+                      <>
+                        <span className="text-[#E4E1EE]">·</span>
+                        <span className="text-[#2D7A5E] font-medium">Published</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 01 — Overview */}
+                  <section className="mb-10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">01 — Overview</span>
+                      <div className="flex-1 h-px bg-[#E4E1EE]" />
+                    </div>
+                    <div className="text-[14px] text-[#3D3652] leading-[1.75] whitespace-pre-wrap">
+                      {(overviewDraft || selected.contentMd)?.trim() || <span className="italic text-[#9E97B3]">(empty — write overview in edit mode)</span>}
+                    </div>
+                  </section>
+
+                  {/* 02 — Cherries */}
+                  <section className="mb-10">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">02 — Cherries</span>
+                      <div className="flex-1 h-px bg-[#E4E1EE]" />
+                    </div>
+                    <p className="text-[11px] text-[#9E97B3] mb-4">
+                      Curated sources backing this concept — each covers a distinct, non-overlapping aspect.
+                    </p>
+                    {(selected.evidence ?? []).length === 0 ? (
+                      <p className="text-[12px] italic text-[#9E97B3]">(no cherries yet)</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {(selected.evidence ?? []).map((ev) => (
+                          <div
+                            key={ev.id}
+                            className="bg-white border border-[#E4E1EE] rounded-[8px] p-4"
+                            style={{ borderLeftWidth: "3px", borderLeftColor: "#C94B6E" }}
+                          >
+                            <p className="text-[12px] font-bold text-[#1A1626] mb-1.5 flex items-center gap-1.5">
+                              <span>🍒</span>
+                              {ev.source}
+                            </p>
+                            <p className="text-[12px] text-[#6B6480] leading-[1.6]">{ev.summary}</p>
+                            {ev.comment && <p className="mt-1 text-[11px] italic text-[#9E97B3]">&ldquo;{ev.comment}&rdquo;</p>}
+                            <p className="mt-1.5 text-[10px] text-[#9E97B3]">— {ev.curator} · {ev.curatorTier}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* 03 — Child Concepts */}
+                  <section className="mb-10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">03 — Child Concepts</span>
+                      <div className="flex-1 h-px bg-[#E4E1EE]" />
+                    </div>
+                    {childIds.length === 0 ? (
+                      <p className="text-[12px] italic text-[#9E97B3]">(no child concepts)</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {childIds.map((cid) => {
+                          const child = concepts.find((c) => c.id === cid)
+                          if (!child) {
+                            return (
+                              <div key={cid} className="bg-[#FAFAFA] border border-[#E4E1EE] rounded-[8px] p-3 opacity-60">
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-[#9E97B3]">ORPHANED</span>
+                                <p className="text-[13px] font-semibold text-[#9E97B3] mt-0.5">{cid.slice(0, 8)}…</p>
+                              </div>
+                            )
+                          }
+                          return (
+                            <div key={cid} className="bg-white border border-[#E4E1EE] rounded-[8px] p-3 transition-colors hover:border-[#C94B6E]">
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-[#7B5EA7]">RELATED</span>
+                              <p className="text-[13px] font-semibold text-[#1A1626] mt-0.5">{child.title}</p>
+                              <p className="text-[11px] text-[#9E97B3] mt-0.5">{child.summary}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* 04 — Progressive References */}
+                  <section className="mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#9E97B3] whitespace-nowrap">04 — Progressive References</span>
+                      <div className="flex-1 h-px bg-[#E4E1EE]" />
+                    </div>
+                    <p className="text-[11px] text-[#9E97B3] mb-4">
+                      MECE learning path — each reference adds what the previous didn&rsquo;t cover.
+                    </p>
+                    {refsDraft.length === 0 ? (
+                      <p className="text-[12px] italic text-[#9E97B3]">(no references)</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {refsDraft.map((ref, i) => {
+                          const isFirst = i === 0
+                          const color = isFirst ? "#C94B6E" : "#9E97B3"
+                          const borderColor = isFirst ? "#C94B6E" : "#E4E1EE"
+                          const label = isFirst ? "START HERE" : i === 1 ? "NEXT →" : i === 2 ? "THEN →" : "DEEP DIVE →"
+                          const refConcept = ref.concept_id ? concepts.find((c) => c.id === ref.concept_id) : null
+                          return (
+                            <div key={i} className="pl-4 relative" style={{ borderLeft: `2px solid ${borderColor}` }}>
+                              <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: borderColor }} />
+                              <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color }}>{label}</span>
+                              <p className="text-[13px] font-bold text-[#1A1626] mt-0.5">
+                                {ref.title || <em className="italic text-[#9E97B3]">(no title)</em>}
+                                {refConcept && <span className="ml-1 text-[10px] font-normal text-[#2D7A5E]">→ {refConcept.title}</span>}
+                                {ref.external && (
+                                  <a href={ref.external} target="_blank" rel="noopener noreferrer" className="ml-1 text-[10px] font-normal text-[#7B5EA7] underline">
+                                    link ↗
+                                  </a>
+                                )}
+                              </p>
+                              {ref.learn && (
+                                <p className="text-[12px] text-[#6B6480] leading-[1.5] mt-1">
+                                  <strong className="text-[#3D3652]">What you&rsquo;ll learn:</strong> {ref.learn}
+                                </p>
+                              )}
+                              {ref.adds && <p className="text-[11px] italic text-[#7B5EA7] mt-1">Adds: {ref.adds}</p>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </section>
+                </article>
+              </div>
+            )}
+
+            {/* Edit mode — only when NOT previewing */}
+            {!previewMode && (
+            <div className="rounded-xl border border-[#E0E0E0] bg-white p-6">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="rounded-full bg-[#FFF8F0] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#D4854A]">{selected.category}</span>
+                <span className="text-[10px] text-[#888]">Preview</span>
+              </div>
+              <h2 className="text-[20px] font-bold text-[#1A1626]">{selected.title}</h2>
+              <p className="mt-1 text-[12px] text-[#888]">
+                updated {selected.updatedAt ? new Date(selected.updatedAt).toLocaleDateString() : "—"}
+                {" · "}sources {selected.sourceCount ?? 0}
+                {" · "}quality {selected.qualityScore ?? 0}/5
+              </p>
+
+              <section className="mt-6">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#7B5EA7]">01 — Overview</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5 rounded-lg bg-[#FAFAFA] p-0.5">
+                      <button
+                        onClick={() => setOverviewMode("edit")}
+                        className={cn(
+                          "rounded px-2 py-0.5 text-[11px] font-semibold transition-colors",
+                          overviewMode === "edit" ? "bg-white text-[#1A1626] shadow-sm" : "text-[#888] hover:text-[#333]",
+                        )}
+                      >
+                        <Edit3 className="mr-1 inline h-3 w-3" />Edit
+                      </button>
+                      <button
+                        onClick={() => setOverviewMode("preview")}
+                        className={cn(
+                          "rounded px-2 py-0.5 text-[11px] font-semibold transition-colors",
+                          overviewMode === "preview" ? "bg-white text-[#1A1626] shadow-sm" : "text-[#888] hover:text-[#333]",
+                        )}
+                      >
+                        <Eye className="mr-1 inline h-3 w-3" />Preview
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleSaveOverview}
+                      disabled={overviewSaving || overviewDraft === (selected.contentMd ?? "")}
+                      className={cn(btnPrimary, "disabled:opacity-40 text-[11px] py-1 px-3")}
+                    >
+                      {overviewSaving ? "Saving…" : "Save"}
+                    </button>
+                    {overviewSavedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ saved</span>}
+                  </div>
+                </div>
+                {overviewMode === "edit" ? (
+                  <textarea
+                    value={overviewDraft}
+                    onChange={(e) => setOverviewDraft(e.target.value)}
+                    rows={16}
+                    className={cn(inputBase, "mt-2 resize-none font-mono text-[12px] leading-relaxed")}
+                    placeholder="Write the public concept page overview in markdown. Saves to kaas.concept.content_md."
+                  />
+                ) : (
+                  <div className="mt-2 rounded-lg bg-[#FBFAF8] p-4">
+                    <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-[#333]">
+                      {overviewDraft.trim() || "(empty)"}
+                    </pre>
+                  </div>
+                )}
+                <p className="mt-1 text-[10px] text-[#999]">
+                  Edits the same <code className="font-mono">kaas.concept.content_md</code> used by the market card and the Content tab. Publishing copies the current value into <code className="font-mono">content.concept_page</code>.
+                </p>
+              </section>
+
+              <section className="mt-6">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#D4854A]">
+                    02 — Cherries
+                    <span className="ml-2 text-[10px] font-normal text-[#888]">({(selected.evidence ?? []).length})</span>
+                  </h3>
+                  <span className="text-[10px] text-[#888] italic">Manually curated — also editable in Evidence tab</span>
+                </div>
+
+                <div className="mt-2 space-y-2">
+                  {(selected.evidence ?? []).map((ev) => (
+                    editingCherryId === ev.id ? (
+                      <EvidenceForm
+                        key={ev.id}
+                        initial={ev}
+                        onSave={(data) => handleUpdateCherry(ev.id, data)}
+                        onCancel={() => setEditingCherryId(null)}
+                      />
+                    ) : (
+                      <div key={ev.id} className="group rounded-lg border border-[#E0E0E0] bg-white p-3 transition-colors hover:border-[#CCC]">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-semibold text-[#1A1626] flex items-center gap-1">
+                              <span>🍒</span>
+                              {ev.source}
+                            </p>
+                            <p className="mt-1 text-[12px] leading-relaxed text-[#555]">{ev.summary}</p>
+                            {ev.comment && <p className="mt-1 text-[11px] italic text-[#888]">&ldquo;{ev.comment}&rdquo;</p>}
+                            <p className="mt-1 text-[10px] text-[#888]">— {ev.curator} · {ev.curatorTier}</p>
+                          </div>
+                          <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button onClick={() => setEditingCherryId(ev.id)} className="rounded p-1 text-[#888] hover:bg-[#FAFAFA] hover:text-[#D4854A]" title="Edit cherry">
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => handleDeleteCherry(ev.id)} className="rounded p-1 text-[#888] hover:bg-red-50 hover:text-red-400" title="Delete cherry">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ))}
+
+                  {addingCherry ? (
+                    <EvidenceForm
+                      onSave={handleAddCherry}
+                      onCancel={() => setAddingCherry(false)}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setAddingCherry(true)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#E0E0E0] py-2.5 text-[12px] text-[#888] transition-colors hover:border-[#D4854A] hover:text-[#D4854A]"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add cherry
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              {/* 03 — Child Concepts : concept picker, stores IDs on content.concept_page.related_concepts */}
+              <section className="mt-6">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#2D7A5E]">03 — Child Concepts</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveChildren}
+                      disabled={childSaving || JSON.stringify(childIds) === JSON.stringify(publication?.relatedConcepts ?? [])}
+                      className={cn(btnPrimary, "disabled:opacity-40 text-[11px] py-1 px-3")}
+                    >
+                      {childSaving ? "Saving…" : "Save"}
+                    </button>
+                    {childSavedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ saved</span>}
+                  </div>
+                </div>
+
+                {/* Auto-suggested baseline from graph DB (placeholder until wired) */}
+                <div className="mt-3 rounded-lg border border-dashed border-[#7B5EA7]/40 bg-[#FBFAFE] p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#7B5EA7]">🔗 Auto-suggested by ontology graph</span>
+                    <span className="rounded-full bg-[#F0EDF8] px-1.5 py-0.5 text-[9px] font-medium text-[#7B5EA7] uppercase tracking-wide">pending</span>
+                  </div>
+                  <p className="text-[11px] text-[#888] leading-relaxed">
+                    Graph DB not yet connected. Once available, related concepts traversed from <code className="font-mono text-[10.5px]">subtopic / related / extends / prerequisite</code> edges will appear here, and you'll hide / re-include them individually. Until then, use the manual pin list below.
+                  </p>
+                </div>
+
+                {/* Manually pinned */}
+                <div className="mt-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#2D7A5E]">📌 Manually pinned</span>
+                    <span className="text-[10px] text-[#888]">({childIds.length})</span>
+                  </div>
+                  {childIds.length === 0 ? (
+                    <p className="text-[11px] italic text-[#888]">
+                      None pinned yet. While graph is pending, this list is the only source — pinned items always appear on the public page (graph baseline ∪ pinned − hidden).
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {childIds.map((cid) => {
+                        const child = concepts.find((c) => c.id === cid)
+                        return (
+                          <span
+                            key={cid}
+                            className="flex items-center gap-1 rounded-full border border-[#2D7A5E]/30 bg-[#E8F4EC] px-2 py-0.5 text-[11px] text-[#2D7A5E]"
+                          >
+                            {child?.title ?? <em className="italic text-[#888]">{cid.slice(0, 8)}… (orphaned)</em>}
+                            <button onClick={() => toggleChild(cid)} className="hover:text-red-500" title="Unpin">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Picker */}
+                <div className="mt-3">
+                  <button
+                    onClick={() => setChildPickerOpen((v) => !v)}
+                    className={cn(btnSecondary, "flex items-center gap-1")}
+                  >
+                    <Plus className="h-3 w-3" /> Pin a concept
+                    <ChevronDown className={cn("h-3 w-3 transition-transform", childPickerOpen && "rotate-180")} />
+                  </button>
+                  {childPickerOpen && (
+                    <div className="mt-2 rounded-lg border border-[#E0E0E0] bg-white p-2">
+                      <input
+                        value={childPickerSearch}
+                        onChange={(e) => setChildPickerSearch(e.target.value)}
+                        placeholder="Search concepts…"
+                        className={cn(inputBase, "mb-2 text-[12px] py-1.5")}
+                      />
+                      <div className="max-h-48 overflow-y-auto">
+                        {concepts
+                          .filter((c) => c.id !== selectedId && c.isActive && !c.revokedAt)
+                          .filter((c) => c.title.toLowerCase().includes(childPickerSearch.toLowerCase()))
+                          .map((c) => {
+                            const checked = childIds.includes(c.id)
+                            return (
+                              <label
+                                key={c.id}
+                                className={cn(
+                                  "flex items-center gap-2 rounded px-2 py-1 text-[12px] cursor-pointer",
+                                  checked ? "bg-[#E8F4EC]" : "hover:bg-[#FAFAFA]",
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleChild(c.id)}
+                                  className="accent-[#2D7A5E]"
+                                />
+                                <span className="flex-1 truncate">{c.title}</span>
+                                <span className="text-[10px] text-[#888]">{c.category}</span>
+                              </label>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-2 text-[10px] text-[#999]">
+                  Pinned IDs stored on <code className="font-mono">content.concept_page.related_concepts</code>. Final public list = <em>graph baseline</em> ∪ <em>pinned</em> − <em>hidden</em>. Typed relations (SUBTOPIC / PREREQUISITE / EXTENDS / RELATED) and auto-baseline depend on ontology graph (pending).
+                </p>
+              </section>
+
+              {/* 04 — Progressive References : progressive_refs JSONB editor */}
+              <section className="mt-6">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.6px] text-[#C94B6E]">04 — Progressive References</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveRefs}
+                      disabled={refsSaving || JSON.stringify(refsDraft) === JSON.stringify(publication?.progressiveRefs ?? [])}
+                      className={cn(btnPrimary, "disabled:opacity-40 text-[11px] py-1 px-3")}
+                    >
+                      {refsSaving ? "Saving…" : "Save"}
+                    </button>
+                    {refsSavedFlash && <span className="text-[11px] text-[#2D7A5E] font-medium">✓ saved</span>}
+                  </div>
+                </div>
+
+                {/* Auto-derived baseline from graph DB (placeholder until wired) */}
+                <div className="mt-3 rounded-lg border border-dashed border-[#7B5EA7]/40 bg-[#FBFAFE] p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#7B5EA7]">🔗 Auto-derived from prerequisite chain</span>
+                    <span className="rounded-full bg-[#F0EDF8] px-1.5 py-0.5 text-[9px] font-medium text-[#7B5EA7] uppercase tracking-wide">pending</span>
+                  </div>
+                  <p className="text-[11px] text-[#888] leading-relaxed">
+                    Graph DB not yet connected. Once available, the learning sequence (START&nbsp;HERE → NEXT → THEN → DEEP&nbsp;DIVE) will auto-derive from <code className="font-mono text-[10.5px]">prerequisite</code> edges sorted by depth. Re-order or add custom external resources below as overrides.
+                  </p>
+                </div>
+
+                {/* Manually authored */}
+                <div className="mt-3 flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#C94B6E]">📌 Manually authored</span>
+                  <span className="text-[10px] text-[#888]">({refsDraft.length})</span>
+                </div>
+
+                {refsDraft.length === 0 && (
+                  <p className="mt-1 text-[11px] italic text-[#888]">
+                    None authored yet. While graph is pending, this list is the only source for the learning path on the public page.
+                  </p>
+                )}
+
+                <ul className="mt-2 space-y-2">
+                  {refsDraft.map((ref, idx) => {
+                    const refConcept = ref.concept_id ? concepts.find((c) => c.id === ref.concept_id) : null
+                    return (
+                      <li key={idx} className="rounded-lg border border-[#E0E0E0] bg-white p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[10px] font-bold text-[#C94B6E]">#{idx + 1}</span>
+                          <div className="flex gap-0.5">
+                            <button onClick={() => moveRef(idx, -1)} disabled={idx === 0} className="rounded p-0.5 text-[#888] hover:bg-[#FAFAFA] disabled:opacity-30" title="Move up">↑</button>
+                            <button onClick={() => moveRef(idx, 1)} disabled={idx === refsDraft.length - 1} className="rounded p-0.5 text-[#888] hover:bg-[#FAFAFA] disabled:opacity-30" title="Move down">↓</button>
+                            <button onClick={() => removeRef(idx)} className="rounded p-0.5 text-[#888] hover:bg-red-50 hover:text-red-400" title="Remove">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className={labelCls}>Title</label>
+                            <input
+                              value={ref.title}
+                              onChange={(e) => updateRef(idx, { title: e.target.value })}
+                              placeholder="RAG"
+                              className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Concept (optional)</label>
+                            <select
+                              value={ref.concept_id ?? ""}
+                              onChange={(e) => updateRef(idx, { concept_id: e.target.value || undefined })}
+                              className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                            >
+                              <option value="">— none (external) —</option>
+                              {concepts
+                                .filter((c) => c.id !== selectedId && c.isActive && !c.revokedAt)
+                                .map((c) => (
+                                  <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <label className={labelCls}>External URL (optional)</label>
+                          <input
+                            value={ref.external ?? ""}
+                            onChange={(e) => updateRef(idx, { external: e.target.value || undefined })}
+                            placeholder="https://…"
+                            className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                            disabled={!!ref.concept_id}
+                          />
+                        </div>
+                        <div className="mt-2">
+                          <label className={labelCls}>Learn</label>
+                          <input
+                            value={ref.learn}
+                            onChange={(e) => updateRef(idx, { learn: e.target.value })}
+                            placeholder="what the reader gains from this step"
+                            className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                          />
+                        </div>
+                        <div className="mt-2">
+                          <label className={labelCls}>Adds (optional)</label>
+                          <input
+                            value={ref.adds ?? ""}
+                            onChange={(e) => updateRef(idx, { adds: e.target.value || undefined })}
+                            placeholder="what this specifically adds over prior steps"
+                            className={cn(inputBase, "mt-1 text-[12px] py-1.5")}
+                          />
+                        </div>
+                        {refConcept && (
+                          <p className="mt-1 text-[10px] text-[#2D7A5E]">→ links to concept &ldquo;{refConcept.title}&rdquo;</p>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                <button
+                  onClick={addRef}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#E0E0E0] py-2 text-[12px] text-[#888] transition-colors hover:border-[#C94B6E] hover:text-[#C94B6E]"
+                >
+                  <Plus className="h-3 w-3" /> Add reference
+                </button>
+                <p className="mt-2 text-[10px] text-[#999]">
+                  Stored as JSONB on <code className="font-mono">content.concept_page.progressive_refs</code> (treated as <strong>manual overrides</strong>). Final public list = <em>graph baseline (depth-sorted)</em> ∪ <em>authored</em>. Order = learning sequence.
+                </p>
+              </section>
+            </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center text-center px-8">
+            <Globe className="h-10 w-10 text-[#7B5EA7] opacity-40 mb-3" />
+            <h3 className="text-[15px] font-bold text-[#1A1626] mb-2">Pick a concept to publish</h3>
+            <p className="text-[12px] text-[#888] leading-relaxed max-w-xs">
+              Choose from the list on the left to preview its public concept page and toggle publication.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
    Main Admin Page
 ═══════════════════════════════════════════ */
 export default function KaasAdminPage() {
-  const [topTab, setTopTab] = useState<"curation" | "template">("curation")
+  const [topTab, setTopTab] = useState<"curation" | "concept-page" | "template">("curation")
 
   const topTabs = [
     { key: "curation" as const, label: "Knowledge Curation" },
+    { key: "concept-page" as const, label: "Concept Page" },
     { key: "template" as const, label: "Prompt Templates" },
   ]
 
@@ -726,6 +1643,7 @@ export default function KaasAdminPage() {
       {/* Tab content */}
       <div className="flex flex-1 overflow-hidden bg-[#FAFAFA]">
         {topTab === "curation" && <KnowledgeCurationPanel />}
+        {topTab === "concept-page" && <ConceptPagePublishPanel />}
         {topTab === "template" && <TemplateEditorBody />}
       </div>
     </div>

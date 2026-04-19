@@ -38,7 +38,7 @@ function parseJwtRole(token: string): string | null {
 
 export default function CherryApp() {
   const [activeNav, setActiveNav] = useState("highlight")
-  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "curation" | "template">("dashboard")
+  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "curation" | "concept-page" | "template">("dashboard")
   const [marketConceptId, setMarketConceptId] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -327,6 +327,8 @@ export default function CherryApp() {
           showDashboard
             ? dashboardTab === "curation"
               ? "Dashboard › Knowledge Curation"
+              : dashboardTab === "concept-page"
+              ? "Dashboard › Concept Page"
               : dashboardTab === "template"
               ? "Dashboard › Prompt Templates"
               : "Dashboard"

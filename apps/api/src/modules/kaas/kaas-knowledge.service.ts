@@ -346,4 +346,174 @@ export class KaasKnowledgeService {
     const count = await this.knex('kaas.evidence').where('concept_id', conceptId).count('* as cnt').first();
     await this.knex('kaas.concept').where({ id: conceptId }).update({ source_count: Number(count?.cnt ?? 0) });
   }
+
+  /* ═══════════════════════════════════════════
+     Public Concept Page Publication
+     (content.concept_page + content.concept_changelog)
+     — slug == kaas.concept.id (MVP 규약)
+     — related_concepts, progressive_refs 모두 content.concept_page 소속
+  ═══════════════════════════════════════════ */
+
+  /** Admin — 퍼블리싱 상태 + 드래프트(related_concepts, progressive_refs) 조회. kaas.concept이 없으면 null. */
+  async getPublication(conceptId: string): Promise<{
+    isPublished: boolean;
+    publishedAt: string | null;
+    slug: string;
+    name: string;
+    existsOnPublicPage: boolean;
+    relatedConcepts: string[];
+    progressiveRefs: unknown[];
+  } | null> {
+    const concept = await this.knex('kaas.concept').where({ id: conceptId }).first();
+    if (!concept) return null;
+
+    const page = await this.knex('content.concept_page')
+      .where({ concept_slug: conceptId })
+      .first();
+
+    if (!page) {
+      return {
+        isPublished: false,
+        publishedAt: null,
+        slug: conceptId,
+        name: concept.title as string,
+        existsOnPublicPage: false,
+        relatedConcepts: [],
+        progressiveRefs: [],
+      };
+    }
+
+    // JSONB → 이미 driver에서 파싱된 객체로 내려오지만, 문자열로 내려오는 경우도 방어
+    const parseJsonb = (raw: unknown): unknown => {
+      if (raw == null) return [];
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return []; }
+      }
+      return raw;
+    };
+    const related = parseJsonb(page.related_concepts);
+    const refs = parseJsonb(page.progressive_refs);
+
+    return {
+      isPublished: !!page.is_published,
+      publishedAt: page.published_at ? new Date(page.published_at as string).toISOString() : null,
+      slug: page.concept_slug as string,
+      name: page.concept_name as string,
+      existsOnPublicPage: true,
+      relatedConcepts: Array.isArray(related) ? (related as string[]) : [],
+      progressiveRefs: Array.isArray(refs) ? (refs as unknown[]) : [],
+    };
+  }
+
+  /**
+   * 드래프트 편집: related_concepts / progressive_refs UPSERT.
+   * 행이 없으면 is_published=false로 생성 (= 드래프트 상태).
+   * is_published는 절대 변경하지 않음 — Publish 버튼 전용.
+   */
+  async patchConceptPage(
+    conceptId: string,
+    patch: { relatedConcepts?: string[]; progressiveRefs?: unknown[] },
+  ): Promise<NonNullable<Awaited<ReturnType<KaasKnowledgeService['getPublication']>>>> {
+    const concept = await this.knex('kaas.concept').where({ id: conceptId }).first();
+    if (!concept) throw new Error(`CONCEPT_NOT_FOUND: ${conceptId}`);
+
+    const slug = conceptId;
+    const now = new Date();
+
+    await this.knex.transaction(async (trx) => {
+      const existing = await trx('content.concept_page').where({ concept_slug: slug }).first();
+
+      const updates: Record<string, unknown> = { updated_at: now };
+      if (patch.relatedConcepts !== undefined) {
+        updates.related_concepts = JSON.stringify(patch.relatedConcepts);
+      }
+      if (patch.progressiveRefs !== undefined) {
+        updates.progressive_refs = JSON.stringify(patch.progressiveRefs);
+      }
+
+      if (existing) {
+        await trx('content.concept_page').where({ concept_slug: slug }).update(updates);
+      } else {
+        // 드래프트 최초 생성 — is_published=false 고정
+        await trx('content.concept_page').insert({
+          id: trx.raw('gen_random_uuid()'),
+          concept_slug: slug,
+          concept_name: concept.title,
+          content_md: concept.content_md ?? '',
+          is_published: false,
+          published_at: null,
+          related_concepts: patch.relatedConcepts !== undefined
+            ? JSON.stringify(patch.relatedConcepts)
+            : JSON.stringify([]),
+          progressive_refs: patch.progressiveRefs !== undefined
+            ? JSON.stringify(patch.progressiveRefs)
+            : JSON.stringify([]),
+        });
+      }
+    });
+
+    const result = await this.getPublication(conceptId);
+    if (!result) throw new Error(`CONCEPT_NOT_FOUND_AFTER_UPSERT: ${conceptId}`);
+    return result;
+  }
+
+  /** Admin — Publish/Unpublish. content.concept_page UPSERT + content.concept_changelog 기록. */
+  async setPublication(
+    conceptId: string,
+    published: boolean,
+  ): Promise<NonNullable<Awaited<ReturnType<KaasKnowledgeService['getPublication']>>>> {
+    const concept = await this.knex('kaas.concept').where({ id: conceptId }).first();
+    if (!concept) {
+      throw new Error(`CONCEPT_NOT_FOUND: ${conceptId}`);
+    }
+
+    const slug = conceptId;
+    const now = new Date();
+
+    await this.knex.transaction(async (trx) => {
+      const existing = await trx('content.concept_page').where({ concept_slug: slug }).first();
+
+      if (existing) {
+        // Publish 순간에 kaas.concept.content_md를 스냅샷 복사.
+        // related_concepts / progressive_refs는 드래프트에 이미 들어있으니 건드리지 않음.
+        await trx('content.concept_page')
+          .where({ concept_slug: slug })
+          .update({
+            concept_name: concept.title,
+            content_md: concept.content_md,
+            is_published: published,
+            published_at: published ? (existing.published_at ?? now) : null,
+            updated_at: now,
+          });
+      } else {
+        // 드래프트 없이 바로 Publish — 빈 refs/related로 insert
+        await trx('content.concept_page').insert({
+          id: trx.raw('gen_random_uuid()'),
+          concept_slug: slug,
+          concept_name: concept.title,
+          content_md: concept.content_md ?? '',
+          is_published: published,
+          published_at: published ? now : null,
+          related_concepts: JSON.stringify([]),
+          progressive_refs: JSON.stringify([]),
+        });
+      }
+
+      const changeType = existing ? 'Minor' : 'New';
+      const changeSummary = published
+        ? `Published "${concept.title}" to public concept page.`
+        : `Unpublished "${concept.title}" from public concept page.`;
+
+      await trx('content.concept_changelog').insert({
+        concept_slug: slug,
+        concept_name: concept.title,
+        change_type: changeType,
+        change_summary: changeSummary,
+      });
+    });
+
+    const result = await this.getPublication(conceptId);
+    if (!result) throw new Error(`CONCEPT_NOT_FOUND_AFTER_UPSERT: ${conceptId}`);
+    return result;
+  }
 }
