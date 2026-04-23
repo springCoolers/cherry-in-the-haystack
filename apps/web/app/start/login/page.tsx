@@ -83,7 +83,7 @@ function StartLoginContent() {
     <div className="flex flex-col items-center pt-8 pb-16">
       <div className="w-full max-w-[440px]">
         <div
-          className="rounded-[24px] bg-white p-7 lg:p-8"
+          className="rounded-[24px] bg-[#FDFBF5] p-7 lg:p-8"
           style={{ border: "1px solid #E9D1A6", boxShadow: "0 10px 30px rgba(107,79,42,0.10)" }}
         >
           {step === "input" && (

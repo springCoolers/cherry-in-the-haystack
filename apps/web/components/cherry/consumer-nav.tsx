@@ -31,7 +31,7 @@ export function ConsumerNav() {
   return (
     <header
       className="sticky top-0 z-40 border-b border-[#E9D1A6]/60 backdrop-blur"
-      style={{ backgroundColor: "rgba(253, 251, 245, 0.9)" }}
+      style={{ backgroundColor: "rgba(247, 241, 224, 0.9)" }}
     >
       <div className="w-full max-w-[1200px] mx-auto flex items-center gap-4 px-4 lg:px-6 h-14">
         {/* Brand — clicks go to landing */}

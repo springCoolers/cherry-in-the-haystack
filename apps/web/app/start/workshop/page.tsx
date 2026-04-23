@@ -102,7 +102,7 @@ export default function WorkshopPage() {
           The panel is self-contained: it renders the Diablo equipment view,
           inventory with pagination, and per-build register toggle. */}
       <div
-        className="rounded-[20px] bg-white overflow-hidden"
+        className="rounded-[20px] bg-[#FDFBF5] overflow-hidden"
         style={{
           border: "1px solid #E9D1A6",
           boxShadow: "0 4px 20px rgba(107,79,42,0.08)",
@@ -137,7 +137,7 @@ function AgentPicker({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E9D1A6] hover:bg-[#F5E4C2]/30 transition-colors cursor-pointer"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FDFBF5] border border-[#E9D1A6] hover:bg-[#F5E4C2]/30 transition-colors cursor-pointer"
       >
         <span className="text-[16px] leading-none">{selected.icon ?? "🤖"}</span>
         <span className="text-[13px] font-bold text-[#3A2A1C]">{selected.name}</span>
@@ -148,7 +148,7 @@ function AgentPicker({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="absolute top-full left-0 mt-1.5 z-50 bg-white rounded-xl shadow-lg overflow-hidden min-w-[240px]"
+            className="absolute top-full left-0 mt-1.5 z-50 bg-[#FDFBF5] rounded-xl shadow-lg overflow-hidden min-w-[240px]"
             style={{ border: "1px solid #E9D1A6" }}
           >
             {agents.map((a) => (

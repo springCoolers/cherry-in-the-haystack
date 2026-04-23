@@ -5,7 +5,7 @@ export default function StartLayout({ children }: { children: ReactNode }) {
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ backgroundColor: "#FDFBF5", color: "#3A2A1C" }}
+      style={{ backgroundColor: "#F7F1E0", color: "#3A2A1C" }}
     >
       <ConsumerNav />
       <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 lg:px-6 py-4 lg:py-8">

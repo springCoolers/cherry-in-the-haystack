@@ -215,7 +215,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
       <section className="w-full lg:w-[540px] flex-shrink-0 flex flex-col min-h-0">
         {/* Flow hero container — emphasized frame */}
         <div
-          className="flex-1 rounded-2xl border-2 border-[#1A1626] bg-white relative overflow-y-auto flex flex-col"
+          className="flex-1 rounded-2xl border-2 border-[#1A1626] bg-[#FDFBF5] relative overflow-y-auto flex flex-col"
           style={{ boxShadow: "0 2px 0 rgba(26,22,38,0.10), 0 12px 32px rgba(26,22,38,0.08)" }}
         >
           {/* Build tabs — span the top of the frame */}
@@ -368,7 +368,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
 
       {/* ═════════════ RIGHT: Inventory (paginated) ═════════════ */}
       <section className="flex-1 min-w-0 flex flex-col">
-        <div className="flex-1 rounded-2xl border border-[#E4E1EE] bg-white p-5 shadow-sm flex flex-col min-h-0">
+        <div className="flex-1 rounded-2xl border border-[#E4E1EE] bg-[#FDFBF5] p-5 shadow-sm flex flex-col min-h-0">
           <div className="flex items-center gap-2 mb-3 flex-shrink-0">
             <span className="text-[20px]">🎒</span>
             <h3 className="text-[15px] font-black text-[#1A1626]">Inventory</h3>

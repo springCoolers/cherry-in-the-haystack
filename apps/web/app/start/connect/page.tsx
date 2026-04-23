@@ -95,13 +95,13 @@ export default function ConnectPage() {
       <section className="flex flex-col items-center text-center py-16">
         <CherryBao size={120} animate />
         <h1 className="mt-6 text-[22px] font-extrabold text-[#3A2A1C]">
-          먼저 로그인이 필요해요
+          Sign in to continue
         </h1>
         <Link
           href="/start/login?next=/start/connect"
           className="mt-6 inline-flex items-center px-5 py-2.5 rounded-full bg-[#C8301E] text-white text-[14px] font-bold hover:shadow-lg transition-all"
         >
-          로그인
+          Sign in
         </Link>
       </section>
     )
@@ -111,7 +111,7 @@ export default function ConnectPage() {
     return (
       <section className="flex flex-col items-center text-center py-16">
         <CherryBao size={96} variant="sleeping" animate />
-        <p className="mt-4 text-[13px] text-[#9A7C55]">불러오는 중…</p>
+        <p className="mt-4 text-[13px] text-[#9A7C55]">Loading…</p>
       </section>
     )
   }
@@ -121,16 +121,16 @@ export default function ConnectPage() {
       <section className="flex flex-col items-center text-center py-16">
         <CherryBao size={120} animate />
         <h1 className="mt-6 text-[22px] font-extrabold text-[#3A2A1C]">
-          첫 번째 AI 를 만들어 볼까요?
+          Build your first AI?
         </h1>
         <p className="mt-2 text-[13px] text-[#6B4F2A] max-w-md">
-          이름 하나만 정해주시면 바로 AI 카드를 발급해 드려요. 시작은 200 크레딧 무료.
+          Just pick a name and we'll issue your AI card instantly. 200 free credits to get you started.
         </p>
         <button
           onClick={() => setShowRegister(true)}
           className="mt-6 px-5 py-2.5 rounded-full bg-[#C8301E] text-white text-[14px] font-bold shadow-md hover:shadow-lg transition-all"
         >
-          + 새 AI 만들기
+          + New AI
         </button>
         {showRegister && (
           <RegisterAgentModal
@@ -149,16 +149,16 @@ export default function ConnectPage() {
     <section className="space-y-5">
       {/* ── 내 AI 목록 (여러 개 가능, 삭제 포함) ── */}
       <div
-        className="rounded-[20px] bg-white p-5 lg:p-6"
+        className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
         style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">내 AI</h3>
+          <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">My AIs</h3>
           <button
             onClick={() => setShowRegister(true)}
             className="text-[11px] font-bold text-[#C8301E] hover:underline"
           >
-            + 새 AI 만들기
+            + New AI
           </button>
         </div>
         <div className="space-y-2">
@@ -198,19 +198,19 @@ export default function ConnectPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-1 flex-shrink-0"
                   >
-                    <span className="text-[10px] font-bold text-[#C8301E]">정말 삭제?</span>
+                    <span className="text-[10px] font-bold text-[#C8301E]">Delete?</span>
                     <button
                       onClick={() => handleDelete(a.id)}
                       disabled={deleting}
                       className="px-2 py-1 rounded-md bg-[#C8301E] text-white text-[10px] font-bold hover:bg-[#8F1D12] disabled:opacity-50"
                     >
-                      {deleting ? "…" : "삭제"}
+                      {deleting ? "…" : "Delete"}
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(null)}
                       className="px-2 py-1 rounded-md border border-[#E9D1A6] text-[#6B4F2A] text-[10px] font-bold hover:bg-[#FBF6ED]"
                     >
-                      취소
+                      Cancel
                     </button>
                   </div>
                 ) : (
@@ -219,7 +219,7 @@ export default function ConnectPage() {
                       e.stopPropagation()
                       setDeleteConfirmId(a.id)
                     }}
-                    title="이 AI 삭제"
+                    title="Delete this AI"
                     className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[#9A7C55] hover:bg-[#FBE8E3] hover:text-[#C8301E] transition-colors"
                   >
                     ×
@@ -245,14 +245,14 @@ export default function ConnectPage() {
         <>
           {/* ── Claude Code 연결 가이드 ── */}
           <div
-            className="rounded-[20px] bg-white p-5 lg:p-6"
+            className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
             style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
           >
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div>
-                <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">AI 연결하기</h3>
+                <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">Connect your AI</h3>
                 <p className="text-[12px] text-[#9A7C55] mt-0.5">
-                  <span className="font-bold text-[#3A2A1C]">{selected.name}</span> 를 Claude Code 에 연결해요.
+                  Hook <span className="font-bold text-[#3A2A1C]">{selected.name}</span> up to Claude Code.
                 </p>
               </div>
               <div className="inline-flex p-0.5 rounded-full bg-[#F5E4C2]/40 border border-[#E9D1A6]">
@@ -273,7 +273,7 @@ export default function ConnectPage() {
             </div>
 
             <ol className="space-y-2 mb-4">
-              {["명령 복사하기", "터미널에 붙여넣기", "Enter — 완료!"].map((step, i) => (
+              {["Copy the command", "Paste into your terminal", "Hit Enter — done!"].map((step, i) => (
                 <li key={i} className="flex items-center gap-3 text-[13px] text-[#6B4F2A]">
                   <span className="w-6 h-6 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[11px] font-black flex items-center justify-center flex-shrink-0">
                     {i + 1}
@@ -294,14 +294,14 @@ export default function ConnectPage() {
                 onClick={() => copyText(cmd, "cmd")}
                 className="absolute top-2 right-2 px-2.5 py-1 rounded-md bg-white border border-[#E9D1A6] text-[10px] font-bold text-[#6B4F2A] hover:bg-[#F5E4C2]/60 transition-colors"
               >
-                {copied === "cmd" ? "✓ 복사됨" : "📋 복사"}
+                {copied === "cmd" ? "✓ Copied" : "📋 Copy"}
               </button>
             </div>
 
             <div className="mt-5 pt-4 border-t border-dashed border-[#E9D1A6]">
               <details className="text-[12px]">
                 <summary className="cursor-pointer text-[#9A7C55] hover:text-[#6B4F2A] font-semibold">
-                  연결 해제 방법
+                  How to disconnect
                 </summary>
                 <div className="relative mt-2">
                   <pre
@@ -466,7 +466,7 @@ function RegisterAgentModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[480px] rounded-[24px] bg-white p-6 lg:p-7 relative"
+        className="w-full max-w-[480px] rounded-[24px] bg-[#FDFBF5] p-6 lg:p-7 relative"
         style={{ border: "1px solid #E9D1A6", boxShadow: "0 20px 50px rgba(107,79,42,0.25)" }}
       >
         <button
