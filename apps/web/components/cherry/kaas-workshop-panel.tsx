@@ -22,7 +22,7 @@
  * Foundation Model is intentionally NOT shown here (user scope decision).
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   SKILL_TYPE_ORDER,
   SLOT_META,
@@ -228,101 +228,110 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
 
           <div className="p-5 pt-4 flex-1">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-[22px] leading-none">🔀</span>
+              <span className="text-[22px] leading-none">⚔️</span>
               <h3 className="text-[15px] font-black text-[#1A1626] leading-tight">
-                Agent Execution Flow
+                Agent Equipment
               </h3>
             </div>
 
-          {/* ① Prompt — single slot, narrow centered */}
-          <div className="max-w-[70%] mx-auto">
-            <HeroFlowSlot
-              stepNumber={1}
-              slotKey="prompt"
-              config={SLOT_META.prompt}
-              item={itemById(activeBuild.equipped.prompt)}
-              isRejected={dropRejectedSlot === "prompt"}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { if (draggedId) equip("prompt", draggedId); setDraggedId(null) }}
-              onUnequip={() => unequip("prompt")}
-            />
-          </div>
-          <FlowConnector />
+            {/* ═══ Character Sheet — Diablo-style ═══
+                Layout (5 gear slots around avatar + 3 skills row below):
 
-          {/* ② MCP — single slot, narrow centered */}
-          <div className="max-w-[70%] mx-auto">
-            <HeroFlowSlot
-              stepNumber={2}
-              slotKey="mcp"
-              config={SLOT_META.mcp}
-              item={itemById(activeBuild.equipped.mcp)}
-              isRejected={dropRejectedSlot === "mcp"}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { if (draggedId) equip("mcp", draggedId); setDraggedId(null) }}
-              onUnequip={() => unequip("mcp")}
-            />
-          </div>
-          <FlowConnector />
+                           [ ① Prompt ]
+                                │
+                    [② MCP] — [ 🤖 ] — [④ Orch]
+                                │
+                           [ ⑤ Memory ]
 
-          {/* ③ Skills × 3 parallel */}
-          <div className="mb-1">
-            <div className="flex items-center gap-2 mb-2">
-              <StepBadge n={3} />
-              <span className="text-[11px] uppercase font-black tracking-[0.8px] text-[#1A1626]">
-                Skills
-              </span>
-              <span className="text-[9px] font-bold text-[#6B6480] uppercase tracking-[1px] px-1.5 py-0.5 rounded bg-gray-100 border border-[#E4E1EE]">
-                3 parallel
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {(["skillA", "skillB", "skillC"] as SlotKey[]).map((sk) => (
-                <HeroFlowSlot
-                  key={sk}
-                  stepNumber={3}
-                  slotKey={sk}
-                  config={SLOT_META[sk]}
-                  item={itemById(activeBuild.equipped[sk])}
-                  isRejected={dropRejectedSlot === sk}
+                           [3A] [3B] [3C]
+            */}
+            <div className="rounded-xl bg-gradient-to-br from-[#F5EDE1]/40 via-white to-[#EEF0F7]/40 border border-[#E4E1EE] p-5">
+              {/* Top — Prompt (helmet) */}
+              <div className="flex justify-center mb-2.5">
+                <EquipSlot
+                  stepNumber={1}
+                  slotKey="prompt"
+                  config={SLOT_META.prompt}
+                  item={itemById(activeBuild.equipped.prompt)}
+                  isRejected={dropRejectedSlot === "prompt"}
                   onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => { if (draggedId) equip(sk, draggedId); setDraggedId(null) }}
-                  onUnequip={() => unequip(sk)}
-                  compact
-                  hideStepLabel
+                  onDrop={() => { if (draggedId) equip("prompt", draggedId); setDraggedId(null) }}
+                  onUnequip={() => unequip("prompt")}
                 />
-              ))}
+              </div>
+
+              {/* Middle row — MCP · Avatar · Orchestration */}
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mb-2.5">
+                <EquipSlot
+                  stepNumber={2}
+                  slotKey="mcp"
+                  config={SLOT_META.mcp}
+                  item={itemById(activeBuild.equipped.mcp)}
+                  isRejected={dropRejectedSlot === "mcp"}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => { if (draggedId) equip("mcp", draggedId); setDraggedId(null) }}
+                  onUnequip={() => unequip("mcp")}
+                />
+                <AgentCharacter
+                  agent={currentAgent}
+                  equippedCount={Object.values(activeBuild.equipped).filter(Boolean).length}
+                />
+                <EquipSlot
+                  stepNumber={4}
+                  slotKey="orchestration"
+                  config={SLOT_META.orchestration}
+                  item={itemById(activeBuild.equipped.orchestration)}
+                  isRejected={dropRejectedSlot === "orchestration"}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => { if (draggedId) equip("orchestration", draggedId); setDraggedId(null) }}
+                  onUnequip={() => unequip("orchestration")}
+                />
+              </div>
+
+              {/* Bottom — Memory (boots) */}
+              <div className="flex justify-center mb-5">
+                <EquipSlot
+                  stepNumber={5}
+                  slotKey="memory"
+                  config={SLOT_META.memory}
+                  item={itemById(activeBuild.equipped.memory)}
+                  isRejected={dropRejectedSlot === "memory"}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => { if (draggedId) equip("memory", draggedId); setDraggedId(null) }}
+                  onUnequip={() => unequip("memory")}
+                />
+              </div>
+
+              {/* Skills row (3 parallel) — separated from the equipment ring */}
+              <div className="pt-4 border-t border-dashed border-[#E4E1EE]">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <StepBadge n={3} />
+                  <span className="text-[11px] uppercase font-black tracking-[0.8px] text-[#1A1626]">
+                    Skill Belt
+                  </span>
+                  <span className="text-[9px] font-bold text-[#6B6480] uppercase tracking-[1px] px-1.5 py-0.5 rounded bg-gray-100 border border-[#E4E1EE]">
+                    3 slots
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["skillA", "skillB", "skillC"] as SlotKey[]).map((sk) => (
+                    <EquipSlot
+                      key={sk}
+                      stepNumber={3}
+                      slotKey={sk}
+                      config={SLOT_META[sk]}
+                      item={itemById(activeBuild.equipped[sk])}
+                      isRejected={dropRejectedSlot === sk}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => { if (draggedId) equip(sk, draggedId); setDraggedId(null) }}
+                      onUnequip={() => unequip(sk)}
+                      compact
+                      hideStepLabel
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-          <FlowConnector triple />
-
-          {/* ④ Orchestration — single slot, narrow centered */}
-          <div className="max-w-[70%] mx-auto">
-            <HeroFlowSlot
-              stepNumber={4}
-              slotKey="orchestration"
-              config={SLOT_META.orchestration}
-              item={itemById(activeBuild.equipped.orchestration)}
-              isRejected={dropRejectedSlot === "orchestration"}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { if (draggedId) equip("orchestration", draggedId); setDraggedId(null) }}
-              onUnequip={() => unequip("orchestration")}
-            />
-          </div>
-          <FlowConnector />
-
-          {/* ⑤ Memory — single slot, narrow centered */}
-          <div className="max-w-[70%] mx-auto">
-            <HeroFlowSlot
-              stepNumber={5}
-              slotKey="memory"
-              config={SLOT_META.memory}
-              item={itemById(activeBuild.equipped.memory)}
-              isRejected={dropRejectedSlot === "memory"}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { if (draggedId) equip("memory", draggedId); setDraggedId(null) }}
-              onUnequip={() => unequip("memory")}
-            />
-          </div>
 
           {/* Register toggle — lives INSIDE the flow container so it naturally
               follows the active build (switching tabs swaps the toggle state). */}
@@ -558,7 +567,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
    Sub-components
    ═════════════════════════════════════ */
 
-interface HeroFlowSlotProps {
+interface EquipSlotProps {
   stepNumber: number
   slotKey: SlotKey
   config: SlotConfig
@@ -571,19 +580,20 @@ interface HeroFlowSlotProps {
   hideStepLabel?: boolean
 }
 
-function HeroFlowSlot({
+/** Diablo-style equipment slot — compact rounded square with icon + title */
+function EquipSlot({
   stepNumber, slotKey, config, item, isRejected,
   onDragOver, onDrop, onUnequip, compact, hideStepLabel,
-}: HeroFlowSlotProps) {
+}: EquipSlotProps) {
   const theme = item ? TYPE_THEME[item.type] : null
-  void slotKey // eslint: slotKey kept in props for future use
+  void slotKey
 
   return (
-    <div className={compact ? "" : "mb-1"}>
+    <div>
       {!hideStepLabel && (
-        <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-1 justify-center">
           <StepBadge n={stepNumber} />
-          <span className="text-[11px] uppercase font-black tracking-[0.8px] text-[#1A1626]">
+          <span className="text-[10px] uppercase font-black tracking-[0.8px] text-[#1A1626]">
             {config.label}
           </span>
         </div>
@@ -591,47 +601,45 @@ function HeroFlowSlot({
       <div
         onDragOver={onDragOver}
         onDrop={onDrop}
-        className={`group rounded-xl border-2 transition-all ${compact ? "p-2 min-h-[68px]" : "p-3 min-h-[68px]"} ${
+        className={`group relative rounded-xl border-2 transition-all ${compact ? "p-2 min-h-[84px]" : "p-2.5 min-h-[84px]"} ${
           isRejected
             ? "border-[#C8301E] bg-[#FBE8E3] animate-pulse"
             : item && theme
               ? "shadow-sm"
-              : "border-dashed border-gray-300 bg-gray-50/60 hover:border-gray-400 hover:bg-gray-50"
+              : "border-dashed border-gray-300 bg-white/60 hover:border-gray-400 hover:bg-white"
         }`}
         style={item && theme ? { backgroundColor: theme.bg, borderColor: theme.border } : undefined}
-        title={config.hint}
+        title={item ? item.title : config.hint}
       >
         {item && theme ? (
-          <div className="flex items-start justify-between gap-2 h-full">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-[13px]">{config.icon}</span>
-                <span className={`${compact ? "text-[11px]" : "text-[13px]"} font-black truncate`} style={{ color: theme.text }}>
-                  {item.title}
-                </span>
-              </div>
-              <div className="text-[9px] text-[#6B6480] truncate pl-5">{item.category}</div>
-            </div>
+          <>
             <button
               onClick={onUnequip}
-              className="opacity-40 hover:opacity-100 text-[#6B6480] hover:text-[#C8301E] text-sm leading-none flex-shrink-0 mt-0.5"
+              className="absolute top-1 right-1 opacity-30 hover:opacity-100 text-[#6B6480] hover:text-[#C8301E] text-xs leading-none"
               aria-label={`Unequip ${config.label}`}
             >
               ×
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 h-full">
-            <span className="text-[16px] opacity-30">{config.icon}</span>
-            <div className="min-w-0 flex-1">
-              {hideStepLabel && (
-                <div className="text-[9px] uppercase font-black tracking-[0.8px] text-[#9E97B3] leading-tight">
-                  {config.label}
+            <div className="flex flex-col items-center justify-center h-full text-center gap-1">
+              <span className="text-[20px] leading-none">{config.icon}</span>
+              <div className="min-w-0 w-full">
+                <div className="text-[11px] font-black leading-tight truncate" style={{ color: theme.text }}>
+                  {item.title}
                 </div>
-              )}
-              <div className={`${compact ? "text-[10px]" : "text-[11px]"} italic text-[#9E97B3] truncate leading-tight`}>
-                {config.emptyLabel}
+                <div className="text-[8px] text-[#6B6480] truncate">{item.category}</div>
               </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-1">
+            <span className="text-[22px] opacity-25">{config.icon}</span>
+            {hideStepLabel && (
+              <div className="text-[8px] uppercase font-black tracking-[0.6px] text-[#9E97B3] leading-tight">
+                {config.label}
+              </div>
+            )}
+            <div className="text-[8px] italic text-[#9E97B3] leading-tight line-clamp-2 px-1">
+              {config.emptyLabel}
             </div>
           </div>
         )}
@@ -640,22 +648,239 @@ function HeroFlowSlot({
   )
 }
 
-function FlowConnector({ triple }: { triple?: boolean }) {
-  if (triple) {
-    return (
-      <div className="flex justify-center py-1.5">
-        <div className="flex gap-10 text-[#C9A24A] text-[16px] leading-none font-bold">
-          <span>↓</span>
-          <span>↓</span>
-          <span>↓</span>
-        </div>
-      </div>
-    )
-  }
+/** Character portrait in the center of the equipment ring.
+ *  Shows a stylized agent figure (SVG) or the agent's icon emoji if set.
+ *  When all 7 slots are equipped, plays a celebration animation. */
+function AgentCharacter({
+  agent, equippedCount = 0,
+}: {
+  agent?: { name?: string; id?: string; icon?: string }
+  equippedCount?: number
+}) {
+  const customIcon = typeof agent?.icon === "string" && agent.icon.trim().length > 0
+    ? agent.icon
+    : null
+  const isComplete = equippedCount >= 7
+  // Brief "just equipped" sparkle — triggers whenever equippedCount changes
+  const [pulseKey, setPulseKey] = useState(0)
+  const prevCountRef = useRef(equippedCount)
+  useEffect(() => {
+    if (equippedCount !== prevCountRef.current) {
+      setPulseKey((k) => k + 1)
+      prevCountRef.current = equippedCount
+    }
+  }, [equippedCount])
+
   return (
-    <div className="flex justify-center py-1.5">
-      <span className="text-[#C9A24A] text-[16px] leading-none font-bold">↓</span>
+    <div className="flex flex-col items-center relative">
+      {/* Celebration halo — only when all 7 slots equipped */}
+      {isComplete && (
+        <>
+          <div className="absolute w-[120px] h-[120px] -top-2 rounded-full pointer-events-none"
+            style={{
+              background: "radial-gradient(circle, rgba(201,162,74,0.4) 0%, rgba(201,162,74,0) 70%)",
+              animation: "workshopHaloPulse 2s ease-in-out infinite",
+            }}
+          />
+          <Sparkles />
+        </>
+      )}
+
+      <div
+        key={pulseKey}
+        className={`w-[104px] h-[104px] rounded-full flex items-center justify-center shadow-lg border-4 border-white overflow-hidden relative ${
+          isComplete ? "workshop-avatar-complete" : "workshop-avatar-flash"
+        }`}
+        style={{
+          background: isComplete
+            ? "radial-gradient(circle at 30% 25%, #FFF6D9 0%, #F5EDE1 55%, #E8DBC3 100%)"
+            : "radial-gradient(circle at 30% 25%, #FDF5E2 0%, #F5EDE1 60%, #E8DBC3 100%)",
+          boxShadow: isComplete
+            ? "0 8px 32px rgba(201,162,74,0.45), 0 0 0 3px rgba(201,162,74,0.3), inset 0 2px 8px rgba(255,255,255,0.5)"
+            : "0 8px 24px rgba(26,22,38,0.18), inset 0 2px 8px rgba(255,255,255,0.4)",
+        }}
+      >
+        {customIcon ? (
+          <span className="text-[56px] leading-none select-none" aria-label={agent?.name}>
+            {customIcon}
+          </span>
+        ) : (
+          <AgentCharacterSvg isComplete={isComplete} />
+        )}
+      </div>
+      {isComplete && (
+        <div className="mt-2 text-[9px] font-black text-[#8B6C2A] tracking-wider uppercase">
+          ✨ Fully assembled
+        </div>
+      )}
+
+      {/* Local keyframes */}
+      <style jsx>{`
+        @keyframes workshopAvatarFlash {
+          0%   { transform: scale(1); box-shadow: 0 8px 24px rgba(26,22,38,0.18), inset 0 2px 8px rgba(255,255,255,0.4); }
+          30%  { transform: scale(1.06); box-shadow: 0 8px 30px rgba(201,162,74,0.45), inset 0 2px 12px rgba(255,255,255,0.65); }
+          100% { transform: scale(1); box-shadow: 0 8px 24px rgba(26,22,38,0.18), inset 0 2px 8px rgba(255,255,255,0.4); }
+        }
+        .workshop-avatar-flash {
+          animation: workshopAvatarFlash 0.55s ease-out;
+        }
+        @keyframes workshopHaloPulse {
+          0%, 100% { transform: scale(0.95); opacity: 0.8; }
+          50%      { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes workshopAvatarComplete {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2px); }
+        }
+        .workshop-avatar-complete {
+          animation: workshopAvatarComplete 2.6s ease-in-out infinite;
+        }
+      `}</style>
     </div>
+  )
+}
+
+/** Sparkle particles floating around the avatar when assembly is complete. */
+function Sparkles() {
+  const positions = [
+    { top: 4, left: 6, delay: 0 },
+    { top: 20, right: 0, delay: 0.4 },
+    { bottom: 30, left: -4, delay: 0.8 },
+    { bottom: 4, right: 14, delay: 1.2 },
+    { top: 40, right: -6, delay: 1.6 },
+  ]
+  return (
+    <div className="absolute w-[120px] h-[120px] -top-2 pointer-events-none">
+      {positions.map((p, i) => (
+        <span
+          key={i}
+          className="absolute text-[10px]"
+          style={{
+            ...(p.top !== undefined ? { top: p.top } : {}),
+            ...(p.bottom !== undefined ? { bottom: p.bottom } : {}),
+            ...(p.left !== undefined ? { left: p.left } : {}),
+            ...(p.right !== undefined ? { right: p.right } : {}),
+            animation: `workshopSparkle 1.8s ease-in-out ${p.delay}s infinite`,
+            color: "#C9A24A",
+          }}
+        >
+          ✦
+        </span>
+      ))}
+      <style jsx>{`
+        @keyframes workshopSparkle {
+          0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+          50%      { opacity: 1; transform: scale(1.1) rotate(90deg); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+/** Default agent character — Cherry mascot (on-brand, friendly, non-robotic). */
+function AgentCharacterSvg({ isComplete = false }: { isComplete?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width="80"
+      height="80"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Cherry Agent"
+    >
+      <defs>
+        <radialGradient id="cherryBig" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#F26A57" />
+          <stop offset="55%" stopColor="#C8301E" />
+          <stop offset="100%" stopColor="#8F1D12" />
+        </radialGradient>
+        <radialGradient id="cherrySmall" cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#E85A48" />
+          <stop offset="60%" stopColor="#A82418" />
+          <stop offset="100%" stopColor="#6E170F" />
+        </radialGradient>
+        <linearGradient id="leaf" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4FA07D" />
+          <stop offset="100%" stopColor="#2A5C3E" />
+        </linearGradient>
+      </defs>
+
+      {/* Leaf */}
+      <path
+        d="M 50 26 Q 62 14 78 20 Q 74 34 60 34 Q 54 34 50 30 Z"
+        fill="url(#leaf)"
+        stroke="#1A3D28"
+        strokeWidth="1.2"
+      />
+      <path
+        d="M 56 22 Q 64 26 72 24"
+        stroke="#1A3D28"
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.5"
+      />
+
+      {/* Stems */}
+      <path
+        d="M 40 58 Q 42 40 56 30"
+        stroke="#6B4F1F"
+        strokeWidth="2.4"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M 62 60 Q 62 44 56 30"
+        stroke="#6B4F1F"
+        strokeWidth="2.4"
+        fill="none"
+        strokeLinecap="round"
+      />
+
+      {/* Back/small cherry */}
+      <circle cx="40" cy="68" r="16" fill="url(#cherrySmall)" stroke="#1A1626" strokeWidth="1.6" />
+      <ellipse cx="34" cy="62" rx="3.5" ry="2.5" fill="#F5AA9B" opacity="0.75" />
+
+      {/* Front/big cherry with face */}
+      <circle cx="62" cy="72" r="19" fill="url(#cherryBig)" stroke="#1A1626" strokeWidth="1.8" />
+      <ellipse cx="54" cy="64" rx="5" ry="3.5" fill="#FBC0B2" opacity="0.85" />
+
+      {/* Face (on the front cherry) — eyes glow gold when fully assembled */}
+      {isComplete ? (
+        <>
+          <defs>
+            <radialGradient id="cherryEyeGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#FFF6D9" />
+              <stop offset="45%" stopColor="#FFD76A" />
+              <stop offset="100%" stopColor="#C9A24A" />
+            </radialGradient>
+          </defs>
+          <circle cx="57" cy="72" r="2.5" fill="url(#cherryEyeGlow)">
+            <animate attributeName="opacity" values="0.7;1;0.7" dur="1.6s" repeatCount="indefinite" />
+            <animate attributeName="r" values="2.3;2.8;2.3" dur="1.6s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="68" cy="72" r="2.5" fill="url(#cherryEyeGlow)">
+            <animate attributeName="opacity" values="1;0.7;1" dur="1.6s" repeatCount="indefinite" />
+            <animate attributeName="r" values="2.8;2.3;2.8" dur="1.6s" repeatCount="indefinite" />
+          </circle>
+        </>
+      ) : (
+        <>
+          <circle cx="57" cy="72" r="2" fill="#1A1626" />
+          <circle cx="68" cy="72" r="2" fill="#1A1626" />
+          <circle cx="57.7" cy="71.3" r="0.6" fill="#FDF5E2" />
+          <circle cx="68.7" cy="71.3" r="0.6" fill="#FDF5E2" />
+        </>
+      )}
+      <path
+        d="M 58 79 Q 62 82 66 79"
+        stroke="#1A1626"
+        strokeWidth="1.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Subtle cheek blush */}
+      <circle cx="53" cy="78" r="2" fill="#F26A57" opacity="0.5" />
+      <circle cx="71" cy="78" r="2" fill="#F26A57" opacity="0.5" />
+    </svg>
   )
 }
 
