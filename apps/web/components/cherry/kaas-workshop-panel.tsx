@@ -24,17 +24,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  SET_META,
   SKILL_TYPE_ORDER,
   SLOT_META,
   WORKSHOP_STORAGE_KEY,
   defaultWorkshopState,
   type AgentBuild,
   type InventoryItem,
+  type SetTag,
   type SkillType,
   type SlotKey,
   type SlotConfig,
   type WorkshopState,
 } from "@/lib/workshop-mock"
+import { JigsawConnector } from "./jigsaw-connector"
 
 interface KaasWorkshopPanelProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,6 +212,10 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
     return state.inventory.find((i) => i.id === id) ?? null
   }
 
+  /** Type of the card currently being dragged — used by slots to decide
+   *  whether to accept the drop (show "+" cursor) or reject (no-drop cursor). */
+  const draggedType: SkillType | null = itemById(draggedId)?.type ?? null
+
   return (
     <div className="flex flex-col lg:flex-row gap-5 p-5 lg:p-6 h-full overflow-hidden bg-gradient-to-br from-[#F5EDE1]/30 via-white to-[#EEF0F7]/30">
       {/* ═════════════ LEFT: Flow (hero) ═════════════ */}
@@ -283,7 +290,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
                   config={SLOT_META.prompt}
                   item={itemById(activeBuild.equipped.prompt)}
                   isRejected={dropRejectedSlot === "prompt"}
-                  onDragOver={(e) => e.preventDefault()}
+                  draggedType={draggedType}
                   onDrop={() => { if (draggedId) equip("prompt", draggedId); setDraggedId(null) }}
                   onUnequip={() => unequip("prompt")}
                 />
@@ -297,7 +304,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
                   config={SLOT_META.mcp}
                   item={itemById(activeBuild.equipped.mcp)}
                   isRejected={dropRejectedSlot === "mcp"}
-                  onDragOver={(e) => e.preventDefault()}
+                  draggedType={draggedType}
                   onDrop={() => { if (draggedId) equip("mcp", draggedId); setDraggedId(null) }}
                   onUnequip={() => unequip("mcp")}
                 />
@@ -311,13 +318,13 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
                   config={SLOT_META.orchestration}
                   item={itemById(activeBuild.equipped.orchestration)}
                   isRejected={dropRejectedSlot === "orchestration"}
-                  onDragOver={(e) => e.preventDefault()}
+                  draggedType={draggedType}
                   onDrop={() => { if (draggedId) equip("orchestration", draggedId); setDraggedId(null) }}
                   onUnequip={() => unequip("orchestration")}
                 />
               </div>
 
-              {/* Bottom — Memory (boots) */}
+              {/* Bottom — Memory */}
               <div className="flex justify-center mb-5">
                 <EquipSlot
                   stepNumber={5}
@@ -325,13 +332,13 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
                   config={SLOT_META.memory}
                   item={itemById(activeBuild.equipped.memory)}
                   isRejected={dropRejectedSlot === "memory"}
-                  onDragOver={(e) => e.preventDefault()}
+                  draggedType={draggedType}
                   onDrop={() => { if (draggedId) equip("memory", draggedId); setDraggedId(null) }}
                   onUnequip={() => unequip("memory")}
                 />
               </div>
 
-              {/* Skills row (3 parallel) — separated from the equipment ring */}
+              {/* Skill Belt — 3 parallel slots below the equipment ring */}
               <div className="pt-4 border-t border-dashed border-[#E4E1EE]">
                 <div className="flex items-center gap-2 mb-2.5">
                   <StepBadge n={3} />
@@ -351,7 +358,7 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
                       config={SLOT_META[sk]}
                       item={itemById(activeBuild.equipped[sk])}
                       isRejected={dropRejectedSlot === sk}
-                      onDragOver={(e) => e.preventDefault()}
+                      draggedType={draggedType}
                       onDrop={() => { if (draggedId) equip(sk, draggedId); setDraggedId(null) }}
                       onUnequip={() => unequip(sk)}
                       compact
@@ -557,20 +564,29 @@ interface EquipSlotProps {
   config: SlotConfig
   item: InventoryItem | null
   isRejected: boolean
-  onDragOver: (e: React.DragEvent) => void
+  /** Type of the item currently being dragged (for jigsaw compatibility check). */
+  draggedType: SkillType | null
   onDrop: () => void
   onUnequip: () => void
   compact?: boolean
   hideStepLabel?: boolean
 }
 
-/** Diablo-style equipment slot — compact rounded square with icon + title */
+/** Diablo-style equipment slot — compact rounded square with icon + title.
+ *  Only calls `e.preventDefault()` on dragOver when the slot's `accept` list
+ *  includes the dragged item's type — so the browser shows "+" for compatible
+ *  slots and the no-drop cursor for incompatible ones. */
 function EquipSlot({
   stepNumber, slotKey, config, item, isRejected,
-  onDragOver, onDrop, onUnequip, compact, hideStepLabel,
+  draggedType, onDrop, onUnequip, compact, hideStepLabel,
 }: EquipSlotProps) {
   const theme = item ? TYPE_THEME[item.type] : null
   void slotKey
+
+  const accepts = draggedType !== null && config.accept.includes(draggedType)
+  const onDragOver = (e: React.DragEvent) => {
+    if (accepts) e.preventDefault()
+  }
 
   return (
     <div>
@@ -595,15 +611,31 @@ function EquipSlot({
         style={item && theme ? { backgroundColor: theme.bg, borderColor: theme.border } : undefined}
         title={item ? item.title : config.hint}
       >
+        {/* Jigsaw shape on top edge — socket when empty, tab when equipped. */}
+        <JigsawConnector
+          type={item ? item.type : config.accept[0]}
+          mode={item ? "tab" : "socket"}
+          position="top"
+          size={14}
+        />
+
         {item && theme ? (
           <>
+            {/* Eject button — clearly labeled "EJECT" pill, bottom-right */}
             <button
               onClick={onUnequip}
-              className="absolute top-1 right-1 opacity-30 hover:opacity-100 text-[#6B6480] hover:text-[#C8301E] text-xs leading-none"
-              aria-label={`Unequip ${config.label}`}
+              className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white hover:bg-[#C8301E] hover:text-white text-[#6B6480] text-[12px] font-bold leading-none shadow-md border border-[#E4E1EE] hover:border-[#C8301E] transition-all flex items-center justify-center z-10"
+              aria-label={`Eject ${config.label}`}
+              title="Eject"
             >
-              ×
+              ⏏
             </button>
+            {/* Set tag — small glyph badge in top-left corner */}
+            {item.setTag && (
+              <div className="absolute top-1 left-1 z-10">
+                <SetBadge tag={item.setTag} compact />
+              </div>
+            )}
             <div className="flex flex-col items-center justify-center h-full text-center gap-1">
               <span className="text-[20px] leading-none">{config.icon}</span>
               <div className="min-w-0 w-full">
@@ -879,6 +911,29 @@ function StepBadge({ n }: { n: number }) {
   )
 }
 
+/** Diablo-style "set" signature — cards with matching tag form an optimal combo.
+ *  Icon + text pill (soft bg + colored border). */
+function SetBadge({ tag, compact }: { tag: SetTag; compact?: boolean }) {
+  const meta = SET_META[tag]
+  const text = meta.label.replace(" Set", "")
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full font-bold tracking-[0.08em] ${
+        compact ? "text-[8px] px-1 py-0.5" : "text-[9px] px-1.5 py-0.5"
+      }`}
+      style={{
+        backgroundColor: meta.softBg,
+        color: meta.color,
+        border: `1px solid ${meta.color}33`,
+      }}
+      title={meta.label}
+    >
+      <span className="text-[10px] leading-none">{meta.symbol}</span>
+      <span className="uppercase">{text}</span>
+    </span>
+  )
+}
+
 // Subtle per-build accent colors (text + underline only; no background fill)
 const BUILD_ACCENTS: { border: string; text: string }[] = [
   { border: "#C94B6E", text: "#8F2B4D" }, // Build 1 — cherry
@@ -1013,6 +1068,9 @@ function InventoryCard({
       style={{ borderLeftWidth: "4px", borderLeftColor: theme.border }}
       title={item.summary ?? `${item.title} · ${item.category}`}
     >
+      {/* Jigsaw tab — filled shape protruding above the card, mirrors the slot socket. */}
+      <JigsawConnector type={item.type} mode="tab" position="top" size={14} />
+
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-bold text-[#1A1626] truncate">{item.title}</div>
@@ -1030,6 +1088,13 @@ function InventoryCard({
           {theme.label}
         </span>
       </div>
+
+      {/* Set signature — bottom-right, icon + text pill. */}
+      {item.setTag && (
+        <div className="absolute bottom-1.5 right-2">
+          <SetBadge tag={item.setTag} />
+        </div>
+      )}
       {item.source === "followed" && item.sourceAgent && (
         <div className="mt-1.5 text-[9px] font-bold text-[#8F1D12]">
           ▸ via @{item.sourceAgent}

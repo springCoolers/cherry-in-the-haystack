@@ -9,7 +9,6 @@ const TABS: { href: string; label: string }[] = [
   { href: "/start/connect",  label: "Connect" },
   { href: "/start/workshop", label: "Workshop" },
   { href: "/start/shop",     label: "Shop" },
-  { href: "/start/arena",    label: "Arena" },
 ]
 
 export function ConsumerNav() {

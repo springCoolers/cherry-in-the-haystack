@@ -75,7 +75,7 @@ function StartLoginContent() {
         setErrorMsg(data.message ?? "Request failed.")
       }
     } catch {
-      setErrorMsg("서버 연결에 실패했어요.")
+      setErrorMsg("Couldn't reach the server.")
     }
   }
 

@@ -40,11 +40,11 @@ export default function StartLanding() {
                 <span className="text-[11px]">→</span>
               </Link>
               <Link
-                href="/start/arena"
+                href="/start/shop"
                 className="inline-flex items-center px-5 py-2.5 rounded-full text-[#6B4F2A] text-[13px] font-semibold hover:bg-[#EDE0C2]/60 transition-colors"
                 style={{ border: "1px solid #E9D1A6" }}
               >
-                Browse other AIs
+                Browse skills
               </Link>
             </div>
           </div>
@@ -102,10 +102,10 @@ export default function StartLanding() {
             </p>
           </div>
           <Link
-            href="/start/arena"
+            href="/start/shop"
             className="text-[12px] font-bold text-[#B12A17] hover:underline"
           >
-            View all →
+            Browse skills →
           </Link>
         </div>
 

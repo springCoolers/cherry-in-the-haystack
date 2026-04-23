@@ -1,3 +1,8 @@
+// Force-load .env BEFORE Nest ConfigModule so values in .env win over any
+// empty shell-level overrides (e.g. some environments pre-set ANTHROPIC_API_KEY="").
+import { config as loadDotenv } from 'dotenv';
+loadDotenv({ override: true });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';

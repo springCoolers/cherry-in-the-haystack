@@ -1,17 +1,39 @@
-// Workshop — Mock data and types (Phase 2, publishing only)
-// Swapped to real API in Day 3 Story 10.4
+// Workshop — Mock data and types.
+//
+// 7 slots / 5 types stay in the UI; each card carries a unique "jigsaw" shape
+// so a user can see at a glance which slot it belongs to (prompt ↔ circle,
+// mcp ↔ square, skill ↔ triangle, orchestration ↔ diamond, memory ↔ hexagon).
 //
 // Agent Execution Flow (top → bottom):
-//   ① System Prompt  → agent identity (role definition)
+//   ① System Prompt  → agent identity
 //   ② MCP Tools      → callable tools
 //   ③ Skills × 3     → domain knowledge (3 parallel slots)
-//   ④ Orchestration  → execution control (agent loop)
+//   ④ Orchestration  → execution control
 //   ⑤ Memory         → state management
 //
-// Total: 7 slots · 5 types
-// Foundation model is fixed to Claude Code (runtime). Not configurable per agent.
+// Inventory is curated: only cards whose prompts / tools are wired end-to-end
+// to /v1/kaas/bench/compare appear here. Skill + orchestration slots stay
+// present (for future presets) even though no real cards fill them yet.
 
 export type SkillType = "prompt" | "mcp" | "skill" | "orchestration" | "memory"
+
+/** Diablo-style "set" tag — cards that share the same tag form an optimal
+ *  combo. When all 3 cards of a set (prompt + mcp + memory) are equipped,
+ *  the benchmark runs at peak effectiveness for that set's task. */
+export type SetTag = "oracle" | "hunter" | "policy"
+
+export interface SetMeta {
+  label: string
+  symbol: string  // short glyph (alchemy / tarot style)
+  color: string
+  softBg: string
+}
+
+export const SET_META: Record<SetTag, SetMeta> = {
+  oracle: { label: "Oracle Set",   symbol: "🜂", color: "#8B6C2A", softBg: "#F5E9C8" },
+  hunter: { label: "Hunter Set",   symbol: "🜄", color: "#8F1D12", softBg: "#F6D8D0" },
+  policy: { label: "Policy Set",   symbol: "🜁", color: "#2D3B66", softBg: "#D8DEEF" },
+}
 
 export interface InventoryItem {
   id: string
@@ -24,6 +46,8 @@ export interface InventoryItem {
   summary?: string // Shown on card hover
   fileName?: string // For custom items: original uploaded filename
   content?: string // For custom items: raw text content (prompt body / config / etc.)
+  /** Diablo-style set membership — matching tags = optimal combo. */
+  setTag?: SetTag
 }
 
 export type SlotKey =
@@ -43,14 +67,12 @@ export interface SlotConfig {
   accept: SkillType[]
   icon: string
   hint: string
-  flowStep: FlowStep // Position in the flow diagram
-  emptyLabel: string // Description shown inside empty slot body
+  flowStep: FlowStep
+  emptyLabel: string
 }
 
 /** An Agent Build — one saved slot configuration. Users keep multiple builds
- *  (e.g., "Research", "Coding", "Debate") and switch between them via tabs.
- *  Each build has its own listing state — you can publish Build A while
- *  keeping Build B private, etc. */
+ *  and switch between them via tabs. Each build has its own listing state. */
 export interface AgentBuild {
   id: string
   name: string
@@ -59,11 +81,9 @@ export interface AgentBuild {
 }
 
 export interface WorkshopState {
-  builds: AgentBuild[] // Multiple saved slot configurations (tabbed)
-  activeBuildId: string // Currently visible build
+  builds: AgentBuild[]
+  activeBuildId: string
   inventory: InventoryItem[]
-  // NOTE: Foundation model is fixed to Claude Code — no per-agent model switch.
-  // NOTE: isListedOnMarket moved into AgentBuild (per-build listing).
   isFollowingAny: boolean
   cloneSimilarity?: number
 }
@@ -89,9 +109,9 @@ export const SLOT_META: Record<SlotKey, SlotConfig> = {
     label: "System Prompt",
     accept: ["prompt"],
     icon: "🧬",
-    hint: "Defines the agent's role and personality",
+    hint: "Defines the agent's role and discipline",
     flowStep: 1,
-    emptyLabel: "Defines the agent's role and personality",
+    emptyLabel: "Defines the agent's role and discipline",
   },
   mcp: {
     label: "MCP Tools",
@@ -137,177 +157,119 @@ export const SLOT_META: Record<SlotKey, SlotConfig> = {
     label: "Memory",
     accept: ["memory"],
     icon: "💾",
-    hint: "Memory strategy (vector / episodic / working)",
+    hint: "Conversation-history retention policy",
     flowStep: 5,
-    emptyLabel: "Memory strategy (vector / episodic / working)",
+    emptyLabel: "Conversation-history retention policy",
   },
 }
 
-/** Mock inventory — 2~3 items per type */
+/** Real inventory — every card maps 1:1 to a real server-side behavior.
+ *  The 3 preset combinations that work end-to-end in bench:
+ *    Oracle   = prompt:p-oracle  + mcp:m-crypto   + memory:me-short
+ *    Hunter   = prompt:p-hunter  + mcp:m-market   + memory:me-none
+ *    Policy   = prompt:p-policy  + mcp:m-catalog  + memory:me-retrieval
+ */
 export const mockInventory: InventoryItem[] = [
-  // ── System Prompt ──
+  // ── System Prompts (3) ──
   {
-    id: "inv-p1",
-    title: "Research Assistant",
+    id: "inv-p-oracle",
+    title: "Market Oracle",
     type: "prompt",
-    category: "Role",
-    updatedAt: "2026-04-22",
+    category: "Analyst",
+    updatedAt: "2026-04-23",
     source: "builtin",
-    summary: "Deep research tasks — citation-heavy responses.",
+    setTag: "oracle",
+    summary:
+      "Crypto market analyst. Cites real prices with timestamp + source; never guesses.",
   },
   {
-    id: "inv-p2",
-    title: "Code Reviewer",
+    id: "inv-p-hunter",
+    title: "Marketplace Hunter",
     type: "prompt",
-    category: "Role",
-    updatedAt: "2026-04-20",
+    category: "Extraction",
+    updatedAt: "2026-04-23",
     source: "builtin",
-    summary: "Critical code review with security focus.",
+    setTag: "hunter",
+    summary:
+      "Deal hunter that returns strict JSON listings; never invents records.",
   },
   {
-    id: "inv-p3",
-    title: "Socratic Tutor",
+    id: "inv-p-policy",
+    title: "Policy Expert",
     type: "prompt",
-    category: "Role",
-    updatedAt: "2026-04-18",
-    source: "purchased",
-    summary: "Asks guiding questions instead of direct answers.",
+    category: "Grounded",
+    updatedAt: "2026-04-23",
+    source: "builtin",
+    setTag: "policy",
+    summary:
+      "Answers only from retrieved Cherry docs; cites doc IDs; says \"I don't have that\" when missing.",
   },
 
-  // ── MCP Tools ──
+  // ── MCP Tools (3) ──
   {
-    id: "inv-m1",
-    title: "Brave Search",
+    id: "inv-m-crypto",
+    title: "Crypto Price",
     type: "mcp",
-    category: "Web",
-    updatedAt: "2026-04-22",
-    source: "purchased",
-    summary: "Web search via Brave API.",
+    category: "Finance",
+    updatedAt: "2026-04-23",
+    source: "builtin",
+    setTag: "oracle",
+    summary:
+      "Live crypto prices via CoinGecko. Tool: get_crypto_price(symbol).",
   },
   {
-    id: "inv-m2",
-    title: "Postgres MCP",
+    id: "inv-m-market",
+    title: "Marketplace Search",
     type: "mcp",
-    category: "Database",
-    updatedAt: "2026-04-20",
-    source: "purchased",
-    summary: "SQL query execution with schema introspection.",
+    category: "Shopping",
+    updatedAt: "2026-04-23",
+    source: "builtin",
+    setTag: "hunter",
+    summary:
+      "Internal marketplace DB. Tool: search_marketplace(query, max_price, sealed_only).",
   },
   {
-    id: "inv-m3",
-    title: "Filesystem MCP",
+    id: "inv-m-catalog",
+    title: "Cherry Catalog",
     type: "mcp",
-    category: "Local",
-    updatedAt: "2026-04-15",
+    category: "Docs",
+    updatedAt: "2026-04-23",
     source: "builtin",
-    summary: "Local file read/write under sandbox.",
+    setTag: "policy",
+    summary:
+      "Cherry internal policy docs. Tool: search_catalog(query, limit).",
   },
 
-  // ── Skills ──
+  // ── Memory modes (3) ──
   {
-    id: "inv-s1",
-    title: "RAG best practices",
-    type: "skill",
-    category: "RAG",
-    updatedAt: "2026-04-22",
-    source: "purchased",
-    summary: "Retrieval tuning, chunking, reranking.",
-  },
-  {
-    id: "inv-s2",
-    title: "Chain-of-Thought",
-    type: "skill",
-    category: "Reasoning",
-    updatedAt: "2026-04-20",
-    source: "purchased",
-    summary: "Step-by-step reasoning patterns.",
-  },
-  {
-    id: "inv-s3",
-    title: "Multi-hop RAG",
-    type: "skill",
-    category: "RAG",
-    updatedAt: "2026-04-18",
-    source: "followed",
-    sourceAgent: "gpt_research_bot",
-    summary: "Multi-step retrieval across entities.",
-  },
-  {
-    id: "inv-s4",
-    title: "Adversarial prompting",
-    type: "skill",
-    category: "Safety",
-    updatedAt: "2026-04-16",
-    source: "followed",
-    sourceAgent: "claude_linux_test",
-    summary: "Defense against prompt injection.",
-  },
-  {
-    id: "inv-s5",
-    title: "Structured output",
-    type: "skill",
-    category: "Output",
-    updatedAt: "2026-04-14",
-    source: "purchased",
-    summary: "JSON schema / tool-call formatting.",
-  },
-
-  // ── Orchestration ──
-  {
-    id: "inv-o1",
-    title: "ReAct",
-    type: "orchestration",
-    category: "Agent Pattern",
-    updatedAt: "2026-04-22",
-    source: "builtin",
-    summary: "Reason + Act loop (Yao et al. 2022).",
-  },
-  {
-    id: "inv-o2",
-    title: "CodeAct",
-    type: "orchestration",
-    category: "Agent Pattern",
-    updatedAt: "2026-04-18",
-    source: "purchased",
-    summary: "Action expressed as executable code.",
-  },
-  {
-    id: "inv-o3",
-    title: "Plan-and-Execute",
-    type: "orchestration",
-    category: "Agent Pattern",
-    updatedAt: "2026-04-12",
-    source: "purchased",
-    summary: "Upfront plan → iterative execution.",
-  },
-
-  // ── Memory ──
-  {
-    id: "inv-me1",
-    title: "Vector memory",
+    id: "inv-me-none",
+    title: "Stateless",
     type: "memory",
-    category: "Long-term",
-    updatedAt: "2026-04-20",
+    category: "None",
+    updatedAt: "2026-04-23",
     source: "builtin",
-    summary: "Embedding-based similarity retrieval.",
+    setTag: "hunter",
+    summary: "No retention — each turn starts fresh.",
   },
   {
-    id: "inv-me2",
-    title: "Episodic buffer",
+    id: "inv-me-short",
+    title: "Short-term",
     type: "memory",
-    category: "Short-term",
-    updatedAt: "2026-04-15",
-    source: "purchased",
-    summary: "Recent conversation window.",
+    category: "Conversation",
+    updatedAt: "2026-04-23",
+    source: "builtin",
+    setTag: "oracle",
+    summary: "Full conversation context preserved within the session.",
   },
   {
-    id: "inv-me3",
-    title: "Working scratchpad",
+    id: "inv-me-retrieval",
+    title: "Retrieval buffer",
     type: "memory",
-    category: "Working",
-    updatedAt: "2026-04-10",
+    category: "Tool output",
+    updatedAt: "2026-04-23",
     source: "builtin",
-    summary: "Task-scoped notes between steps.",
+    setTag: "policy",
+    summary: "Retrieved tool results stay available across turns.",
   },
 ]
 
@@ -325,8 +287,14 @@ export const defaultWorkshopState: WorkshopState = {
   cloneSimilarity: 0,
 }
 
-// v5: Foundation model pulldown removed (Claude Code fixed)
-export const WORKSHOP_STORAGE_KEY = "cherry_workshop_state_v5"
+// v7: 7 slots restored, jigsaw shapes added, inventory still lean (9 real cards).
+export const WORKSHOP_STORAGE_KEY = "cherry_workshop_state_v7"
 
 /** Order of type filter buttons in the UI */
-export const SKILL_TYPE_ORDER: SkillType[] = ["prompt", "mcp", "skill", "orchestration", "memory"]
+export const SKILL_TYPE_ORDER: SkillType[] = [
+  "prompt",
+  "mcp",
+  "skill",
+  "orchestration",
+  "memory",
+]
