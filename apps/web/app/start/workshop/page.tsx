@@ -6,6 +6,7 @@ import { fetchAgents } from "@/lib/api"
 import { getAccessToken, useAuthTick } from "@/lib/auth"
 import { CherryBao } from "@/components/cherry/cherry-bao"
 import { KaasWorkshopPanel } from "@/components/cherry/kaas-workshop-panel"
+import { StartFlowNav } from "@/components/cherry/start-flow-nav"
 import {
   fetchBenchSets,
   runBenchWithBuild,
@@ -79,13 +80,17 @@ export default function WorkshopPage() {
   return (
     <section className="space-y-4">
       {/* ── Page header — what is the Workshop? ── */}
-      <div>
-        <h1 className="text-[20px] lg:text-[22px] font-extrabold text-[#3A2A1C]">
-          Workshop
-        </h1>
-        <p className="mt-1 text-[12px] text-[#6B4F2A] leading-relaxed max-w-2xl">
-          Forge a custom AI build by dragging cards onto the seven equipment slots — system prompt, MCP tools, three skills, orchestration strategy, and memory mode. Run the benchmark below to see how your build changes Claude's behavior in real time. Once you like it, head to <span className="font-semibold text-[#3A2A1C]">Install Skill</span> to push it to one of your AI assistants.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-[20px] lg:text-[22px] font-extrabold text-[#3A2A1C]">
+            Workshop
+          </h1>
+          <p className="mt-1 text-[12px] text-[#6B4F2A] leading-relaxed max-w-2xl line-clamp-2">
+            Drag cards onto the 7 slots to forge a build, then run the benchmark to see the impact.
+            Push it to your AI via <span className="font-semibold text-[#3A2A1C]">Install Skill</span>.
+          </p>
+        </div>
+        <StartFlowNav current="workshop" />
       </div>
 
 
@@ -147,6 +152,29 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
 
   const activeSet = sets.find((s) => s.id === activeId)
 
+  // ── Auto-sync benchmark tab to the equipped prompt card ──
+  // Card id `inv-p-<tag>` → SET whose id ends with `-<tag>`. Runs whenever
+  // the Workshop panel saves a change (custom `workshop:change` event).
+  useEffect(() => {
+    if (sets.length === 0) return
+    function syncFromPrompt() {
+      const build = readActiveBuildFromStorage()
+      const tag = build.prompt?.match(/^inv-p-(.+)$/)?.[1]
+      if (!tag) return
+      const match = sets.find((s) => s.id.endsWith(`-${tag}`))
+      if (!match) return
+      setActiveId((curr) => {
+        if (curr === match.id) return curr
+        setResult(null)
+        setRunError(null)
+        return match.id
+      })
+    }
+    syncFromPrompt()
+    window.addEventListener("workshop:change", syncFromPrompt)
+    return () => window.removeEventListener("workshop:change", syncFromPrompt)
+  }, [sets])
+
   async function runBenchmark() {
     if (!activeId) return
     const build = readActiveBuildFromStorage()
@@ -198,17 +226,23 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
 
       {/* ── Set tabs ── */}
       {sets.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap mb-4">
+        <div
+          role="tablist"
+          className="flex items-end gap-1 mb-4 border-b"
+          style={{ borderColor: "#E9D1A6" }}
+        >
           {sets.map((s) => {
             const active = s.id === activeId
             return (
               <button
                 key={s.id}
+                role="tab"
+                aria-selected={active}
                 onClick={() => switchSet(s.id)}
-                className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
+                className={`relative px-4 py-2 text-[13px] font-bold transition-colors -mb-px border-b-2 ${
                   active
-                    ? "bg-[#3A2A1C] text-[#FDFBF5]"
-                    : "bg-[#FDFBF5] text-[#6B4F2A] hover:bg-[#F5E4C2]/50 border border-[#E9D1A6]"
+                    ? "text-[#3A2A1C] border-[#B12A17]"
+                    : "text-[#9A7C55] border-transparent hover:text-[#6B4F2A] hover:border-[#E9D1A6]"
                 }`}
               >
                 {s.tabLabel}

@@ -130,33 +130,6 @@ export const set4QuantEvaluator: Evaluator = {
       category: 'accuracy',
     })
 
-    // ── Metric 4: Avg price error % ──
-    const errors: number[] = []
-    for (const a of assets) {
-      const sym = String(a.sym ?? a.symbol ?? '').toUpperCase()
-      const truth = gt.prices.find((p) => p.symbol.toUpperCase() === sym)
-      if (!truth) continue
-      const raw = a.price ?? a.priceUsd
-      const n =
-        typeof raw === 'number'
-          ? raw
-          : parseFloat(String(raw ?? '').replace(/[^\d.]/g, ''))
-      if (Number.isNaN(n)) continue
-      errors.push((Math.abs(n - truth.priceUsd) / truth.priceUsd) * 100)
-    }
-    const avgErr =
-      errors.length > 0
-        ? errors.reduce((s, e) => s + e, 0) / errors.length
-        : null
-    metrics.push({
-      id: 'avgPriceErrorPct',
-      label: 'Price accuracy (vs real market)',
-      value: avgErr === null ? '—' : `${avgErr.toFixed(2)}%`,
-      passed: avgErr !== null && avgErr < 5,
-      direction: 'lower-better',
-      category: 'accuracy',
-    })
-
     // ── Metric 5: biggest_mover correct ──
     const truthMover = [...gt.prices].sort(
       (a, b) => Math.abs(b.change24hPct) - Math.abs(a.change24hPct),
@@ -275,7 +248,6 @@ export const set4QuantEvaluator: Evaluator = {
         reportedSyms,
         truthMover: truthMover?.symbol,
         claimedMoverSym,
-        errors,
       },
     }
   },

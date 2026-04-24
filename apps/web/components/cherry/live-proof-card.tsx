@@ -53,9 +53,9 @@ export function LiveProofCard({ agentName, liveReport }: Props) {
       {liveReport ? (
         <>
           <p className="text-[11px] text-[#6B4F2A] mb-3">
-            {agentName ?? "Agent"} 가 자체적으로{" "}
-            <span className="font-semibold">{liveReport.items.length}개의 스킬 디렉토리</span>
-            를 보고했습니다. 서버 응답과 별개의 독립 증거입니다.
+            {agentName ?? "Agent"} reported{" "}
+            <span className="font-semibold">{liveReport.items.length} skill {liveReport.items.length === 1 ? "directory" : "directories"}</span>{" "}
+            on its own. Independent proof, separate from the server response.
           </p>
           <div className="space-y-1">
             {liveReport.items.map((item) => (
@@ -76,17 +76,18 @@ export function LiveProofCard({ agentName, liveReport }: Props) {
       ) : (
         <div className="text-[12px] text-[#6B4F2A] leading-relaxed">
           <p className="mb-2">
-            서버 응답과 별개의 검증 채널. Claude Code 에 이렇게 자연어로 요청:
+            An independent proof channel, separate from the server response.
+            Ask Claude Code in plain language:
           </p>
           <pre
             className="rounded-lg px-3 py-2 font-mono text-[11px] mb-2 whitespace-pre-wrap"
             style={{ backgroundColor: "#FDFBF5", border: "1px solid #E9D1A6" }}
           >
-            현재 설치된 cherry 스킬 목록을 서버에 보고해줘
+            Report my installed cherry skills to the server
           </pre>
           <p className="italic text-[11px] text-[#9A7C55]">
-            → Claude 가 <code className="px-1 rounded bg-[#FDFBF5] text-[10px]">generate_self_report</code>{" "}
-            도구를 호출하면 여기 실시간으로 뜸.
+            → When Claude calls <code className="px-1 rounded bg-[#FDFBF5] text-[10px]">generate_self_report</code>,
+            the result appears here in real time.
           </p>
         </div>
       )}

@@ -141,10 +141,15 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
   }, [])
 
   // Persist to localStorage — gated by `hydrated` so the initial render's
-  // default state never overwrites what's already saved.
+  // default state never overwrites what's already saved. Dispatch a
+  // `workshop:change` event so sibling components (e.g. BeforeAfterPreview's
+  // tab auto-sync) can react without polling.
   useEffect(() => {
     if (!hydrated) return
-    try { localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(state)) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(state))
+      window.dispatchEvent(new CustomEvent("workshop:change"))
+    } catch { /* ignore */ }
   }, [state, hydrated])
 
   // Reset pagination when filter changes

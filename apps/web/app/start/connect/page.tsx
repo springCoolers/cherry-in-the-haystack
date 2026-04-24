@@ -8,10 +8,12 @@ import { getAccessToken, useAuthTick } from "@/lib/auth"
 import { CherryBao } from "@/components/cherry/cherry-bao"
 import { InstallResultPanel } from "@/components/cherry/install-result-panel"
 import { LiveProofCard } from "@/components/cherry/live-proof-card"
+import { StartFlowNav } from "@/components/cherry/start-flow-nav"
 import {
   SLOT_META,
   WORKSHOP_STORAGE_KEY,
   type AgentBuild,
+  type InventoryItem,
   type SlotKey,
   type WorkshopState,
 } from "@/lib/workshop-mock"
@@ -294,25 +296,17 @@ export default function ConnectPage() {
 
   return (
     <section className="space-y-5">
-      {/* ── 페이지 헤더: flow diagram + 한 줄 설명 ── */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FBF6ED] border border-[#E9D1A6]">
-          <span className="text-[13px]">⚒️</span>
-          <span className="text-[11px] font-bold text-[#6B4F2A]">Workshop</span>
+      {/* ── 페이지 헤더: 타이틀 + flow nav ── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-[20px] lg:text-[22px] font-extrabold text-[#3A2A1C]">
+            Install Skill
+          </h1>
+          <p className="mt-1 text-[12px] text-[#6B4F2A]">
+            Install your Workshop build into an AI assistant.
+          </p>
         </div>
-        <span className="text-[12px] text-[#9A7C55]">→</span>
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-          style={{
-            backgroundColor: "#FBE8E3",
-            border: "1px solid #E89080",
-            color: "#8F1D12",
-          }}
-        >
-          <span className="text-[13px]">📥</span>
-          <span className="text-[11px] font-bold">Install Skill</span>
-        </div>
-        <span className="text-[12px] text-[#6B4F2A] ml-1">Install your Workshop build into an AI assistant.</span>
+        <StartFlowNav current="install" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -431,7 +425,7 @@ export default function ConnectPage() {
               <button
                 onClick={checkConnection}
                 disabled={checkState === "checking"}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-[12px] font-bold transition-colors disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-[12px] font-bold transition-colors disabled:opacity-60 cursor-pointer disabled:cursor-wait"
                 style={{
                   backgroundColor:
                     checkState === "ok"
@@ -583,7 +577,7 @@ export default function ConnectPage() {
             style={{ backgroundColor: "#FBF6ED", border: "1px dashed #E9D1A6" }}
           >
             <p className="text-[12px] text-[#9A7C55] italic">
-              왼쪽에서 AI assistant 를 선택하면 여기에 Install Skill 이 나타납니다.
+              Select an AI assistant on the left to see Install Skill here.
             </p>
           </div>
         )}
@@ -788,10 +782,10 @@ function InstallSkillSection({
       nonEmpty,
     })
 
-    // 클라이언트 선제 가드 — 빈 빌드는 서버 왕복 전에 차단
+    // Client-side guard — block empty builds before the server round-trip.
     if (nonEmpty === 0) {
       onError(
-        `"${selectedBuild.name}" 가 비어있습니다. Workshop 탭에서 이 빌드에 카드를 장착한 뒤 다시 시도해주세요. (Workshop 의 저장이 제대로 됐는지도 확인)`,
+        `"${selectedBuild.name}" is empty. Equip cards in the Workshop tab and try again. (Also verify the Workshop state was saved.)`,
       )
       return
     }
@@ -849,6 +843,7 @@ function InstallSkillSection({
           <BuildOptionCard
             key={b.id}
             build={b}
+            inventory={workshop.inventory}
             selected={selectedBuildId === b.id}
             onSelect={() => setSelectedBuildId(b.id)}
             onTogglePublish={() => togglePublish(b.id)}
@@ -862,7 +857,7 @@ function InstallSkillSection({
           disabled={!canInstall}
           title={
             selectedEquippedCount === 0
-              ? "이 빌드에 장착된 카드가 없습니다. Workshop 에서 먼저 카드를 장착하세요."
+              ? "This build has no equipped cards. Equip cards in Workshop first."
               : undefined
           }
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-[13px] font-extrabold shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
@@ -871,16 +866,16 @@ function InstallSkillSection({
           {installing
             ? "⌛ Installing…"
             : selectedEquippedCount === 0
-              ? "빈 빌드 — 설치 불가"
+              ? "Empty build — can't install"
               : `📥 Install to ${agent.name} (${selectedEquippedCount} slot${selectedEquippedCount === 1 ? "" : "s"})`}
         </button>
 
-        {/* 빈 빌드 경고 — 버튼 disabled 외에 이유까지 설명 */}
+        {/* Empty-build warning — explain why the button is disabled */}
         {selectedEquippedCount === 0 && !installing && (
           <span className="text-[11px] text-[#C8301E] font-semibold">
-            "{selectedBuild?.name ?? ""}" 가 비어있음.{" "}
+            "{selectedBuild?.name ?? ""}" is empty.{" "}
             <Link href="/start/workshop" className="underline hover:text-[#8F1D12]">
-              Workshop 으로 이동 →
+              Go to Workshop →
             </Link>
           </span>
         )}
@@ -911,16 +906,21 @@ function InstallSkillSection({
 
 function BuildOptionCard({
   build,
+  inventory,
   selected,
   onSelect,
   onTogglePublish,
 }: {
   build: AgentBuild
+  inventory: InventoryItem[]
   selected: boolean
   onSelect: () => void
   onTogglePublish: () => void
 }) {
   const equippedCount = Object.values(build.equipped).filter(Boolean).length
+  const promptTitle = build.equipped.prompt
+    ? inventory.find((i) => i.id === build.equipped.prompt)?.title ?? null
+    : null
   const slotOrder: SlotKey[] = [
     "prompt",
     "mcp",
@@ -954,10 +954,18 @@ function BuildOptionCard({
             />
           )}
         </span>
-        <span className="text-[14px] font-extrabold text-[#3A2A1C]">
+        <span className="text-[14px] font-extrabold text-[#3A2A1C] flex-shrink-0">
           {build.name}
         </span>
-        <span className="ml-auto text-[10px] font-mono text-[#9A7C55]">
+        {promptTitle && (
+          <span
+            className="text-[11px] font-semibold text-[#6B4F2A] truncate min-w-0"
+            title={promptTitle}
+          >
+            · {promptTitle}
+          </span>
+        )}
+        <span className="ml-auto text-[10px] font-mono text-[#9A7C55] flex-shrink-0">
           {equippedCount}/7
         </span>
       </div>
