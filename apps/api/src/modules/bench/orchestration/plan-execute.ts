@@ -22,7 +22,7 @@ const PLAN_SUFFIX =
   '\n\n=== PLANNING PHASE ===\nBefore doing anything, produce a short bullet-list plan of the steps needed to answer. Do NOT call any tools yet. Do NOT produce the final answer yet. Reply with ONLY the plan.'
 
 const EXEC_SUFFIX =
-  '\n\n=== EXECUTION PHASE ===\nFollow the plan above step by step. Use the provided tools as needed. Produce the final answer.'
+  '\n\n=== EXECUTION PHASE ===\nFollow the plan above step by step. Use the provided tools as needed. Produce the final answer. At the end of your answer, include a field "plan_steps_executed" whose value is an array of the numbered plan step indices you completed (e.g. [1,2,3]).'
 
 export async function runPlanExecute(
   input: ClaudeCallInput,

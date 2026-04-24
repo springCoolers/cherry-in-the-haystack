@@ -125,10 +125,6 @@ section('Test 6 — Orchestration card selection')
   const plan = composeRuntime({ ...emptyBuild(), orchestration: 'inv-o-plan-execute' })
   ok('plan-execute → orchestrationId=plan-execute', plan.orchestrationId === 'plan-execute')
   ok('plan-execute → orchestrationActive=true', plan.appliedSlots.orchestrationActive === true)
-
-  const rep = composeRuntime({ ...emptyBuild(), orchestration: 'inv-o-self-repair' })
-  ok('self-repair → orchestrationId=self-repair', rep.orchestrationId === 'self-repair')
-  ok('self-repair → orchestrationActive=true', rep.appliedSlots.orchestrationActive === true)
 }
 
 /* ══════════ Test 7: memory maxIterations mapping ══════════ */

@@ -123,6 +123,85 @@ export interface AgentBuildPayload {
   memory: string | null
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Install Skill — push a Workshop build onto a connected agent.
+   Mirrors apps/api/src/modules/kaas/install-build.service.ts response.
+   ════════════════════════════════════════════════════════════════ */
+
+export interface InstallBuildRequest {
+  build_id: string
+  build_name: string
+  equipped: AgentBuildPayload
+}
+
+export interface InstalledEntry {
+  slot: string
+  card_id: string
+  dir: string
+  file: string
+  saved_path: string
+  size_bytes: number
+}
+
+export interface SkipEntry {
+  slot: string
+  card_id: string | null
+  reason: string
+}
+
+export interface FailedEntry {
+  slot: string
+  card_id: string
+  error: string
+}
+
+export interface LocalSkillItem {
+  dir: string
+  hasSkillMd: boolean
+  sizeBytes: number
+  mtime: string | null
+}
+
+export interface InstallBuildResponse {
+  installed: InstalledEntry[]
+  skipped: SkipEntry[]
+  failed: FailedEntry[]
+  meta_written: boolean
+  orphans_removed: string[]
+  local_skills_after: LocalSkillItem[]
+  warnings: string[]
+}
+
+import { fetchWithAuth } from "./auth"
+
+export async function installBuild(
+  agentId: string,
+  body: InstallBuildRequest,
+): Promise<InstallBuildResponse> {
+  const res = await fetchWithAuth(
+    `${API_URL}/api/v1/kaas/agents/${agentId}/install-build`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  )
+  // 207 Multi-Status is treated as partial success — still return parsed JSON
+  if (!res.ok && res.status !== 207) {
+    let detail = ""
+    try {
+      const b = await res.json()
+      detail = b?.message ?? b?.code ?? ""
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `installBuild ${res.status}${detail ? ` · ${detail}` : ""}`,
+    )
+  }
+  return res.json()
+}
+
 export interface AppliedSlots {
   prompt: boolean
   mcp: boolean

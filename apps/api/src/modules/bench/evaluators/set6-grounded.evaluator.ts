@@ -63,7 +63,7 @@ export const set6GroundedEvaluator: Evaluator = {
     const keyHits = gt.keyFacts.filter((k) => k.pattern.test(answer))
     metrics.push({
       id: 'keyFactAccuracy',
-      label: 'Key facts correct (revenue shares)',
+      label: 'Key facts correct',
       value: `${keyHits.length} / ${gt.keyFacts.length}`,
       passed: keyHits.length === gt.keyFacts.length,
       direction: 'higher-better',
@@ -77,7 +77,7 @@ export const set6GroundedEvaluator: Evaluator = {
     const gapCorrect = gapPattern.test(answer)
     metrics.push({
       id: 'revenueGapCorrect',
-      label: 'Revenue gap = 40 pp',
+      label: 'Correct 40pp gap calculation',
       value: gapCorrect ? 'Yes' : 'No',
       passed: gapCorrect,
       direction: 'higher-better',
@@ -88,7 +88,7 @@ export const set6GroundedEvaluator: Evaluator = {
     const citeMatches = answer.match(/\[doc:[^\]]+\]/gi) ?? []
     metrics.push({
       id: 'docCitations',
-      label: 'Doc ID citations',
+      label: 'Doc sources cited',
       value: citeMatches.length,
       passed: citeMatches.length >= 2,
       direction: 'higher-better',
@@ -109,7 +109,7 @@ export const set6GroundedEvaluator: Evaluator = {
     }).length
     metrics.push({
       id: 'missingFlagged',
-      label: 'Missing fields flagged (monthly / perks)',
+      label: 'Flagged the gaps in docs',
       value: `${missingFlaggedCount} / ${gt.expectedMissing.length}`,
       passed: missingFlaggedCount === gt.expectedMissing.length,
       direction: 'higher-better',
@@ -141,17 +141,45 @@ export const set6GroundedEvaluator: Evaluator = {
     }
     metrics.push({
       id: 'hallucinatedFactsPct',
-      label: 'Hallucinated facts (vs. karma-v2)',
+      label: 'Made-up facts',
       value: hallucPct === null ? '—' : `${hallucPct.toFixed(0)}%`,
       passed: hallucPct !== null && hallucPct <= 10,
       direction: 'lower-better',
       category: 'hallucination',
     })
 
+    // ── Artifact metrics (Phase 2.5) ──
+
+    // multihopSearchCount — multihop skill demands >= 2 separate search calls.
+    const searchCount = ctx.toolCalls.filter(
+      (t) => (t as { name?: string }).name === 'search_catalog',
+    ).length
+    metrics.push({
+      id: 'multihopSearchCount',
+      label: 'Multiple targeted searches',
+      value: searchCount,
+      passed: searchCount >= 2,
+      direction: 'higher-better',
+      category: 'tool',
+    })
+
+    // planStepsExecuted — plan-execute orchestration injects a
+    // "plan_steps_executed" field. Detect via literal string presence so
+    // it works whether the answer is JSON or prose.
+    const planMatches = answer.match(/plan_steps_executed/gi) ?? []
+    metrics.push({
+      id: 'planStepsExecuted',
+      label: 'Planned before answering',
+      value: planMatches.length > 0 ? 'Yes' : 'No',
+      passed: planMatches.length > 0,
+      direction: 'higher-better',
+      category: 'completion',
+    })
+
     // ── Metric 6: Tool calls ──
     metrics.push({
       id: 'toolCalls',
-      label: 'Tool calls',
+      label: 'Doc lookups',
       value: ctx.toolCalls.length,
       direction: 'higher-better',
       category: 'tool',

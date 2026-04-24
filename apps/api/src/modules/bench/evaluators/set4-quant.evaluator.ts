@@ -72,16 +72,19 @@ export const set4QuantEvaluator: Evaluator = {
     const metrics: Metric[] = []
 
     const parsed = tryParseJson(ctx.answer ?? '')
+    // Loose: require { assets: [...] } with SOME biggest_mover present
+    // (can be object OR string label). Phase 2.5 prompts don't force the
+    // biggest_mover sub-shape — skills may or may not impose it.
     const hasJson =
       parsed !== null &&
       typeof parsed === 'object' &&
       Array.isArray((parsed as any).assets) &&
-      typeof (parsed as any).biggest_mover === 'object'
+      (parsed as any).biggest_mover !== undefined
 
     // ── Metric 1: JSON schema pass ──
     metrics.push({
       id: 'schemaPass',
-      label: 'JSON schema pass',
+      label: 'Clean structured output',
       value: hasJson ? 'Yes' : 'No',
       passed: hasJson,
       direction: 'higher-better',
@@ -92,15 +95,20 @@ export const set4QuantEvaluator: Evaluator = {
     const assets: Array<Record<string, unknown>> = hasJson
       ? ((parsed as any).assets as Array<Record<string, unknown>>)
       : []
-    const biggestMover: Record<string, unknown> = hasJson
-      ? ((parsed as any).biggest_mover as Record<string, unknown>)
-      : {}
+    const rawMover = hasJson ? (parsed as any).biggest_mover : undefined
+    // Accept both { sym: "ETH", ... } AND bare string "ETH".
+    const biggestMover: Record<string, unknown> =
+      typeof rawMover === 'string'
+        ? { sym: rawMover }
+        : typeof rawMover === 'object' && rawMover !== null
+          ? (rawMover as Record<string, unknown>)
+          : {}
 
     // ── Metric 2: Asset count ──
     const assetCount = assets.length
     metrics.push({
       id: 'assetCount',
-      label: 'Asset count (expected 3)',
+      label: 'All 3 coins covered',
       value: `${assetCount} / 3`,
       passed: assetCount === 3,
       direction: 'higher-better',
@@ -115,7 +123,7 @@ export const set4QuantEvaluator: Evaluator = {
     const covered = requiredSyms.filter((s) => reportedSyms.includes(s))
     metrics.push({
       id: 'symbolCoverage',
-      label: 'Symbols covered (BTC/ETH/SOL)',
+      label: 'BTC · ETH · SOL all present',
       value: `${covered.length} / ${requiredSyms.length}`,
       passed: covered.length === requiredSyms.length,
       direction: 'higher-better',
@@ -142,7 +150,7 @@ export const set4QuantEvaluator: Evaluator = {
         : null
     metrics.push({
       id: 'avgPriceErrorPct',
-      label: 'Avg price error %',
+      label: 'Price accuracy (vs real market)',
       value: avgErr === null ? '—' : `${avgErr.toFixed(2)}%`,
       passed: avgErr !== null && avgErr < 5,
       direction: 'lower-better',
@@ -162,7 +170,7 @@ export const set4QuantEvaluator: Evaluator = {
       claimedMoverSym === truthMover.symbol.toUpperCase()
     metrics.push({
       id: 'biggestMoverCorrect',
-      label: 'biggest_mover correct',
+      label: 'Top mover identified correctly',
       value: moverCorrect
         ? `✓ ${claimedMoverSym}`
         : claimedMoverSym
@@ -182,17 +190,77 @@ export const set4QuantEvaluator: Evaluator = {
     }
     metrics.push({
       id: 'citationPerAsset',
-      label: 'Citations per asset (source/timestamp)',
+      label: 'Source shown on every claim',
       value: `${citedCount} / ${Math.max(assetCount, 1)}`,
       passed: citedCount === assetCount && assetCount > 0,
       direction: 'higher-better',
       category: 'groundedness',
     })
 
+    // ── Artifact metrics (Phase 2.5) ──
+    // Each counts a literal artifact produced by a specific skill. Removing
+    // the skill deterministically removes the artifact — deterministic drop.
+
+    // stepFieldCount — decomp skill injects a "step" field on each asset.
+    const stepCount = assets.filter(
+      (a) => a.step !== undefined && a.step !== null,
+    ).length
+    metrics.push({
+      id: 'stepFieldCount',
+      label: 'Step-by-step breakdown included',
+      value: `${stepCount} / ${Math.max(assetCount, 1)}`,
+      passed: stepCount === assetCount && assetCount > 0,
+      direction: 'higher-better',
+      category: 'completion',
+    })
+
+    // startsWithJson — json-strict skill forces pure JSON output.
+    const trimmed = (ctx.answer ?? '').trim().replace(/^```(?:json)?\s*/i, '')
+    const firstChar = trimmed.charAt(0)
+    const startsJson = firstChar === '{' || firstChar === '['
+    metrics.push({
+      id: 'startsWithJson',
+      label: 'Pure JSON (no chit-chat)',
+      value: startsJson ? 'Yes' : 'No',
+      passed: startsJson,
+      direction: 'higher-better',
+      category: 'completion',
+    })
+
+    // sourceTokenCount — citation skill requires literal "source:" token
+    // per numeric claim. Count across the full answer.
+    const sourceTokens = (ctx.answer ?? '').match(/source:/gi) ?? []
+    metrics.push({
+      id: 'sourceTokenCount',
+      label: 'Source tags per fact',
+      value: sourceTokens.length,
+      passed:
+        assetCount > 0 && sourceTokens.length >= assetCount,
+      direction: 'higher-better',
+      category: 'groundedness',
+    })
+
+    // planStepsExecuted — plan-execute orchestration injects a
+    // "plan_steps_executed" field into the final answer.
+    const planStepsField = hasJson
+      ? (parsed as Record<string, unknown>).plan_steps_executed
+      : undefined
+    const planStepsCount = Array.isArray(planStepsField)
+      ? planStepsField.length
+      : 0
+    metrics.push({
+      id: 'planStepsExecuted',
+      label: 'Plan steps executed',
+      value: planStepsCount,
+      passed: planStepsCount > 0,
+      direction: 'higher-better',
+      category: 'completion',
+    })
+
     // ── Metric 7: Tool calls ──
     metrics.push({
       id: 'toolCalls',
-      label: 'Tool calls',
+      label: 'Live price fetches',
       value: ctx.toolCalls.length,
       direction: 'higher-better',
       category: 'tool',

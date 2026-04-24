@@ -44,7 +44,9 @@ export function ConsumerNav() {
           </div>
         </Link>
 
-        {/* Tabs */}
+        {/* Tabs — fixed-width slots so the active indicator swap doesn't shift
+            neighbors left/right. Each tab reserves enough space for the longest
+            label (keeps slot stable across active/inactive state). */}
         <nav className="flex items-center gap-1 flex-1 justify-center">
           {TABS.map((t) => {
             const active = pathname === t.href || (t.href !== "/start" && pathname?.startsWith(t.href))
@@ -52,11 +54,12 @@ export function ConsumerNav() {
               <Link
                 key={t.href}
                 href={t.href}
-                className={`px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                className={`inline-flex items-center justify-center px-3.5 py-1.5 rounded-full text-[13px] font-semibold text-center transition-colors ${
                   active
                     ? "bg-[#3A2A1C] text-[#FDFBF5]"
                     : "text-[#6B4F2A] hover:bg-[#F5E4C2]/50"
                 }`}
+                style={{ minWidth: 120 }}
               >
                 {t.label}
               </Link>

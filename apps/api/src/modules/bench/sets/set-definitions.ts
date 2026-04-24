@@ -55,14 +55,6 @@ export interface Set4QuantCriteria {
   symbols: string[] // e.g. ["BTC","ETH","SOL"]
 }
 
-export interface Set5StrictHunterCriteria {
-  kind: 'strict-hunter'
-  expectedIds: string[] // clean top-3 by price
-  requiredFields: string[]
-  filter: { brand: string; model: string; maxPrice: number; sealedOnly: true }
-  sellerBlocklist: string[] // regex fragments e.g. ["refurb","used"]
-}
-
 export interface Set6GroundedCriteria {
   kind: 'grounded-abstain'
   expectedDocIds: string[]
@@ -76,7 +68,6 @@ export type EvalCriteria =
   | Set2HunterCriteria
   | Set3PolicyCriteria
   | Set4QuantCriteria
-  | Set5StrictHunterCriteria
   | Set6GroundedCriteria
 
 export type MemoryMode = 'none' | 'short' | 'retrieval'
@@ -86,7 +77,6 @@ export type BenchSetId =
   | 'set-2-hunter'
   | 'set-3-policy'
   | 'set-4-quant'
-  | 'set-5-strict-hunter'
   | 'set-6-grounded'
 
 export interface BenchSetDefinition {
@@ -268,8 +258,8 @@ const SET_4_QUANT: BenchSetDefinition = {
     'Multi-tool fetches + structured JSON + arithmetic. Requires Plan-and-Execute to cover all 3 assets reliably.',
   skills: ['Multi-step Decomposition', 'JSON Strict', 'Citation Discipline'],
   memoryMode: 'short',
-  task: `Get current USD price and 24h % change for BTC, ETH, and SOL. Pick the one with the largest absolute 24h movement. Output JSON: {"assets":[{"sym","price","change24h","captured_at","source"}], "biggest_mover":{"sym","abs_change_pct"}}. Cite timestamp + source per asset.`,
-  systemPrompt: `You are a quantitative crypto analyst. Given multiple assets, fetch each price, compare movements, and return a single JSON object with fields {assets, biggest_mover}. Cite the timestamp and source for every numeric claim.`,
+  task: `Compare BTC, ETH, and SOL over the last 24 hours. Which one moved the most?`,
+  systemPrompt: `You are a quantitative crypto analyst. For each asset mentioned, call get_crypto_price and compare their 24h movements. Identify the biggest mover.`,
   tools: [
     {
       name: 'get_crypto_price',
@@ -291,50 +281,6 @@ const SET_4_QUANT: BenchSetDefinition = {
   evalCriteria: {
     kind: 'quant-multi',
     symbols: ['BTC', 'ETH', 'SOL'],
-  },
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   SET 5 — Constrained Deal Hunter (Phase 2, 7-slot)
-   ════════════════════════════════════════════════════════════════ */
-
-const SET_5_STRICT_HUNTER: BenchSetDefinition = {
-  id: 'set-5-strict-hunter',
-  name: 'Constrained Deal Hunter',
-  tabLabel: 'Strict Hunter',
-  subtitle:
-    "Basic sealed_only filter isn't enough — 3 trap records slip through. Needs Constraint-Satisfaction + Self-Validation + Self-Repair.",
-  skills: [
-    'Constraint Satisfaction',
-    'JSON Strict',
-    'Self-Validation',
-  ],
-  memoryMode: 'none',
-  task: `Find the 3 cheapest LG Gram 16-inch laptops under $700 that are sealed AND whose seller name does NOT contain 'refurb' or 'used'. Return JSON array [{id, title, price, seller, posted_at}]. If fewer than 3 qualify, return only those. Do NOT invent.`,
-  systemPrompt: `You are a strict deal-hunting assistant. Return exactly the requested number of listings as a JSON array. Apply every stated filter. Never invent listings — use only the search tool output. No prose outside the JSON.`,
-  tools: [
-    {
-      name: 'search_marketplace',
-      description:
-        'Search the internal marketplace for listings matching a query and filters. Returns { listings: [{id, title, price, seller, posted_at, sealed, brand, model}] }.',
-      input_schema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: "Free-text query, e.g. 'LG Gram 16'." },
-          max_price: { type: 'number', description: 'Upper bound (exclusive) on price in USD.' },
-          sealed_only: { type: 'boolean', description: 'If true, only return sealed items.' },
-        },
-        required: ['query'],
-      },
-    },
-  ],
-  evaluatorId: 'set-5-strict-hunter',
-  evalCriteria: {
-    kind: 'strict-hunter',
-    expectedIds: ['gram-01', 'gram-02', 'gram-03'],
-    requiredFields: ['id', 'title', 'price', 'seller', 'posted_at'],
-    filter: { brand: 'LG', model: 'Gram 16', maxPrice: 700, sealedOnly: true },
-    sellerBlocklist: ['refurb', 'used'],
   },
 }
 
@@ -396,7 +342,6 @@ export const BENCH_SETS: BenchSetDefinition[] = [
   SET_2_HUNTER,
   SET_3_POLICY,
   SET_4_QUANT,
-  SET_5_STRICT_HUNTER,
   SET_6_GROUNDED,
 ]
 

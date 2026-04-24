@@ -28,7 +28,6 @@ export type SetTag =
   | "hunter"
   | "policy"
   | "quant"
-  | "strict"
   | "grounded"
 
 export interface SetMeta {
@@ -43,7 +42,6 @@ export const SET_META: Record<SetTag, SetMeta> = {
   hunter:   { label: "Hunter Set",   symbol: "🜄", color: "#8F1D12", softBg: "#F6D8D0" },
   policy:   { label: "Policy Set",   symbol: "🜁", color: "#2D3B66", softBg: "#D8DEEF" },
   quant:    { label: "Quant Set",    symbol: "🜔", color: "#5E3A8A", softBg: "#E8DCF4" },
-  strict:   { label: "Strict Set",   symbol: "🜍", color: "#9A4A0F", softBg: "#F5DCC5" },
   grounded: { label: "Grounded Set", symbol: "🜚", color: "#3F5A2E", softBg: "#DCE8D1" },
 }
 
@@ -227,7 +225,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Finance",
     updatedAt: "2026-04-23",
     source: "builtin",
-    setTag: ["oracle"],
+    setTag: ["oracle", "quant"],
     summary:
       "Live crypto prices via CoinGecko. Tool: get_crypto_price(symbol).",
   },
@@ -249,7 +247,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Docs",
     updatedAt: "2026-04-23",
     source: "builtin",
-    setTag: ["policy"],
+    setTag: ["policy", "grounded"],
     summary:
       "Cherry internal policy docs. Tool: search_catalog(query, limit).",
   },
@@ -299,17 +297,6 @@ export const mockInventory: InventoryItem[] = [
       "3-asset analyst that fetches each price, compares movement, returns structured JSON with citations.",
   },
   {
-    id: "inv-p-strict-hunter",
-    title: "Strict Deal Hunter",
-    type: "prompt",
-    category: "Constrained",
-    updatedAt: "2026-04-24",
-    source: "builtin",
-    setTag: ["strict"],
-    summary:
-      "Strict JSON listings; applies every filter; never invents records.",
-  },
-  {
     id: "inv-p-grounded",
     title: "Grounded Researcher",
     type: "prompt",
@@ -340,7 +327,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Output",
     updatedAt: "2026-04-24",
     source: "builtin",
-    setTag: ["quant", "strict"],
+    setTag: ["quant"],
     summary: "Output ONLY valid JSON matching the requested schema. No prose.",
   },
   {
@@ -352,28 +339,6 @@ export const mockInventory: InventoryItem[] = [
     source: "builtin",
     setTag: ["quant", "grounded"],
     summary: "Every factual claim carries an inline source or citation.",
-  },
-  {
-    id: "inv-s-constraint-sat",
-    title: "Constraint Satisfaction",
-    type: "skill",
-    category: "Filtering",
-    updatedAt: "2026-04-24",
-    source: "builtin",
-    setTag: ["strict"],
-    summary:
-      "Apply EVERY stated filter. Reject any record that fails any single constraint.",
-  },
-  {
-    id: "inv-s-self-validate",
-    title: "Self-Validation",
-    type: "skill",
-    category: "Filtering",
-    updatedAt: "2026-04-24",
-    source: "builtin",
-    setTag: ["strict"],
-    summary:
-      "Re-read the draft against every constraint and drop any item that fails.",
   },
   {
     id: "inv-s-multihop",
@@ -420,17 +385,6 @@ export const mockInventory: InventoryItem[] = [
     summary:
       "Two-phase call: first produce a plan (no tools), then execute the plan with tools.",
   },
-  {
-    id: "inv-o-self-repair",
-    title: "Self-Repair",
-    type: "orchestration",
-    category: "Retry",
-    updatedAt: "2026-04-24",
-    source: "builtin",
-    setTag: ["strict"],
-    summary:
-      "Runs the default loop, validates the output, retries once on failure.",
-  },
 ]
 
 const DEFAULT_BUILDS: AgentBuild[] = [
@@ -450,7 +404,7 @@ export const defaultWorkshopState: WorkshopState = {
 // v8: Phase 2 — setTag array + 13 new cards (7 skill + 3 orch + 3 new prompts).
 // Inventory goes from 9 → 22. Storage bump invalidates any v7 saves whose setTag
 // was the old string form.
-export const WORKSHOP_STORAGE_KEY = "cherry_workshop_state_v8"
+export const WORKSHOP_STORAGE_KEY = "cherry_workshop_state_v9"
 
 /** Order of type filter buttons in the UI */
 export const SKILL_TYPE_ORDER: SkillType[] = [

@@ -4,7 +4,6 @@
  * `callClaude(input)` is the single public entry. It dispatches to:
  *   - standard     → the tool-use loop (default, kept identical to Phase 1)
  *   - plan-execute → 2-phase call (plan without tools → execute with tools)
- *   - self-repair  → standard + validator + 1 retry on failure
  *
  * `callClaudeStandard` is exported so orchestration strategies can reuse
  * the standard loop internally without re-implementing it.
@@ -17,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AnthropicToolSchema } from './sets/set-definitions'
 import type { OrchestrationId } from './cards/card-registry'
 
-export const DEFAULT_MODEL = 'claude-haiku-4-5'
+export const DEFAULT_MODEL = process.env.BENCH_MODEL ?? 'claude-haiku-4-5'
 
 let sharedClient: Anthropic | null = null
 function getClient(): Anthropic {
@@ -85,10 +84,6 @@ export async function callClaude(
       const { runPlanExecute } = await import('./orchestration/plan-execute.js')
       return runPlanExecute(input)
     }
-    case 'self-repair': {
-      const { runSelfRepair } = await import('./orchestration/self-repair.js')
-      return runSelfRepair(input)
-    }
     case 'standard':
     case undefined:
     default:
@@ -102,8 +97,14 @@ export async function callClaude(
 export async function callClaudeStandard(
   input: ClaudeCallInput,
 ): Promise<ClaudeCallResult> {
-  const client = getClient()
   const model = input.model ?? DEFAULT_MODEL
+  // Route GPT models to the OpenAI client with identical I/O shape so
+  // orchestration strategies (plan-execute, self-repair) work unchanged.
+  if (model.startsWith('gpt-')) {
+    const { callOpenAIStandard } = await import('./openai.client.js')
+    return callOpenAIStandard({ ...input, model })
+  }
+  const client = getClient()
   const maxTokens = input.maxTokens ?? 1024
   const temperature = input.temperature ?? 0
   const maxIter = input.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS

@@ -29,6 +29,7 @@ import {
   SLOT_META,
   WORKSHOP_STORAGE_KEY,
   defaultWorkshopState,
+  emptyEquipped,
   type AgentBuild,
   type InventoryItem,
   type SetTag,
@@ -63,9 +64,12 @@ const STEP_BADGE_COLOR = "#1A1626"
 
 export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
   const [state, setState] = useState<WorkshopState>(defaultWorkshopState)
+  /** hydrated = localStorage hydration 완료 여부. save effect 가 hydration
+   *  전에 실행돼서 localStorage 를 기본값으로 덮어쓰는 레이스 방지용. */
+  const [hydrated, setHydrated] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropRejectedSlot, setDropRejectedSlot] = useState<SlotKey | null>(null)
-  const [filter, setFilter] = useState<FilterKey>("all")
+  const [filter, setFilter] = useState<FilterKey>("prompt")
   const [page, setPage] = useState(0)
 
   // Custom item upload form state
@@ -118,25 +122,30 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
   }
 
   // Restore from localStorage + migrate any older build rows that are missing
-  // `isListedOnMarket` (added later to AgentBuild).
+  // `isListedOnMarket` (added later to AgentBuild). Always set `hydrated` at
+  // the end so the save effect below doesn't run before we've loaded.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(WORKSHOP_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as Partial<WorkshopState>
-      const merged: WorkshopState = { ...defaultWorkshopState, ...parsed }
-      merged.builds = (merged.builds ?? defaultWorkshopState.builds).map((b) => ({
-        ...b,
-        isListedOnMarket: b.isListedOnMarket ?? false,
-      }))
-      setState(merged)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<WorkshopState>
+        const merged: WorkshopState = { ...defaultWorkshopState, ...parsed }
+        merged.builds = (merged.builds ?? defaultWorkshopState.builds).map((b) => ({
+          ...b,
+          isListedOnMarket: b.isListedOnMarket ?? false,
+        }))
+        setState(merged)
+      }
     } catch { /* ignore */ }
+    setHydrated(true)
   }, [])
 
-  // Persist to localStorage
+  // Persist to localStorage — gated by `hydrated` so the initial render's
+  // default state never overwrites what's already saved.
   useEffect(() => {
+    if (!hydrated) return
     try { localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(state)) } catch { /* ignore */ }
-  }, [state])
+  }, [state, hydrated])
 
   // Reset pagination when filter changes
   useEffect(() => { setPage(0) }, [filter])
@@ -172,6 +181,9 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
   }
   function unequip(slot: SlotKey) {
     updateActiveBuild((b) => ({ ...b, equipped: { ...b.equipped, [slot]: null } }))
+  }
+  function unequipAll() {
+    updateActiveBuild((b) => ({ ...b, equipped: emptyEquipped() }))
   }
   function toggleListing() {
     updateActiveBuild((b) => ({ ...b, isListedOnMarket: !b.isListedOnMarket }))
@@ -281,7 +293,17 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
 
                            [3A] [3B] [3C]
             */}
-            <div className="rounded-xl bg-gradient-to-br from-[#F5EDE1]/40 via-white to-[#EEF0F7]/40 border border-[#E4E1EE] p-5">
+            <div className="relative rounded-xl bg-gradient-to-br from-[#F5EDE1]/40 via-white to-[#EEF0F7]/40 border border-[#E4E1EE] p-5">
+              {/* Unequip-all — sits inside the character sheet's top-right */}
+              <button
+                onClick={unequipAll}
+                disabled={Object.values(activeBuild.equipped).every((v) => !v)}
+                className="absolute top-3 right-3 z-10 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-[#E4E1EE] bg-white/80 backdrop-blur-sm text-[#6B6480] hover:bg-[#F5EDE1] hover:text-[#3A2A1C] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Unequip every slot in this build"
+              >
+                ⤴ Unequip all
+              </button>
+
               {/* Top — Prompt (helmet) */}
               <div className="flex justify-center mb-2.5">
                 <EquipSlot
@@ -672,7 +694,9 @@ function AgentCharacter({
 }) {
   const customIcon = typeof agent?.icon === "string" && agent.icon.trim().length > 0
     ? agent.icon
-    : null
+    : agent
+      ? null
+      : "🤖"
   const isComplete = equippedCount >= 7
   // Brief "just equipped" sparkle — triggers whenever equippedCount changes
   const [pulseKey, setPulseKey] = useState(0)

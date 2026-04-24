@@ -97,7 +97,7 @@ export const set1OracleEvaluator: Evaluator = {
     // ── Metric: Task completion ──
     metrics.push({
       id: 'taskCompletion',
-      label: 'Task completion (price answered)',
+      label: 'Answered with a price',
       value: taskCompleted ? 'Yes' : 'No',
       passed: taskCompleted,
       direction: 'higher-better',
@@ -107,7 +107,7 @@ export const set1OracleEvaluator: Evaluator = {
     // ── Metric: Price error % ──
     metrics.push({
       id: 'priceErrorPct',
-      label: 'Price error vs. live truth',
+      label: 'Price accuracy (vs real market)',
       value:
         bestPriceErrorPct === null
           ? '—'
@@ -121,7 +121,7 @@ export const set1OracleEvaluator: Evaluator = {
     // ── Metric: Hallucinated numbers ──
     metrics.push({
       id: 'hallucinatedNumbers',
-      label: 'Hallucinated numbers',
+      label: 'Made-up numbers',
       value: hallucinatedNumberCount,
       passed: hallucinatedNumberCount === 0,
       direction: 'lower-better',
@@ -134,7 +134,7 @@ export const set1OracleEvaluator: Evaluator = {
     const citationCount = (answer.match(citationPattern) || []).length
     metrics.push({
       id: 'citationCount',
-      label: 'Citations w/ timestamp or source',
+      label: 'Claims backed by source',
       value: citationCount,
       passed: citationCount > 0,
       direction: 'higher-better',
@@ -145,7 +145,7 @@ export const set1OracleEvaluator: Evaluator = {
     const toolCallsCount = ctx.toolCalls.length
     metrics.push({
       id: 'toolCalls',
-      label: 'Tool calls',
+      label: 'Live data fetches',
       value: toolCallsCount,
       direction: 'higher-better',
       category: 'tool',

@@ -2,9 +2,43 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { deleteAgent, fetchAgents, registerAgent } from "@/lib/api"
+import { deleteAgent, fetchAgents, fetchAgentSelfReport, registerAgent } from "@/lib/api"
+import { installBuild, type InstallBuildResponse } from "@/lib/bench-api"
 import { getAccessToken, useAuthTick } from "@/lib/auth"
 import { CherryBao } from "@/components/cherry/cherry-bao"
+import { InstallResultPanel } from "@/components/cherry/install-result-panel"
+import { LiveProofCard } from "@/components/cherry/live-proof-card"
+import {
+  SLOT_META,
+  WORKSHOP_STORAGE_KEY,
+  type AgentBuild,
+  type SlotKey,
+  type WorkshopState,
+} from "@/lib/workshop-mock"
+
+/** Source of truth for "is this agent running a build right now?" is the
+ *  agent's own ~/.claude/skills/ directory — NOT browser localStorage.
+ *  On mount we ping self-report; after install we use the response's
+ *  local_skills_after. localStorage is only used for Workshop builds. */
+
+function readWorkshop(): WorkshopState | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(WORKSHOP_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as WorkshopState) : null
+  } catch {
+    return null
+  }
+}
+
+function writeWorkshop(state: WorkshopState) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    /* ignore */
+  }
+}
 
 interface Agent {
   id: string
@@ -31,6 +65,21 @@ export default function ConnectPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
+  const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "fail">("idle")
+  const [checkMessage, setCheckMessage] = useState<string>("")
+
+  // Install Skill state — lifted so the side panel can render next to
+  // everything on desktop (2-col) and below on mobile (stacked).
+  const [installing, setInstalling] = useState(false)
+  const [installResult, setInstallResult] = useState<InstallBuildResponse | null>(null)
+  const [installError, setInstallError] = useState<string | null>(null)
+  /** Live report pushed from agent via WebSocket — separate proof channel
+   *  from the install response. Triggered when the user runs
+   *  `generate_self_report` MCP tool inside Claude Code. */
+  const [liveReport, setLiveReport] = useState<{
+    items: Array<{ dir: string; hasSkillMd: boolean; sizeBytes: number; mtime: string | null }>
+    receivedAt: string
+  } | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -71,6 +120,35 @@ export default function ConnectPage() {
     navigator.clipboard.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(null), 1500)
+  }
+
+  /** Same check the Cherry dashboard's "Diff" modal uses — asks the agent
+   *  process (via MCP stdio) for a self-report. Only a live-responding
+   *  agent returns { ok: true, report: ... }. Anything else = not connected. */
+  async function checkConnection() {
+    if (!selected?.id) return
+    setCheckState("checking")
+    setCheckMessage("")
+    try {
+      const r: { ok?: boolean; error?: string; hint?: string; report?: unknown } =
+        await fetchAgentSelfReport(selected.id)
+      if (r?.ok && r.report) {
+        setCheckState("ok")
+        setCheckMessage("Agent responded to self-report — MCP link is live.")
+      } else {
+        setCheckState("fail")
+        const why = r?.error ?? "Agent did not respond"
+        const hint = r?.hint ? ` · ${r.hint}` : ""
+        setCheckMessage(`${why}${hint}`)
+      }
+    } catch (e) {
+      setCheckState("fail")
+      setCheckMessage(
+        e instanceof Error
+          ? `Request failed — ${e.message}`
+          : "Request failed. Make sure 'claude' is running with the cherry-kaas MCP server."
+      )
+    }
   }
 
   const selected = agents.find((a) => a.id === selectedId) ?? agents[0]
@@ -118,20 +196,85 @@ export default function ConnectPage() {
 
   if (agents.length === 0) {
     return (
-      <section className="flex flex-col items-center text-center py-16">
-        <CherryBao size={120} animate />
-        <h1 className="mt-6 text-[22px] font-extrabold text-[#3A2A1C]">
-          Build your first AI?
-        </h1>
-        <p className="mt-2 text-[13px] text-[#6B4F2A] max-w-md">
-          Just pick a name and we'll issue your AI card instantly. 200 free credits to get you started.
-        </p>
-        <button
-          onClick={() => setShowRegister(true)}
-          className="mt-6 px-5 py-2.5 rounded-full bg-[#C8301E] text-white text-[14px] font-bold shadow-md hover:shadow-lg transition-all"
-        >
-          + New AI
-        </button>
+      <section className="py-10 space-y-16">
+        {/* ══ FLOW — two large, clearly distinct tiles ══ */}
+        <div className="flex items-center justify-center gap-4 lg:gap-6">
+          {/* Workshop tile — warm cream, the prerequisite */}
+          <Link
+            href="/start/workshop"
+            className="group relative flex flex-col items-center justify-center w-[200px] h-[200px] rounded-[24px] transition-all hover:-translate-y-0.5"
+            style={{
+              backgroundColor: "#F5E4C2",
+              border: "2px solid #D9B77E",
+              boxShadow: "0 6px 20px rgba(107,79,42,0.12)",
+            }}
+          >
+            <span
+              className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-white text-[10px] font-black shadow-md whitespace-nowrap"
+              style={{ backgroundColor: "#2D7A5E" }}
+            >
+              ✓ STEP 1 · START HERE
+            </span>
+            <span className="text-[64px] leading-none">⚒️</span>
+            <span className="mt-3 text-[18px] font-extrabold text-[#3A2A1C]">
+              Workshop
+            </span>
+            <span className="mt-1 text-[11px] uppercase tracking-[0.2em] text-[#9A7C55]">
+              Forge
+            </span>
+            <span className="absolute bottom-3 text-[10px] text-[#9A7C55] group-hover:text-[#6B4F2A] transition-colors">
+              Build skills →
+            </span>
+          </Link>
+
+          {/* Arrow — big, central */}
+          <div className="flex flex-col items-center">
+            <span className="text-[40px] text-[#9A7C55] leading-none">→</span>
+          </div>
+
+          {/* Install Skill tile — soft terracotta, current step */}
+          <div
+            className="relative flex flex-col items-center justify-center w-[200px] h-[200px] rounded-[24px]"
+            style={{
+              backgroundColor: "#FBE8E3",
+              border: "2px solid #E89080",
+              boxShadow: "0 6px 20px rgba(201,74,46,0.18)",
+            }}
+          >
+            <span
+              className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-white text-[10px] font-black shadow-md whitespace-nowrap"
+              style={{ backgroundColor: "#C8301E" }}
+            >
+              STEP 2 · YOU ARE HERE
+            </span>
+            <span className="text-[64px] leading-none">📥</span>
+            <span className="mt-3 text-[18px] font-extrabold" style={{ color: "#8F1D12" }}>
+              Install Skill
+            </span>
+            <span className="mt-1 text-[11px] uppercase tracking-[0.2em]" style={{ color: "#C8301E" }}>
+              Install
+            </span>
+          </div>
+        </div>
+
+        {/* ══ MESSAGE + CTA — centered, consistent axis with tiles ══ */}
+        <div className="flex flex-col items-center text-center gap-8 max-w-[560px] mx-auto">
+          <div>
+            <h1 className="text-[20px] lg:text-[22px] font-extrabold text-[#3A2A1C] leading-tight">
+              Install your Workshop build into an AI assistant
+            </h1>
+            <p className="mt-1.5 text-[12px] text-[#9A7C55]">
+              Make one now — 200 free credits included.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowRegister(true)}
+            className="px-6 py-3 rounded-full bg-[#C8301E] text-white text-[14px] font-extrabold shadow-md hover:shadow-lg transition-all whitespace-nowrap"
+          >
+            + New AI assistant
+          </button>
+        </div>
+
         {showRegister && (
           <RegisterAgentModal
             onClose={() => setShowRegister(false)}
@@ -147,87 +290,93 @@ export default function ConnectPage() {
 
   return (
     <section className="space-y-5">
-      {/* ── 내 AI 목록 (여러 개 가능, 삭제 포함) ── */}
+      {/* ── 페이지 헤더: flow diagram + 한 줄 설명 ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FBF6ED] border border-[#E9D1A6]">
+          <span className="text-[13px]">⚒️</span>
+          <span className="text-[11px] font-bold text-[#6B4F2A]">Workshop</span>
+        </div>
+        <span className="text-[12px] text-[#9A7C55]">→</span>
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+          style={{
+            backgroundColor: "#FBE8E3",
+            border: "1px solid #E89080",
+            color: "#8F1D12",
+          }}
+        >
+          <span className="text-[13px]">📥</span>
+          <span className="text-[11px] font-bold">Install Skill</span>
+        </div>
+        <span className="text-[12px] text-[#6B4F2A] ml-1">Install your Workshop build into an AI assistant.</span>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          메인 그리드 — 좌 2/3 순차 가이드 (manual), 우 1/3 Install(CTA+로그)
+          ══════════════════════════════════════════════════════════════ */}
+      <div className="grid lg:grid-cols-3 gap-5 items-start">
+
+      {/* ── LEFT 2/3: 순차 가이드 + Live Proof ── */}
+      <div className="lg:col-span-2 space-y-5">
+
+      {/* 최상단: 내 AI assistant — 간략 버전 (단일 행, 선택 + 신규 생성만) */}
+      <div
+        className="rounded-[16px] bg-[#FDFBF5] p-3 lg:p-4"
+        style={{ border: "1px solid #E9D1A6" }}
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#9A7C55] mr-2">
+            My AI assistants
+          </span>
+          {agents.map((a) => {
+            const isSelected = a.id === selectedId
+            return (
+              <button
+                key={a.id}
+                onClick={() => setSelectedId(a.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] transition-colors ${
+                  isSelected
+                    ? "bg-[#3A2A1C] text-[#FDFBF5] font-bold"
+                    : "bg-white border border-[#F0E7D4] text-[#6B4F2A] hover:bg-[#FBF6ED]"
+                }`}
+                title={`${a.name} · ${a.credits ?? 200}cr`}
+              >
+                <span className="text-[13px] leading-none">{a.icon ?? "🤖"}</span>
+                <span className="truncate max-w-[80px]">{a.name}</span>
+              </button>
+            )
+          })}
+          <button
+            onClick={() => setShowRegister(true)}
+            className="px-2.5 py-1 rounded-full border border-dashed border-[#E9D1A6] text-[11px] font-bold text-[#C8301E] hover:bg-[#FBE8E3]/50"
+          >
+            + New
+          </button>
+        </div>
+      </div>
+
+      {/* Step 1: Claude Code 설치 안내 — 들여쓰기/두께를 Step 2 와 동일하게 */}
       <div
         className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
         style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">My AIs</h3>
-          <button
-            onClick={() => setShowRegister(true)}
-            className="text-[11px] font-bold text-[#C8301E] hover:underline"
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-bold text-[#3A2A1C]">
+              Step 1 · How to install Claude Code
+            </h3>
+            <p className="text-[12px] text-[#9A7C55] mt-0.5">
+              Get it free from Anthropic.
+            </p>
+          </div>
+          <a
+            href="https://claude.ai/download"
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[12px] font-bold hover:bg-[#6B4F2A] transition-colors flex-shrink-0"
           >
-            + New AI
-          </button>
-        </div>
-        <div className="space-y-2">
-          {agents.map((a) => {
-            const isSelected = a.id === selectedId
-            const isConfirming = deleteConfirmId === a.id
-            return (
-              <div
-                key={a.id}
-                onClick={() => setSelectedId(a.id)}
-                className={`rounded-[14px] p-3 flex items-center gap-3 cursor-pointer transition-colors ${
-                  isSelected
-                    ? "bg-[#F5E4C2]/50 border border-[#E9D1A6]"
-                    : "bg-white border border-[#F0E7D4] hover:bg-[#FBF6ED]"
-                }`}
-              >
-                <div className="text-[20px] leading-none flex-shrink-0">{a.icon ?? "🤖"}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-extrabold text-[#3A2A1C] truncate">{a.name}</span>
-                    {a.karma_tier && <KarmaStars tier={a.karma_tier} />}
-                  </div>
-                  <div className="text-[11px] text-[#9A7C55] font-mono truncate">
-                    {a.id.slice(0, 8)}…
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-[13px] font-extrabold text-[#3A2A1C] tabular-nums">
-                    {a.credits ?? 200}
-                    <span className="text-[10px] text-[#9A7C55] ml-0.5">cr</span>
-                  </div>
-                  <ConnectionDot id={a.id} />
-                </div>
-
-                {isConfirming ? (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 flex-shrink-0"
-                  >
-                    <span className="text-[10px] font-bold text-[#C8301E]">Delete?</span>
-                    <button
-                      onClick={() => handleDelete(a.id)}
-                      disabled={deleting}
-                      className="px-2 py-1 rounded-md bg-[#C8301E] text-white text-[10px] font-bold hover:bg-[#8F1D12] disabled:opacity-50"
-                    >
-                      {deleting ? "…" : "Delete"}
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(null)}
-                      className="px-2 py-1 rounded-md border border-[#E9D1A6] text-[#6B4F2A] text-[10px] font-bold hover:bg-[#FBF6ED]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteConfirmId(a.id)
-                    }}
-                    title="Delete this AI"
-                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[#9A7C55] hover:bg-[#FBE8E3] hover:text-[#C8301E] transition-colors"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            )
-          })}
+            Install guide →
+          </a>
         </div>
       </div>
 
@@ -243,14 +392,14 @@ export default function ConnectPage() {
 
       {selected && (
         <>
-          {/* ── Claude Code 연결 가이드 ── */}
+          {/* ── Step 3: Claude Code 연결 가이드 (MCP add) ── */}
           <div
             className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
             style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
           >
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div>
-                <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">Connect your AI</h3>
+                <h3 className="text-[15px] font-bold text-[#3A2A1C]">Step 2 · Connect your AI assistant</h3>
                 <p className="text-[12px] text-[#9A7C55] mt-0.5">
                   Hook <span className="font-bold text-[#3A2A1C]">{selected.name}</span> up to Claude Code.
                 </p>
@@ -273,12 +422,23 @@ export default function ConnectPage() {
             </div>
 
             <ol className="space-y-2 mb-4">
-              {["Copy the command", "Paste into your terminal", "Hit Enter — done!"].map((step, i) => (
+              {[
+                "Copy the command",
+                "Paste into your terminal",
+                "Hit Enter — MCP registered",
+                <>
+                  Run{" "}
+                  <code className="px-1.5 py-0.5 rounded bg-[#FBF6ED] font-mono text-[12px] text-[#3A2A1C]" style={{ border: "1px solid #E9D1A6" }}>
+                    claude
+                  </code>{" "}
+                  to launch your AI assistant
+                </>,
+              ].map((step, i) => (
                 <li key={i} className="flex items-center gap-3 text-[13px] text-[#6B4F2A]">
                   <span className="w-6 h-6 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[11px] font-black flex items-center justify-center flex-shrink-0">
                     {i + 1}
                   </span>
-                  {step}
+                  <span>{step}</span>
                 </li>
               ))}
             </ol>
@@ -296,6 +456,60 @@ export default function ConnectPage() {
               >
                 {copied === "cmd" ? "✓ Copied" : "📋 Copy"}
               </button>
+            </div>
+
+            {/* Post-command action — verify MCP is live */}
+            <div className="mt-5 flex items-center gap-3 flex-wrap">
+              <button
+                onClick={checkConnection}
+                disabled={checkState === "checking"}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-[12px] font-bold transition-colors disabled:opacity-60"
+                style={{
+                  backgroundColor:
+                    checkState === "ok"
+                      ? "#EFF7F3"
+                      : checkState === "fail"
+                        ? "#FBE8E3"
+                        : "#FDFBF5",
+                  borderColor:
+                    checkState === "ok"
+                      ? "#B8D8C4"
+                      : checkState === "fail"
+                        ? "#F2C7BE"
+                        : "#E9D1A6",
+                  color:
+                    checkState === "ok"
+                      ? "#2D7A5E"
+                      : checkState === "fail"
+                        ? "#C8301E"
+                        : "#6B4F2A",
+                }}
+              >
+                <span>
+                  {checkState === "checking"
+                    ? "⌛"
+                    : checkState === "ok"
+                      ? "✓"
+                      : checkState === "fail"
+                        ? "✗"
+                        : "🔌"}
+                </span>
+                {checkState === "checking"
+                  ? "Checking…"
+                  : checkState === "ok"
+                    ? "Connected"
+                    : checkState === "fail"
+                      ? "Retry check"
+                      : "Check connection"}
+              </button>
+              {checkMessage && (
+                <span
+                  className="text-[11px]"
+                  style={{ color: checkState === "ok" ? "#2D7A5E" : "#C8301E" }}
+                >
+                  {checkMessage}
+                </span>
+              )}
             </div>
 
             <div className="mt-5 pt-4 border-t border-dashed border-[#E9D1A6]">
@@ -321,32 +535,466 @@ export default function ConnectPage() {
             </div>
           </div>
 
-          {/* Help card */}
-          <div
-            className="rounded-[20px] p-5 flex items-center gap-4"
-            style={{ backgroundColor: "#FBF6ED", border: "1px solid #E9D1A6" }}
-          >
-            <CherryBao size={56} />
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-[#3A2A1C]">
-                Don't have Claude Code yet?
-              </p>
-              <p className="text-[11px] text-[#6B4F2A] mt-0.5">
-                Get it free from Anthropic.
-              </p>
-            </div>
-            <a
-              href="https://claude.ai/download"
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[12px] font-bold hover:bg-[#6B4F2A] transition-colors flex-shrink-0"
-            >
-              Install guide →
-            </a>
-          </div>
+          {/* ── Step 4: Live Proof — 에이전트 자가 보고 채널 ── */}
+          <LiveProofCard
+            agentName={selected.name}
+            liveReport={liveReport}
+          />
         </>
       )}
+
+      </div>{/* END LEFT 2/3 — manual */}
+
+      {/* ── RIGHT 1/3: Install Skill + Install Log (sticky) ── */}
+      <div className="lg:sticky lg:top-16 space-y-4 lg:col-span-1">
+        {selected ? (
+          <>
+            <InstallSkillSection
+              agent={selected}
+              installing={installing}
+              onStart={() => {
+                setInstalling(true)
+                setInstallError(null)
+              }}
+              onComplete={(resp) => {
+                setInstallResult(resp)
+                setInstalling(false)
+              }}
+              onError={(err) => {
+                setInstallError(err)
+                setInstalling(false)
+              }}
+              onLiveReport={(r) => setLiveReport(r)}
+            />
+            <InstallResultPanel
+              agentName={selected.name}
+              lastResult={installResult}
+              running={installing}
+              error={installError}
+            />
+          </>
+        ) : (
+          <div
+            className="rounded-[20px] p-5 text-center"
+            style={{ backgroundColor: "#FBF6ED", border: "1px dashed #E9D1A6" }}
+          >
+            <p className="text-[12px] text-[#9A7C55] italic">
+              왼쪽에서 AI assistant 를 선택하면 여기에 Install Skill 이 나타납니다.
+            </p>
+          </div>
+        )}
+      </div>{/* END RIGHT 1/3 — install */}
+      </div>{/* END main grid */}
     </section>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   InstallSkillSection — pick a Workshop build (A/B/C), toggle its Shop
+   listing, and install it to this AI assistant. Reads/writes Workshop
+   state + per-agent install record in localStorage.
+   ════════════════════════════════════════════════════════════════ */
+
+function InstallSkillSection({
+  agent,
+  installing,
+  onStart,
+  onComplete,
+  onError,
+  onLiveReport,
+}: {
+  agent: Agent
+  installing: boolean
+  onStart: () => void
+  onComplete: (r: InstallBuildResponse) => void
+  onError: (msg: string) => void
+  onLiveReport: (r: {
+    items: Array<{ dir: string; hasSkillMd: boolean; sizeBytes: number; mtime: string | null }>
+    receivedAt: string
+  }) => void
+}) {
+  const [workshop, setWorkshop] = useState<WorkshopState | null>(null)
+  const [selectedBuildId, setSelectedBuildId] = useState<string>("")
+  const [justInstalled, setJustInstalled] = useState(false)
+  /** Agent 가 실제로 보고한 설치 상태. `null` = 미확인, `true` = cherry-build-meta
+   *  dir 존재(= 어떤 빌드인가 설치됨), `false` = 없음. 어떤 빌드인지는 메타
+   *  SKILL.md body 파싱이 필요하므로 이번 스코프에선 존재 여부만 확인. */
+  const [agentHasInstall, setAgentHasInstall] = useState<boolean | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  /** Claude Code 에서 사용자가 `cherry-kaas:generate_self_report` 등을 돌렸을 때
+   *  WebSocket 으로 푸시된 실시간 report. 서버 HTTP 조회와 별개의 증거. */
+  const [liveReport, setLiveReport] = useState<{
+    items: Array<{ dir: string; hasSkillMd: boolean; sizeBytes: number; mtime: string | null }>
+    receivedAt: string
+  } | null>(null)
+
+  // Workshop builds 는 localStorage 에서 읽되, "설치됨" 판단은 에이전트 self-report 로만.
+  useEffect(() => {
+    const ws = readWorkshop()
+    setWorkshop(ws)
+    setSelectedBuildId(ws?.activeBuildId ?? ws?.builds?.[0]?.id ?? "")
+  }, [agent.id])
+
+  // Agent 에 이미 설치된 게 있는지 self-report 로 확인 (HTTP).
+  useEffect(() => {
+    let cancelled = false
+    async function verify() {
+      setVerifying(true)
+      try {
+        const r: { ok?: boolean; report?: { local_skills?: { items?: Array<{ dir: string }> } } } =
+          await fetchAgentSelfReport(agent.id)
+        if (cancelled) return
+        const items = r?.report?.local_skills?.items ?? []
+        const hasMeta = items.some((i) => i?.dir === "cherry-build-meta")
+        setAgentHasInstall(hasMeta)
+      } catch {
+        if (!cancelled) setAgentHasInstall(null) // 확인 불가 (agent offline 등)
+      } finally {
+        if (!cancelled) setVerifying(false)
+      }
+    }
+    verify()
+    return () => {
+      cancelled = true
+    }
+  }, [agent.id])
+
+  /* ══════════════════════════════════════════════════════════════
+     WebSocket 구독 — Claude Code 에서 사용자가 `generate_self_report`
+     MCP 도구를 호출하면 에이전트가 `submit_self_report` 로 전송하고
+     서버가 `agent_report_pushed` 로 브로드캐스트. 여기서 받아서
+     "에이전트가 자발적으로 보내온 증거" 로 panel 에 표시.
+     참고: kaas-console.tsx:721 의 동일한 패턴 재사용.
+     ══════════════════════════════════════════════════════════════ */
+  useEffect(() => {
+    if (!agent?.id || !agent?.api_key) {
+      console.log("[InstallSkill WS] no api_key, skipping socket subscribe", {
+        agentId: agent?.id,
+        hasKey: !!agent?.api_key,
+      })
+      return
+    }
+    let cancelled = false
+    let socketInstance: any = null
+    ;(async () => {
+      try {
+        const { io } = await import("socket.io-client")
+        const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
+        console.log("[InstallSkill WS] connecting to", `${base}/kaas`, "agent=", agent.id.slice(0, 8))
+        socketInstance = io(`${base}/kaas`, {
+          auth: { api_key: agent.api_key, role: "user" },
+          transports: ["polling", "websocket"],
+          reconnection: true,
+        })
+        socketInstance.on("connect", () => {
+          console.log("[InstallSkill WS] ✓ connected, socket=", socketInstance.id)
+        })
+        socketInstance.on("disconnect", (reason: string) => {
+          console.log("[InstallSkill WS] ✗ disconnected, reason=", reason)
+        })
+        socketInstance.on("connect_error", (err: any) => {
+          console.warn("[InstallSkill WS] connect_error:", err?.message ?? err)
+        })
+        socketInstance.on("agent_report_pushed", (evt: any) => {
+          console.log("[InstallSkill WS] 📥 agent_report_pushed", {
+            evtAgent: evt?.agentId,
+            myAgent: agent.id,
+            match: evt?.agentId === agent.id,
+            triggered_by: evt?.report?.triggered_by,
+            skillsCount: evt?.report?.local_skills?.items?.length,
+          })
+          if (cancelled) return
+          if (evt?.agentId !== agent.id) return
+          const items = evt?.report?.local_skills?.items ?? []
+          const payload = { items, receivedAt: new Date().toISOString() }
+          setLiveReport(payload)
+          onLiveReport(payload)
+          const hasMeta = items.some((i: any) => i?.dir === "cherry-build-meta")
+          setAgentHasInstall(hasMeta)
+        })
+      } catch (err) {
+        console.warn("[InstallSkill WS] setup failed:", err)
+      }
+    })()
+    return () => {
+      cancelled = true
+      try { socketInstance?.disconnect() } catch { /* ignore */ }
+    }
+  }, [agent?.id, agent?.api_key])
+
+  if (!workshop || workshop.builds.length === 0) {
+    return (
+      <div
+        className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
+        style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
+      >
+        <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">Install Skill</h3>
+        <p className="mt-1.5 text-[12px] text-[#9A7C55]">
+          No Workshop builds found yet.
+        </p>
+        <Link
+          href="/start/workshop"
+          className="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[12px] font-bold hover:bg-[#6B4F2A] transition-colors"
+        >
+          Go to Workshop →
+        </Link>
+      </div>
+    )
+  }
+
+  // 선택된 빌드의 장착 슬롯 수 — 빈 빌드 선제 가드용
+  const selectedBuild = workshop.builds.find((b) => b.id === selectedBuildId)
+  const selectedEquippedCount = selectedBuild
+    ? Object.values(selectedBuild.equipped).filter(Boolean).length
+    : 0
+  // 설치 가능 여부 — 빌드 선택 + 슬롯 ≥ 1 + 진행 중 아님
+  const canInstall = selectedBuildId !== "" && selectedEquippedCount > 0 && !installing
+
+  function togglePublish(buildId: string) {
+    if (!workshop) return
+    const next: WorkshopState = {
+      ...workshop,
+      builds: workshop.builds.map((b) =>
+        b.id === buildId ? { ...b, isListedOnMarket: !b.isListedOnMarket } : b,
+      ),
+    }
+    writeWorkshop(next)
+    setWorkshop(next)
+  }
+
+  async function install() {
+    if (!selectedBuildId || !workshop) return
+    const selectedBuild = workshop.builds.find((b) => b.id === selectedBuildId)
+    if (!selectedBuild) return
+
+    const equipped = {
+      prompt: selectedBuild.equipped.prompt ?? null,
+      mcp: selectedBuild.equipped.mcp ?? null,
+      skillA: selectedBuild.equipped.skillA ?? null,
+      skillB: selectedBuild.equipped.skillB ?? null,
+      skillC: selectedBuild.equipped.skillC ?? null,
+      orchestration: selectedBuild.equipped.orchestration ?? null,
+      memory: selectedBuild.equipped.memory ?? null,
+    }
+    const nonEmpty = Object.values(equipped).filter(Boolean).length
+    console.log("[InstallSkill] install() sending", {
+      buildId: selectedBuild.id,
+      buildName: selectedBuild.name,
+      equipped,
+      nonEmpty,
+    })
+
+    // 클라이언트 선제 가드 — 빈 빌드는 서버 왕복 전에 차단
+    if (nonEmpty === 0) {
+      onError(
+        `"${selectedBuild.name}" 가 비어있습니다. Workshop 탭에서 이 빌드에 카드를 장착한 뒤 다시 시도해주세요. (Workshop 의 저장이 제대로 됐는지도 확인)`,
+      )
+      return
+    }
+
+    onStart()
+    try {
+      const resp = await installBuild(agent.id, {
+        build_id: selectedBuild.id,
+        build_name: selectedBuild.name,
+        equipped,
+      })
+      // 설치 성공 판정은 에이전트 응답의 local_skills_after 기반.
+      // cherry-build-meta 가 포함되어 있어야 진짜 설치된 것.
+      const metaOnAgent = resp.local_skills_after.some(
+        (i) => i?.dir === "cherry-build-meta",
+      )
+      if (metaOnAgent) {
+        setAgentHasInstall(true)
+        setJustInstalled(true)
+        setTimeout(() => setJustInstalled(false), 2500)
+      } else {
+        // 응답은 왔지만 에이전트 쪽에 흔적이 없음 → 실패 취급
+        setAgentHasInstall(false)
+      }
+      onComplete(resp)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  return (
+    <div
+      className="rounded-[20px] bg-[#FDFBF5] p-5 lg:p-6"
+      style={{ border: "1px solid #E9D1A6", boxShadow: "0 4px 20px rgba(107,79,42,0.08)" }}
+    >
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h3 className="text-[15px] font-extrabold text-[#3A2A1C]">Install Skill</h3>
+          <p className="text-[12px] text-[#9A7C55] mt-0.5">
+            Pick a Workshop build and push it to{" "}
+            <span className="font-bold text-[#3A2A1C]">{agent.name}</span>.
+          </p>
+        </div>
+        <Link
+          href="/start/workshop"
+          className="text-[11px] font-semibold text-[#9A7C55] hover:text-[#6B4F2A]"
+        >
+          Edit in Workshop →
+        </Link>
+      </div>
+
+      {/* 좁은 좌측 컬럼이라 세로 스택 기본. 와이드 뷰에선 1열 유지 (왼쪽 1/3 sticky). */}
+      <div className="flex flex-col gap-3">
+        {workshop.builds.map((b) => (
+          <BuildOptionCard
+            key={b.id}
+            build={b}
+            selected={selectedBuildId === b.id}
+            onSelect={() => setSelectedBuildId(b.id)}
+            onTogglePublish={() => togglePublish(b.id)}
+          />
+        ))}
+      </div>
+
+      <div className="mt-5 flex items-center gap-3 flex-wrap">
+        <button
+          onClick={install}
+          disabled={!canInstall}
+          title={
+            selectedEquippedCount === 0
+              ? "이 빌드에 장착된 카드가 없습니다. Workshop 에서 먼저 카드를 장착하세요."
+              : undefined
+          }
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-[13px] font-extrabold shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          style={{ backgroundColor: "#C8301E" }}
+        >
+          {installing
+            ? "⌛ Installing…"
+            : selectedEquippedCount === 0
+              ? "빈 빌드 — 설치 불가"
+              : `📥 Install to ${agent.name} (${selectedEquippedCount} slot${selectedEquippedCount === 1 ? "" : "s"})`}
+        </button>
+
+        {/* 빈 빌드 경고 — 버튼 disabled 외에 이유까지 설명 */}
+        {selectedEquippedCount === 0 && !installing && (
+          <span className="text-[11px] text-[#C8301E] font-semibold">
+            "{selectedBuild?.name ?? ""}" 가 비어있음.{" "}
+            <Link href="/start/workshop" className="underline hover:text-[#8F1D12]">
+              Workshop 으로 이동 →
+            </Link>
+          </span>
+        )}
+
+        {/* 설치 직후 피드백 — 응답 기반, localStorage 아님 */}
+        {justInstalled && !installing && (
+          <span className="text-[11px] font-bold" style={{ color: "#2D7A5E" }}>
+            ✓ Agent confirmed install. Restart `claude` to load the new build.
+          </span>
+        )}
+
+        {/* 에이전트 현재 상태 — self-report 가 source of truth */}
+        {selectedEquippedCount > 0 && !installing && !justInstalled && (
+          <span className="text-[11px] text-[#9A7C55]">
+            {verifying
+              ? "⌛ Checking agent state…"
+              : agentHasInstall === true
+                ? "🤖 Agent already has a Cherry build installed."
+                : agentHasInstall === false
+                  ? "🤖 Agent has no Cherry build yet."
+                  : "🤖 Agent state unknown (offline?)."}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BuildOptionCard({
+  build,
+  selected,
+  onSelect,
+  onTogglePublish,
+}: {
+  build: AgentBuild
+  selected: boolean
+  onSelect: () => void
+  onTogglePublish: () => void
+}) {
+  const equippedCount = Object.values(build.equipped).filter(Boolean).length
+  const slotOrder: SlotKey[] = [
+    "prompt",
+    "mcp",
+    "skillA",
+    "skillB",
+    "skillC",
+    "orchestration",
+    "memory",
+  ]
+  return (
+    <div
+      onClick={onSelect}
+      className={`relative rounded-[14px] p-4 cursor-pointer transition-colors ${
+        selected
+          ? "bg-[#FDFBF5] border-2"
+          : "bg-white border hover:bg-[#FBF6ED]"
+      }`}
+      style={{
+        borderColor: selected ? "#C8301E" : "#F0E7D4",
+      }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className="w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center"
+          style={{ borderColor: selected ? "#C8301E" : "#C9B88A" }}
+        >
+          {selected && (
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: "#C8301E" }}
+            />
+          )}
+        </span>
+        <span className="text-[14px] font-extrabold text-[#3A2A1C]">
+          {build.name}
+        </span>
+        <span className="ml-auto text-[10px] font-mono text-[#9A7C55]">
+          {equippedCount}/7
+        </span>
+      </div>
+
+      {/* Slot dots — one per equipped slot */}
+      <div className="flex items-center gap-1 mb-3">
+        {slotOrder.map((k) => (
+          <span
+            key={k}
+            title={SLOT_META[k].label}
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              backgroundColor: build.equipped[k] ? "#3A2A1C" : "#E9D1A6",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Publish to Shop toggle */}
+      <label
+        onClick={(e) => e.stopPropagation()}
+        className="flex items-center gap-2 cursor-pointer select-none"
+      >
+        <button
+          onClick={onTogglePublish}
+          className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors flex-shrink-0 ${
+            build.isListedOnMarket ? "bg-[#2A5C3E]" : "bg-gray-300"
+          }`}
+          type="button"
+        >
+          <span
+            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+              build.isListedOnMarket ? "translate-x-[14px]" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+        <span className="text-[11px] font-semibold text-[#6B4F2A]">
+          List on Shop
+        </span>
+      </label>
+    </div>
   )
 }
 
@@ -360,7 +1008,7 @@ function KarmaStars({ tier }: { tier: string }) {
   )
 }
 
-/* ══════════ 새 AI 등록 모달 ══════════ */
+/* ══════════ 새 AI assistant 등록 모달 ══════════ */
 function RegisterAgentModal({
   onClose,
   onSuccess,
@@ -478,7 +1126,7 @@ function RegisterAgentModal({
 
         <div className="flex flex-col items-center text-center mb-5">
           <CherryBao size={72} animate />
-          <h2 className="mt-3 text-[20px] font-extrabold text-[#3A2A1C]">Create a new AI</h2>
+          <h2 className="mt-3 text-[20px] font-extrabold text-[#3A2A1C]">Create a new AI assistant</h2>
           <p className="mt-1 text-[12px] text-[#9A7C55]">
             A name and a wallet. That's all it takes.
           </p>
@@ -487,7 +1135,7 @@ function RegisterAgentModal({
         {/* 1. Name */}
         <label className="block mb-4">
           <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#9A7C55]">
-            1. Name your AI
+            1. Name your AI assistant
           </span>
           <input
             value={name}
@@ -566,7 +1214,7 @@ function RegisterAgentModal({
           disabled={!canRegister}
           className="w-full rounded-full bg-[#C8301E] text-white py-3 text-[14px] font-extrabold shadow-md hover:shadow-lg disabled:opacity-50 disabled:shadow-none transition-all"
         >
-          {registering ? "Creating…" : "✨ Create AI"}
+          {registering ? "Creating…" : "✨ Create AI assistant"}
         </button>
 
         <p className="mt-3 text-center text-[11px] text-[#9A7C55]">

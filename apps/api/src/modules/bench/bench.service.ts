@@ -24,7 +24,6 @@ import { captureOracleGroundTruth } from './evaluators/set1-oracle.evaluator'
 import { captureHunterGroundTruth } from './evaluators/set2-hunter.evaluator'
 import { capturePolicyGroundTruth } from './evaluators/set3-policy.evaluator'
 import { captureQuantGroundTruth } from './evaluators/set4-quant.evaluator'
-import { captureStrictHunterGroundTruth } from './evaluators/set5-strict-hunter.evaluator'
 import { captureGroundedGroundTruth } from './evaluators/set6-grounded.evaluator'
 import {
   composeRuntime,
@@ -286,13 +285,6 @@ export class BenchService {
         return capturePolicyGroundTruth(c.expectedDocIds, c.keyFacts)
       case 'quant-multi':
         return captureQuantGroundTruth(c.symbols)
-      case 'strict-hunter':
-        return captureStrictHunterGroundTruth({
-          expectedIds: c.expectedIds,
-          requiredFields: c.requiredFields,
-          filter: c.filter,
-          sellerBlocklist: c.sellerBlocklist,
-        })
       case 'grounded-abstain':
         return captureGroundedGroundTruth({
           expectedDocIds: c.expectedDocIds,
@@ -327,8 +319,6 @@ export class BenchService {
       }
       case 'hunter':
         return `seed DB · top 3 by price: ${c.expectedIds.join(' · ')}`
-      case 'strict-hunter':
-        return `seed DB · clean top 3: ${c.expectedIds.join(' · ')} (blocklist: ${c.sellerBlocklist.join('|')})`
       case 'policy':
         return `${c.expectedDocIds.join(', ')} · ${c.keyFacts.map((f) => f.description).join(' · ')}`
       case 'grounded-abstain':

@@ -25,7 +25,7 @@ export type CardType =
 
 export type MemoryMode = 'none' | 'short' | 'retrieval'
 
-export type OrchestrationId = 'standard' | 'plan-execute' | 'self-repair'
+export type OrchestrationId = 'standard' | 'plan-execute'
 
 export interface PromptCardImpl {
   type: 'prompt'
@@ -105,21 +105,20 @@ export const CARD_REGISTRY: Record<string, CardImpl> = {
     maxIterations: 10, // extended loop, more room to retrieve + reflect
   },
 
-  /* ══════════ Phase 2 — Quant / Strict / Grounded Prompts ══════════ */
+  /* ══════════ Phase 2 — Quant / Strict / Grounded Prompts ══════════
+   * Intentionally MINIMAL: role + tool-use hint only. Output format,
+   * schema, citation, abstention, and constraint semantics are injected
+   * by skill cards so that removing a skill deterministically removes
+   * its contribution. */
   'inv-p-quant': {
     type: 'prompt',
     systemPrompt:
-      'You are a quantitative crypto analyst. Given multiple assets, fetch each price, compare movements, and return a single JSON object with fields {assets, biggest_mover}. Cite the timestamp and source for every numeric claim.',
-  },
-  'inv-p-strict-hunter': {
-    type: 'prompt',
-    systemPrompt:
-      'You are a strict deal-hunting assistant. Return exactly the requested number of listings as a JSON array. Apply every stated filter. Never invent listings — use only the search tool output.',
+      'You are a quantitative crypto analyst. For each asset mentioned, call get_crypto_price and compare their 24h movements. Return a JSON object with an "assets" array (one entry per asset) and a "biggest_mover" field.',
   },
   'inv-p-grounded': {
     type: 'prompt',
     systemPrompt:
-      'You are a grounded researcher. Retrieve relevant docs before answering. Cite doc IDs in brackets like [doc:xxx] for every claim. If a requested field is not in retrieved docs, respond exactly "missing: <field>" — never guess.',
+      'You are a research assistant. Use search_catalog to retrieve Cherry documentation before answering.',
   },
 
   /* ══════════ Phase 2 — Skills (prompt-suffix append) ══════════
@@ -144,17 +143,6 @@ export const CARD_REGISTRY: Record<string, CardImpl> = {
     promptSuffix:
       'For every numeric fact you emit, include the literal tokens "source:" and either a "captured_at" timestamp (ISO 8601) or a "[doc:<id>]" bracketed reference. A claim without these tokens is considered unsupported.',
   },
-  'inv-s-constraint-sat': {
-    type: 'skill',
-    // Force an explicit "filters_applied" echo so removal is visible.
-    promptSuffix:
-      'After applying filters, verify every returned record satisfies EVERY stated constraint (brand, model, price, sealed flag, seller blocklist). If any record fails any constraint, EXCLUDE it completely.',
-  },
-  'inv-s-self-validate': {
-    type: 'skill',
-    promptSuffix:
-      'BEFORE returning, re-check each item: does the seller name contain any blocked substring? Is the price actually under the stated limit? Is "sealed" true? Drop any item failing any check. Return fewer than the requested count rather than include a violator.',
-  },
   'inv-s-multihop': {
     type: 'skill',
     promptSuffix:
@@ -177,10 +165,6 @@ export const CARD_REGISTRY: Record<string, CardImpl> = {
   'inv-o-plan-execute': {
     type: 'orchestration',
     orchId: 'plan-execute',
-  },
-  'inv-o-self-repair': {
-    type: 'orchestration',
-    orchId: 'self-repair',
   },
 }
 

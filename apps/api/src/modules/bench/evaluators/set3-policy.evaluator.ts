@@ -56,7 +56,7 @@ export const set3PolicyEvaluator: Evaluator = {
     const citations = answer.match(docIdPattern) ?? []
     metrics.push({
       id: 'docCitationCount',
-      label: 'Doc-ID citations',
+      label: 'Doc sources cited',
       value: citations.length,
       passed: citations.length > 0,
       direction: 'higher-better',
@@ -73,7 +73,7 @@ export const set3PolicyEvaluator: Evaluator = {
     }
     metrics.push({
       id: 'keyFactAccuracy',
-      label: 'Key facts correct (70% / 30%)',
+      label: 'Key facts correct',
       value: `${keyFactHits} / ${gt.keyFacts.length}`,
       passed: keyFactHits === gt.keyFacts.length,
       direction: 'higher-better',
@@ -105,7 +105,7 @@ export const set3PolicyEvaluator: Evaluator = {
     }
     metrics.push({
       id: 'hallucinatedClaims',
-      label: 'Hallucinated facts (vs. karma-v2)',
+      label: 'Made-up facts',
       value:
         hallucinatedClaimPct === null ? '—' : `${hallucinatedClaimPct}%`,
       passed:
@@ -117,7 +117,7 @@ export const set3PolicyEvaluator: Evaluator = {
     // ── Tool calls ──
     metrics.push({
       id: 'toolCalls',
-      label: 'Tool calls',
+      label: 'Doc lookups',
       value: ctx.toolCalls.length,
       direction: 'higher-better',
       category: 'tool',

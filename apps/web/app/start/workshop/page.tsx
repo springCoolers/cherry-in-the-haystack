@@ -70,43 +70,20 @@ export default function WorkshopPage() {
     )
   }
 
-  // ── No agents yet ──
-  if (!loading && agents.length === 0) {
-    return (
-      <section className="flex flex-col items-center justify-center text-center py-16">
-        <CherryBao size={120} variant="sleeping" animate />
-        <h1 className="mt-6 text-[22px] font-extrabold text-[#3A2A1C]">
-          No AI yet
-        </h1>
-        <p className="mt-2 text-[13px] text-[#6B4F2A] max-w-md leading-relaxed">
-          Head to the Connect tab first to create or link an AI.
-        </p>
-        <Link
-          href="/start/connect"
-          className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#3A2A1C] text-[#FDFBF5] text-[13px] font-bold hover:bg-[#6B4F2A] transition-colors"
-        >
-          Go to Connect
-        </Link>
-      </section>
-    )
-  }
+  const hasAgent = agents.length > 0
 
   return (
     <section className="space-y-4">
-      {/* Header — agent picker */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#9A7C55]">
-          <span>Editing</span>
-        </div>
-        <AgentPicker
-          agents={agents}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-        <p className="ml-auto text-[11px] text-[#9A7C55] italic hidden lg:inline">
-          All equipment changes are auto-saved per AI.
+      {/* ── Page header — what is the Workshop? ── */}
+      <div>
+        <h1 className="text-[20px] lg:text-[22px] font-extrabold text-[#3A2A1C]">
+          Workshop
+        </h1>
+        <p className="mt-1 text-[12px] text-[#6B4F2A] leading-relaxed max-w-2xl">
+          Forge a custom AI build by dragging cards onto the seven equipment slots — system prompt, MCP tools, three skills, orchestration strategy, and memory mode. Run the benchmark below to see how your build changes Claude's behavior in real time. Once you like it, head to <span className="font-semibold text-[#3A2A1C]">Install Skill</span> to push it to one of your AI assistants.
         </p>
       </div>
+
 
       {/* Workshop — reuse existing panel.
           Height expands naturally so the page scrolls vertically instead
@@ -171,7 +148,8 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
     const build = readActiveBuildFromStorage()
     setRunning(true)
     setRunError(null)
-    setResult(null)
+    // Keep the previous result visible so gauges animate to new values
+    // instead of collapsing and re-mounting on every re-run.
     try {
       const r = await runBenchWithBuild(activeId, build)
       setResult(r)
@@ -262,48 +240,21 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
         </div>
       )}
 
-      {/* ── Applied-slots banner (only after a run) ── */}
-      {result && (
-        <AppliedSlotsBanner applied={result.appliedSlots} memoryMode={result.memoryMode} />
-      )}
-
-      {/* ── Headline metrics ── */}
-      {ran && headlineDeltas.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          {headlineDeltas.map((h) => (
-            <div
-              key={h.id}
-              className="rounded-[16px] p-4"
-              style={{ backgroundColor: "#FDFBF5", border: "1px solid #E9D1A6" }}
-            >
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#9A7C55]">
-                {h.label}
-              </p>
-              <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
-                <span className="text-[12px] font-mono text-[#9A7C55] line-through">
-                  {h.before}
-                </span>
-                <span className="text-[11px] text-[#9A7C55]">→</span>
-                <span className="text-[22px] font-black tabular-nums text-[#B12A17]">
-                  {h.after}
-                </span>
-                {h.improved && (
-                  <span className="text-[14px]" style={{ color: "#2D7A5E" }}>
-                    {h.direction === "higher-better" ? "↑" : "↓"}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ── Metric gauges — split Before | After (shown first) ── */}
       {ran && deltas.length > 0 && (
         <div
-          className="mb-5 rounded-[16px] overflow-hidden"
+          className="mb-5 rounded-[16px] overflow-hidden relative"
           style={{ border: "1px solid #E9D1A6", backgroundColor: "#FDFBF5" }}
         >
+          {running && (
+            <div
+              className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full shadow-sm"
+              style={{ backgroundColor: "#FDFBF5", border: "1px solid #E9D1A6" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B12A17] animate-pulse" />
+              <span className="text-[10px] font-bold text-[#6B4F2A]">Live updating</span>
+            </div>
+          )}
           {/* Header — 3-column grid aligned with gauge rows */}
           <div
             className="grid gap-3 items-center px-4 py-2.5"
@@ -370,13 +321,20 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
               {result ? `${result.baseline.latencyMs}ms · ${result.baseline.tokens.total} tok` : "No skills · no tools"}
             </span>
           </div>
-          <div className="p-5 flex-1">
-            {!result && !running ? (
-              <EmptyState text="Run the benchmark to see baseline response." />
-            ) : running ? (
-              <EmptyState text="Calling Claude without tools…" />
+          <div className="p-5 flex-1 relative">
+            {!result ? (
+              <EmptyState
+                text={
+                  running
+                    ? "Calling Claude without tools…"
+                    : "Run the benchmark to see baseline response."
+                }
+              />
             ) : (
-              <AnswerBlock text={result!.baseline.text} muted />
+              <>
+                <AnswerBlock text={result.baseline.text} muted />
+                {running && <RunningOverlay label="Re-running baseline…" />}
+              </>
             )}
           </div>
         </div>
@@ -403,13 +361,20 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
               {result ? `${result.enhanced.latencyMs}ms · ${result.enhanced.tokens.total} tok · ${result.enhanced.toolCalls.length} tool${result.enhanced.toolCalls.length === 1 ? "" : "s"}` : "Build applied"}
             </span>
           </div>
-          <div className="p-5 flex-1">
-            {!result && !running ? (
-              <EmptyState text="Run the benchmark to see enhanced response." />
-            ) : running ? (
-              <EmptyState text="Calling Claude with build + tools…" />
+          <div className="p-5 flex-1 relative">
+            {!result ? (
+              <EmptyState
+                text={
+                  running
+                    ? "Calling Claude with build + tools…"
+                    : "Run the benchmark to see enhanced response."
+                }
+              />
             ) : (
-              <AnswerBlock text={result!.enhanced.text} accent />
+              <>
+                <AnswerBlock text={result.enhanced.text} accent />
+                {running && <RunningOverlay label="Re-running enhanced…" />}
+              </>
             )}
           </div>
         </div>
@@ -492,6 +457,28 @@ function EmptyState({ text }: { text: string }) {
   return (
     <div className="flex items-center justify-center h-full min-h-[120px]">
       <p className="text-[11px] text-[#9A7C55] italic">{text}</p>
+    </div>
+  )
+}
+
+/** Shown on top of the previous answer while a re-run is in progress —
+ *  keeps the old content visible (dimmed) so gauges/text don't disappear. */
+function RunningOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      style={{
+        backgroundColor: "rgba(253, 251, 245, 0.55)",
+        backdropFilter: "blur(1px)",
+      }}
+    >
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm"
+        style={{ backgroundColor: "#FDFBF5", border: "1px solid #E9D1A6" }}
+      >
+        <span className="w-2 h-2 rounded-full bg-[#B12A17] animate-pulse" />
+        <span className="text-[11px] font-bold text-[#6B4F2A]">{label}</span>
+      </div>
     </div>
   )
 }
@@ -609,51 +596,61 @@ function readActiveBuildFromStorage(): AgentBuildPayload {
    Longer bar = better score (always).
 ───────────────────────────────────────────── */
 function GaugeRow({ delta }: { delta: MetricDelta }) {
-  const { beforeScore, afterScore } = scoresFor(delta)
+  // Absolute, side-independent scoring — one side changing does NOT move the
+  // other side's bar. null → render an empty track (no fill).
+  const beforeScore = scoreSide(delta.before, delta.direction)
+  const afterScore = scoreSide(delta.after, delta.direction)
   const afterColor = delta.improved ? "#2D7A5E" : "#B12A17"
 
   return (
-    <div className="grid items-center gap-3 px-4 py-2.5" style={{ gridTemplateColumns: "1fr minmax(160px, auto) 1fr" }}>
+    <div
+      className="grid items-center gap-4 px-5 py-4"
+      style={{ gridTemplateColumns: "1fr minmax(180px, auto) 1fr" }}
+    >
       {/* ── BEFORE — value + mirrored gauge ── */}
-      <div className="flex items-center gap-2 justify-end min-w-0">
-        <span className="text-[11px] font-mono text-[#9A7C55] tabular-nums whitespace-nowrap">
+      <div className="flex items-center gap-3 justify-end min-w-0">
+        <span className="text-[15px] font-mono font-bold text-[#6B4F2A] tabular-nums whitespace-nowrap">
           {delta.before}
         </span>
         <div
-          className="flex-1 max-w-[180px] relative h-2 rounded-full overflow-hidden"
+          className="flex-1 max-w-[200px] relative h-2.5 rounded-full overflow-hidden"
           style={{ backgroundColor: "#F0E7D4" }}
         >
-          <div
-            className="absolute right-0 top-0 h-full rounded-full transition-all"
-            style={{
-              width: `${beforeScore}%`,
-              backgroundColor: "#9A7C55",
-            }}
-          />
+          {beforeScore !== null && (
+            <div
+              className="absolute right-0 top-0 h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${beforeScore}%`,
+                backgroundColor: "#9A7C55",
+              }}
+            />
+          )}
         </div>
       </div>
 
       {/* ── Center label ── */}
-      <div className="text-center text-[11px] font-semibold text-[#2A1E15] px-2 whitespace-nowrap">
+      <div className="text-center text-[12px] font-semibold text-[#2A1E15] px-2 whitespace-nowrap">
         {delta.label}
       </div>
 
       {/* ── AFTER — gauge + value ── */}
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <div
-          className="flex-1 max-w-[180px] relative h-2 rounded-full overflow-hidden"
+          className="flex-1 max-w-[200px] relative h-2.5 rounded-full overflow-hidden"
           style={{ backgroundColor: "#F0E7D4" }}
         >
-          <div
-            className="absolute left-0 top-0 h-full rounded-full transition-all"
-            style={{
-              width: `${afterScore}%`,
-              backgroundColor: afterColor,
-            }}
-          />
+          {afterScore !== null && (
+            <div
+              className="absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${afterScore}%`,
+                backgroundColor: afterColor,
+              }}
+            />
+          )}
         </div>
         <span
-          className="text-[11px] font-mono tabular-nums whitespace-nowrap font-bold"
+          className="text-[16px] font-mono font-extrabold tabular-nums whitespace-nowrap"
           style={{ color: delta.improved ? "#2D7A5E" : "#2A1E15" }}
         >
           {delta.after}
@@ -663,59 +660,56 @@ function GaugeRow({ delta }: { delta: MetricDelta }) {
   )
 }
 
-/** Normalize a MetricDelta pair to twin 0–100 scores. Longer bar = better. */
-function scoresFor(d: MetricDelta): { beforeScore: number; afterScore: number } {
-  const bn = parseMetricScore(d.before)
-  const an = parseMetricScore(d.after)
+/** Score one side of a delta ABSOLUTELY — independent of the other side.
+ *  Returns 0–100 (% of the bar to fill), or null for "nothing to render".
+ *  Rules:
+ *   - Yes / No  → 100 / 0
+ *   - "X / Y" with Y>0 → (X/Y)*100; if Y=0 or "0/0" → null
+ *   - "NN%"      → NN clamped to 0–100
+ *   - raw count  → min(value * 10, 100)  (0→0, 10+→full)
+ *   - "—" / unparseable → null
+ *  Direction is respected: for `lower-better`, we show "how far from zero"
+ *  inverted so smaller value = longer bar (e.g. 5% error bar = 95% full). */
+function scoreSide(
+  raw: string,
+  direction: MetricDelta["direction"],
+): number | null {
+  if (!raw || raw.trim() === "" || raw.trim() === "—") return null
+  const s = raw.trim()
 
-  // Both parseable → max-anchored comparison.
-  if (bn !== null && an !== null) {
-    if (d.direction === "lower-better") {
-      const worst = Math.max(bn, an, 1)
-      // "better" = closer to 0 → score = (worst - value) / worst
-      return {
-        beforeScore: clamp01((worst - bn) / worst) * 100,
-        afterScore: clamp01((worst - an) / worst) * 100,
-      }
-    }
-    // higher-better / neutral → score = value / max
-    const max = Math.max(bn, an, 1)
-    return {
-      beforeScore: clamp01(bn / max) * 100,
-      afterScore: clamp01(an / max) * 100,
-    }
-  }
-
-  // One side missing or non-numeric. Fall back to pass/improved heuristics.
-  if (d.improved) return { beforeScore: 0, afterScore: 100 }
-  if (bn !== null && an === null) return { beforeScore: 50, afterScore: 0 }
-  if (bn === null && an !== null) return { beforeScore: 0, afterScore: 50 }
-  return { beforeScore: 50, afterScore: 50 }
-}
-
-/**
- * Coerce mixed display strings into a 0+ numeric score.
- *  "Yes" / "✓" → 100, "No" / "✗" → 0
- *  "X / Y" → (X / Y) * 100
- *  "12.3%" → 12.3
- *  "42" → 42
- *  "—" / blank → null
- */
-function parseMetricScore(v: string): number | null {
-  if (!v || v.trim() === "" || v.trim() === "—") return null
-  const s = v.trim()
+  // Pass / fail words
   if (/^(yes|true|pass|✓)$/i.test(s)) return 100
   if (/^(no|false|fail|✗)$/i.test(s)) return 0
+
+  // X / Y ratio (counts like "3 / 3")
   const ratio = s.match(/^(\d+)\s*\/\s*(\d+)/)
   if (ratio) {
     const num = parseInt(ratio[1], 10)
     const den = parseInt(ratio[2], 10)
-    if (den > 0) return (num / den) * 100
+    if (den <= 0) return null // "0 / 0" is meaningless
+    return clamp01(num / den) * 100
   }
+
+  // Percentage ("12.3%" or "100%")
   const pct = s.match(/^-?\d+(?:\.\d+)?\s*%$/)
-  if (pct) return parseFloat(s)
+  if (pct) {
+    const n = parseFloat(s)
+    if (direction === "lower-better") {
+      // Error-style: 0% = great (full bar), 100% = terrible (empty bar)
+      return clamp01(1 - n / 100) * 100
+    }
+    return Math.max(0, Math.min(100, n))
+  }
+
+  // Raw integer (counts)
   const num = s.match(/^-?\d+(?:\.\d+)?$/)
-  if (num) return parseFloat(s)
+  if (num) {
+    const n = parseFloat(s)
+    if (n <= 0) return 0
+    // Scale: 1 unit ≈ 10%, cap at 100
+    return Math.min(100, n * 10)
+  }
+
   return null
 }
 

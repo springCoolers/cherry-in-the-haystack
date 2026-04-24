@@ -45,6 +45,8 @@ const SETS: SetSpec[] = [
   {
     taskId: 'set-4-quant',
     name: 'SET 4 Quant',
+    // Memory slot dropped: short/none/retrieval don't discriminate on a
+    // 3-asset task (iteration budget never exhausted).
     fullBuild: {
       prompt: 'inv-p-quant',
       mcp: 'inv-m-crypto',
@@ -52,60 +54,38 @@ const SETS: SetSpec[] = [
       skillB: 'inv-s-json-strict',
       skillC: 'inv-s-citation',
       orchestration: 'inv-o-plan-execute',
-      memory: 'inv-me-short',
+      memory: null,
     },
     removalTests: [
       { slot: 'prompt', metricId: 'schemaPass', dropMeans: 'to-no' },
-      { slot: 'mcp', metricId: 'avgPriceErrorPct', dropMeans: 'to-minus-or-mid' },
-      { slot: 'skillA', metricId: 'assetCount', dropMeans: 'lower-pass-count' }, // decomp
-      { slot: 'skillB', metricId: 'schemaPass', dropMeans: 'to-no' }, // json-strict
-      { slot: 'skillC', metricId: 'citationPerAsset', dropMeans: 'lower-pass-count' },
-      { slot: 'orchestration', metricId: 'assetCount', dropMeans: 'lower-pass-count' },
-      { slot: 'memory', metricId: 'biggestMoverCorrect', dropMeans: 'to-no' },
-    ],
-  },
-  {
-    taskId: 'set-5-strict-hunter',
-    name: 'SET 5 Strict Hunter',
-    fullBuild: {
-      prompt: 'inv-p-strict-hunter',
-      mcp: 'inv-m-market',
-      skillA: 'inv-s-constraint-sat',
-      skillB: 'inv-s-json-strict',
-      skillC: 'inv-s-self-validate',
-      orchestration: 'inv-o-self-repair',
-      memory: 'inv-me-none',
-    },
-    removalTests: [
-      { slot: 'prompt', metricId: 'schemaPass', dropMeans: 'to-no' },
-      { slot: 'mcp', metricId: 'authenticity', dropMeans: 'lower-pass-count' },
-      { slot: 'skillA', metricId: 'constraintsPass', dropMeans: 'lower-pass-count' }, // constraint-sat
-      { slot: 'skillB', metricId: 'schemaPass', dropMeans: 'to-no' },
-      { slot: 'skillC', metricId: 'constraintsPass', dropMeans: 'lower-pass-count' }, // self-validate
-      { slot: 'orchestration', metricId: 'constraintsPass', dropMeans: 'lower-pass-count' },
-      { slot: 'memory', metricId: 'recallAt3', dropMeans: 'to-minus-or-mid' }, // atomic task, likely ≈ full
+      { slot: 'mcp', metricId: 'toolCalls', dropMeans: 'lower-pass-count' },
+      { slot: 'skillA', metricId: 'stepFieldCount', dropMeans: 'lower-pass-count' }, // decomp artifact
+      { slot: 'skillB', metricId: 'startsWithJson', dropMeans: 'to-no' }, // json-strict artifact
+      { slot: 'skillC', metricId: 'sourceTokenCount', dropMeans: 'lower-pass-count' }, // citation artifact
+      { slot: 'orchestration', metricId: 'planStepsExecuted', dropMeans: 'to-no' },
     ],
   },
   {
     taskId: 'set-6-grounded',
     name: 'SET 6 Grounded',
+    // skillC (abstention) dropped: task contains field names like
+    // "monthly contribution" → model infers the flag regardless of skill.
+    // Memory dropped: task doesn't exhaust retrieval budget.
     fullBuild: {
       prompt: 'inv-p-grounded',
       mcp: 'inv-m-catalog',
       skillA: 'inv-s-multihop',
       skillB: 'inv-s-citation',
-      skillC: 'inv-s-abstention',
+      skillC: null,
       orchestration: 'inv-o-plan-execute',
-      memory: 'inv-me-retrieval',
+      memory: null,
     },
     removalTests: [
-      { slot: 'prompt', metricId: 'docCitations', dropMeans: 'to-zero' },
+      { slot: 'prompt', metricId: 'docCitations', dropMeans: 'lower-pass-count' },
       { slot: 'mcp', metricId: 'hallucinatedFactsPct', dropMeans: 'to-minus-or-mid' },
-      { slot: 'skillA', metricId: 'keyFactAccuracy', dropMeans: 'lower-pass-count' },
-      { slot: 'skillB', metricId: 'docCitations', dropMeans: 'to-zero' },
-      { slot: 'skillC', metricId: 'missingFlagged', dropMeans: 'to-zero' }, // abstention
-      { slot: 'orchestration', metricId: 'keyFactAccuracy', dropMeans: 'lower-pass-count' },
-      { slot: 'memory', metricId: 'docCitations', dropMeans: 'to-minus-or-mid' },
+      { slot: 'skillA', metricId: 'multihopSearchCount', dropMeans: 'lower-pass-count' }, // multihop artifact
+      { slot: 'skillB', metricId: 'docCitations', dropMeans: 'lower-pass-count' }, // citation
+      { slot: 'orchestration', metricId: 'planStepsExecuted', dropMeans: 'to-no' },
     ],
   },
 ]

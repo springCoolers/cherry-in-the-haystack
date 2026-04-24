@@ -97,7 +97,7 @@ export const set2HunterEvaluator: Evaluator = {
     }
     metrics.push({
       id: 'schemaPass',
-      label: 'JSON schema pass (3 items, all fields)',
+      label: 'Clean 3-item list with all fields',
       value: schemaPass ? 'Yes' : 'No',
       passed: schemaPass,
       direction: 'higher-better',
@@ -123,7 +123,7 @@ export const set2HunterEvaluator: Evaluator = {
         : authenticIds.length / claimedIds.length
     metrics.push({
       id: 'authenticity',
-      label: 'Authentic listings (exist in DB)',
+      label: 'Real listings (not invented)',
       value: `${authenticIds.length} / ${Math.max(claimedIds.length, 0)}`,
       passed:
         claimedIds.length > 0 && authenticityRate === 1,
@@ -137,7 +137,7 @@ export const set2HunterEvaluator: Evaluator = {
     const recallAt3 = recallHits.length
     metrics.push({
       id: 'recallAt3',
-      label: 'Recall@3 vs DB top-3 by price',
+      label: 'Found the 3 cheapest correctly',
       value: `${recallAt3} / 3`,
       passed: recallAt3 === 3,
       direction: 'higher-better',
@@ -167,7 +167,7 @@ export const set2HunterEvaluator: Evaluator = {
       totalClaimable === 0 ? 0 : priceMatches / totalClaimable
     metrics.push({
       id: 'priceMatch',
-      label: 'Price exact match vs DB',
+      label: 'Prices match the real DB',
       value:
         totalClaimable === 0
           ? '—'
@@ -180,7 +180,7 @@ export const set2HunterEvaluator: Evaluator = {
     // ── Metric: Tool calls ──
     metrics.push({
       id: 'toolCalls',
-      label: 'Tool calls',
+      label: 'Marketplace searches',
       value: ctx.toolCalls.length,
       direction: 'higher-better',
       category: 'tool',

@@ -814,6 +814,72 @@ function connectWebSocket(apiKey: string) {
     }
   });
 
+  /* ═══════════════════════════════════════════
+     delete_skill_request — 서버가 ~/.claude/skills/<dir> 삭제 요청
+     install-build 고아 정리용. target_dir 은 반드시 cherry-* 로 끝나야 함.
+  ═══════════════════════════════════════════ */
+  wsSocket.on('delete_skill_request', (req: {
+    request_id: string;
+    target_dir: string;  // "~/.claude/skills/cherry-<short>"
+  }) => {
+    console.error(`[WS] 📥 delete_skill_request RECEIVED: request=${req.request_id} target=${req.target_dir}`);
+    try {
+      // ~ 확장
+      const expand = (p: string) => p.startsWith('~')
+        ? path.join(os.homedir(), p.slice(1).replace(/^\/+/, ''))
+        : p;
+      const absDir = expand(req.target_dir);
+      const resolved = path.resolve(absDir);
+
+      // 방어 1: 반드시 ~/.claude/skills/ 하위
+      const skillsRoot = path.resolve(path.join(os.homedir(), '.claude', 'skills'));
+      if (!resolved.startsWith(skillsRoot + path.sep)) {
+        wsSocket!.emit('delete_skill_ack', {
+          request_id: req.request_id,
+          deleted: false,
+          error_reason: `target_dir is outside ~/.claude/skills/ — refusing (${resolved})`,
+        });
+        return;
+      }
+      // 방어 2: 반드시 cherry- 접두사로 끝남
+      const baseName = path.basename(resolved);
+      if (!/^cherry-[a-z0-9-]+$/.test(baseName)) {
+        wsSocket!.emit('delete_skill_ack', {
+          request_id: req.request_id,
+          deleted: false,
+          error_reason: `target_dir basename is not a cherry-* dir (${baseName})`,
+        });
+        return;
+      }
+
+      if (fs.existsSync(resolved)) {
+        fs.rmSync(resolved, { recursive: true, force: true });
+        console.error(`[WS]   ✓ removed ${resolved}`);
+        wsSocket!.emit('delete_skill_ack', {
+          request_id: req.request_id,
+          deleted: true,
+          removed_path: resolved,
+        });
+      } else {
+        console.error(`[WS]   - already absent: ${resolved}`);
+        wsSocket!.emit('delete_skill_ack', {
+          request_id: req.request_id,
+          deleted: false,
+          error_reason: 'target_dir does not exist (already removed)',
+        });
+      }
+    } catch (err: any) {
+      console.error(`[WS] ✗ delete_skill FAILED: ${err.message}`);
+      try {
+        wsSocket!.emit('delete_skill_ack', {
+          request_id: req.request_id,
+          deleted: false,
+          error_reason: err.message ?? String(err),
+        });
+      } catch { /* ignore */ }
+    }
+  });
+
   // 에이전트 self-report 요청 (심사용 학습 증명)
   // → 에이전트 프로세스에서 직접 자기 상태 introspect 하여 서버로 전송
   wsSocket.on('request_self_report', async (req: any) => {
