@@ -563,7 +563,10 @@ export function KaasWorkshopPanel({ currentAgent }: KaasWorkshopPanelProps) {
           <div className="flex-1 min-h-0">
             {filter === "fullset" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 content-start">
-                {(Object.keys(SET_META) as SetTag[]).map((tag) => (
+                {/* Workshop FULLSET tab keeps the original 4 sets only.
+                    Newer Shop-only domains (writer/tutor/scribe) are not
+                    surfaced here — they live in /start/shop. */}
+                {(["hunter", "quant", "grounded", "policy"] as SetTag[]).map((tag) => (
                   <FullSetCard
                     key={tag}
                     tag={tag}

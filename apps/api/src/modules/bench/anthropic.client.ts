@@ -16,7 +16,21 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AnthropicToolSchema } from './sets/set-definitions'
 import type { OrchestrationId } from './cards/card-registry'
 
-export const DEFAULT_MODEL = process.env.BENCH_MODEL ?? 'claude-haiku-4-5'
+/** Provider switch for the bench. One of `claude` | `openai` | `flock`.
+ *  Default `claude`. Models get a sensible default per provider when
+ *  `BENCH_MODEL` is not set explicitly. */
+export type BenchProvider = 'claude' | 'openai' | 'flock'
+export const BENCH_PROVIDER: BenchProvider =
+  ((process.env.BENCH_LLM_PROVIDER ?? 'claude').toLowerCase() as BenchProvider)
+
+const DEFAULT_MODEL_BY_PROVIDER: Record<BenchProvider, string> = {
+  claude: 'claude-haiku-4-5',
+  openai: 'gpt-4.1-nano',
+  flock: 'qwen3-30b-a3b-instruct-2507',
+}
+
+export const DEFAULT_MODEL =
+  process.env.BENCH_MODEL ?? DEFAULT_MODEL_BY_PROVIDER[BENCH_PROVIDER] ?? 'claude-haiku-4-5'
 
 let sharedClient: Anthropic | null = null
 function getClient(): Anthropic {
@@ -98,9 +112,15 @@ export async function callClaudeStandard(
   input: ClaudeCallInput,
 ): Promise<ClaudeCallResult> {
   const model = input.model ?? DEFAULT_MODEL
-  // Route GPT models to the OpenAI client with identical I/O shape so
-  // orchestration strategies (plan-execute, self-repair) work unchanged.
-  if (model.startsWith('gpt-')) {
+  // Provider routing — explicit env var wins over heuristics. The same
+  // ClaudeCallInput shape works for all providers because openai/flock
+  // clients translate to OpenAI-compatible chat-completions and translate
+  // the response back to ClaudeCallResult.
+  if (BENCH_PROVIDER === 'flock') {
+    const { callFlockStandard } = await import('./flock.client.js')
+    return callFlockStandard({ ...input, model })
+  }
+  if (BENCH_PROVIDER === 'openai' || model.startsWith('gpt-')) {
     const { callOpenAIStandard } = await import('./openai.client.js')
     return callOpenAIStandard({ ...input, model })
   }
