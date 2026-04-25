@@ -14,7 +14,6 @@
 import { useEffect, useState } from "react"
 import {
   AGENT_TRADE_FLAT_PRICE,
-  buyAgentTradeSkill,
   fetchAgentDiff,
   fetchAgents,
   fetchShopAgents,
@@ -22,6 +21,7 @@ import {
   type ClassifiedSkill,
 } from "@/lib/api"
 import { getAccessToken } from "@/lib/auth"
+import { PurchaseModal, type PurchaseTarget } from "./purchase-modal"
 
 interface MyAgent {
   id: string
@@ -183,7 +183,7 @@ function DiffModal({
 }) {
   const [diff, setDiff] = useState<AgentTradeDiff | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null) // slug being purchased
+  const [purchaseTarget, setPurchaseTarget] = useState<PurchaseTarget | null>(null)
 
   const reload = () => {
     setDiff(null)
@@ -198,21 +198,14 @@ function DiffModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.id])
 
-  async function buy(item: ClassifiedSkill) {
+  function buy(item: ClassifiedSkill) {
     if (item.kind === "meta" || item.kind === "unknown") return
-    setBusy(item.slug)
-    try {
-      await buyAgentTradeSkill(myAgent.api_key, item.slug)
-      // Refresh diff so the bought item moves to Both
-      reload()
-      // Notify the rest of the app (Shop By Domain OWNED badges, Compare etc)
-      window.dispatchEvent(new CustomEvent("kaas-purchase-complete"))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg)
-    } finally {
-      setBusy(null)
-    }
+    setPurchaseTarget({
+      conceptId: item.slug,
+      conceptTitle: item.title || item.slug,
+      creditsBase: AGENT_TRADE_FLAT_PRICE,
+      agentTradeSlug: item.slug,
+    })
   }
 
   return (
@@ -265,13 +258,26 @@ function DiffModal({
             <>
               <Section title={`Only ${target.name} has`} items={diff.onlyTheirs}
                        buyableLabel={`Buy ${AGENT_TRADE_FLAT_PRICE} cr`}
-                       onBuy={buy} busy={busy} />
+                       onBuy={buy} />
               <Section title="Both have" items={diff.both} muted />
               <Section title={`Only ${myAgent.name} has`} items={diff.onlyMine} muted />
             </>
           )}
         </div>
       </div>
+
+      <PurchaseModal
+        open={!!purchaseTarget}
+        action="purchase"
+        target={purchaseTarget}
+        agents={[{ id: myAgent.id, name: myAgent.name, api_key: myAgent.api_key, credits: myAgent.credits }]}
+        defaultAgentId={myAgent.id}
+        onClose={() => setPurchaseTarget(null)}
+        onSuccess={() => {
+          reload()
+          window.dispatchEvent(new CustomEvent("kaas-purchase-complete"))
+        }}
+      />
     </div>
   )
 }
@@ -282,14 +288,12 @@ function Section({
   muted = false,
   buyableLabel,
   onBuy,
-  busy,
 }: {
   title: string
   items: ClassifiedSkill[]
   muted?: boolean
   buyableLabel?: string
   onBuy?: (item: ClassifiedSkill) => void
-  busy?: string | null
 }) {
   return (
     <section>
@@ -320,15 +324,11 @@ function Section({
               {onBuy && buyableLabel && (
                 <button
                   onClick={() => onBuy(item)}
-                  disabled={
-                    busy === item.slug ||
-                    item.kind === "meta" ||
-                    item.kind === "unknown"
-                  }
+                  disabled={item.kind === "meta" || item.kind === "unknown"}
                   className="h-7 px-2.5 rounded-md text-[10px] font-bold border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ color: "#B12A17", borderColor: "#E89080", backgroundColor: "#FBE8E3" }}
                 >
-                  {busy === item.slug ? "Buying…" : buyableLabel}
+                  {buyableLabel}
                 </button>
               )}
             </li>

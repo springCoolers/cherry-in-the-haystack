@@ -23,6 +23,7 @@ import {
   followConcept,
   fetchBalance,
   buySet,
+  buyAgentTradeSkill,
   type ShopSet,
 } from "@/lib/api"
 
@@ -36,6 +37,9 @@ export interface PurchaseTarget {
   /** When present, the modal runs in set-mode: calls `/shop/buy-and-install`
    *  instead of the per-concept purchase endpoint. */
   shopSet?: ShopSet
+  /** When present, the modal runs in agent-trade mode: calls
+   *  `/shop/agents/skills/buy` for a flat-price single-file install. */
+  agentTradeSlug?: string
 }
 
 export interface PurchaseAgent {
@@ -146,6 +150,22 @@ export function PurchaseModal({
     setPhase("loading")
     setErrorMsg("")
     try {
+      if (target.agentTradeSlug) {
+        const resp = await buyAgentTradeSkill(selectedAgent.api_key, target.agentTradeSlug)
+        const prov = resp.provenance ?? ({} as any)
+        setResult({
+          txHash: prov.hash ?? null,
+          explorerUrl: prov.explorer_url ?? null,
+          chain: prov.chain ?? null,
+          onChain: !!prov.on_chain,
+          creditsUsed: resp.credits_consumed,
+          creditsAfter: resp.credits_after,
+        })
+        setPhase("success")
+        onSuccess?.({ txHash: prov.hash ?? null, creditsAfter: resp.credits_after })
+        return
+      }
+
       if (target.shopSet) {
         // Set mode — calls `/shop/buy-and-install`.
         const resp = await buySet(selectedAgent.api_key, target.shopSet.id, "status")
