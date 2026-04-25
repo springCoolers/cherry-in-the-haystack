@@ -644,6 +644,36 @@ export async function fetchAgentverseConfig(): Promise<{ server_key_configured: 
   return res.json()
 }
 
+// ── FLock bundle (manual co-creation upload) ─────────────────
+
+export interface FlockBundleFile {
+  filename: string
+  content: string
+  mime: "text/plain" | "text/markdown" | "application/json"
+}
+
+export interface FlockBundleResponse {
+  files: FlockBundleFile[]
+  flock_platform_url: string
+  warnings: string[]
+}
+
+export async function buildFlockBundle(req: Omit<FlockExportRequest, "api_key" | "public">): Promise<FlockBundleResponse> {
+  const res = await fetch(`${KAAS_BASE}/flock/flock-bundle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}))
+    throw Object.assign(new Error(b?.message ?? `buildFlockBundle ${res.status}`), {
+      code: b?.code,
+      status: res.status,
+    })
+  }
+  return res.json()
+}
+
 export async function exportToAgentverse(req: Omit<FlockExportRequest, "api_key"> & { api_key?: string }): Promise<AgentverseExportResponse> {
   const res = await fetch(`${KAAS_BASE}/flock/export-agentverse`, {
     method: "POST",

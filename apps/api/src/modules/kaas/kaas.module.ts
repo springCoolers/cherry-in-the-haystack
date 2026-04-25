@@ -28,6 +28,7 @@ import { BuySetService } from './shop/buy-set.service';
 import { AgentTradeService } from './shop/agent-trade.service';
 import { FlockExportService } from './flock/flock-export.service';
 import { AgentverseExportService } from './flock/agentverse-export.service';
+import { FlockBundleService } from './flock/flock-bundle.service';
 
 @Module({
   imports: [DatabaseModule],
@@ -60,6 +61,7 @@ import { AgentverseExportService } from './flock/agentverse-export.service';
     AgentTradeService,
     FlockExportService,
     AgentverseExportService,
+    FlockBundleService,
   ],
   exports: [
     KaasAgentService,

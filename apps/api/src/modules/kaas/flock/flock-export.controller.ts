@@ -10,6 +10,11 @@ import {
   type AgentverseExportRequest,
   type AgentverseExportResponse,
 } from './agentverse-export.service'
+import {
+  FlockBundleService,
+  type FlockBundleRequest,
+  type FlockBundleResponse,
+} from './flock-bundle.service'
 
 @Controller('v1/kaas/flock')
 @ApiTags('KaaS — Flock Export')
@@ -17,6 +22,7 @@ export class FlockExportController {
   constructor(
     private readonly svc: FlockExportService,
     private readonly agentverse: AgentverseExportService,
+    private readonly bundle: FlockBundleService,
   ) {}
 
   @Get('config')
@@ -50,5 +56,12 @@ export class FlockExportController {
   @ApiOperation({ summary: 'Export Workshop build to Agentverse marketplace' })
   async exportAgentverse(@Body() body: AgentverseExportRequest): Promise<AgentverseExportResponse> {
     return this.agentverse.export(body)
+  }
+
+  @Post('flock-bundle')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Build a FLock-ready upload bundle (manual co-creation)' })
+  flockBundle(@Body() body: FlockBundleRequest): FlockBundleResponse {
+    return this.bundle.build(body)
   }
 }

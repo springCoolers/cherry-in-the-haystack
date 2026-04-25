@@ -305,7 +305,7 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
             <div className="flex items-center gap-2 justify-end">
               <span className="w-1.5 h-1.5 rounded-full bg-[#9A7C55]" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B4F2A]">
-                Before · Default Claude
+                Before · Default Flock
               </span>
             </div>
             <div className="text-center text-[9px] font-bold uppercase tracking-[0.25em] text-[#9A7C55]">
@@ -352,7 +352,7 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#9A7C55]" />
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B4F2A]">
-                Before · Default Claude
+                Before · Default Flock
               </span>
             </div>
             <span className="text-[10px] text-[#9A7C55]">
@@ -364,7 +364,7 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
               <EmptyState
                 text={
                   running
-                    ? "Calling Claude without tools…"
+                    ? "Calling Flock without tools…"
                     : "Run the benchmark to see baseline response."
                 }
               />
@@ -404,7 +404,7 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
               <EmptyState
                 text={
                   running
-                    ? "Calling Claude with build + tools…"
+                    ? "Calling Flock with build + tools…"
                     : "Run the benchmark to see enhanced response."
                 }
               />
@@ -447,7 +447,7 @@ function BeforeAfterPreview({ agentName }: { agentName?: string }) {
       {result && (
         <details className="mt-3 text-[11px]">
           <summary className="cursor-pointer text-[#9A7C55] hover:text-[#6B4F2A] font-semibold">
-            See system prompt sent to Claude for "After"
+            See system prompt sent to Flock for "After"
           </summary>
           <pre className="mt-2 p-3 rounded-lg bg-[#FBF6ED] text-[11px] font-mono text-[#3A2A1C] whitespace-pre-wrap" style={{ border: "1px solid #E9D1A6" }}>
 {result.systemPrompt}
@@ -550,7 +550,7 @@ function AppliedSlotsBanner({
       }}
     >
       <span className="font-bold uppercase tracking-[0.18em] text-[#6B4F2A]">
-        Applied to Claude
+        Applied to Flock
       </span>
       <AppliedDot label="prompt" on={applied.prompt} />
       <AppliedDot label="mcp" on={applied.mcp} />

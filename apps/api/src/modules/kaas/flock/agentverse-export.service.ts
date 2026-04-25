@@ -245,10 +245,8 @@ if __name__ == "__main__":
 
   private buildUrlCandidates(address: string): string[] {
     if (!address) return ['https://agentverse.ai/agents']
-    return [
-      `https://agentverse.ai/agents/details/${address}`,
-      `https://agentverse.ai/agents/${address}`,
-      `https://agentverse.ai/marketplace/agents/${address}`,
-    ]
+    // Verified live: /agents/details/{address} returns 200 (probed 2026-04-25).
+    // Other patterns 307/403.
+    return [`https://agentverse.ai/agents/details/${address}`]
   }
 }
