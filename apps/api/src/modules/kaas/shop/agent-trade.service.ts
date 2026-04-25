@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { KaasAgentService } from '../kaas-agent.service'
 import { KaasCreditService } from '../kaas-credit.service'
 import { KaasKnowledgeService } from '../kaas-knowledge.service'
+import { KaasProvenanceService } from '../kaas-provenance.service'
 import { KaasWsGateway } from '../kaas-ws.gateway'
 import {
   cardToSkillFile,
@@ -79,6 +80,7 @@ export class AgentTradeService {
     private readonly credits: KaasCreditService,
     private readonly catalog: KaasKnowledgeService,
     private readonly ws: KaasWsGateway,
+    private readonly provenance: KaasProvenanceService,
   ) {}
 
   /** Other agents that are **currently connected via WebSocket** (caller
@@ -204,6 +206,14 @@ export class AgentTradeService {
       )
     }
 
+    const prov = await this.provenance.recordQuery(
+      me.id,
+      slug,
+      'agent-trade',
+      consumed.consumed,
+      { slug, saved_path: savedPath, size_bytes: sizeBytes },
+    )
+
     const { balance: creditsAfter } = await this.credits.getBalance(me.id)
 
     return {
@@ -213,10 +223,10 @@ export class AgentTradeService {
       credits_consumed: consumed.consumed,
       credits_after: creditsAfter,
       provenance: {
-        hash: consumed.txHash ?? null,
-        chain: 'mock',
-        explorer_url: null,
-        on_chain: consumed.onChain,
+        hash: prov.provenanceHash,
+        chain: prov.onChain ? (process.env.CHAIN_ADAPTER ?? 'mock') : 'failed',
+        explorer_url: prov.explorerUrl,
+        on_chain: prov.onChain,
       },
     }
   }

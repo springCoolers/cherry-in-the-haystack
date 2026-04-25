@@ -590,6 +590,8 @@ export async function buyAgentTradeSkill(
     throw Object.assign(new Error(b?.message ?? `buyAgentTradeSkill ${res.status}`), {
       code: b?.code,
       status: res.status,
+      credits_required: b?.credits_required,
+      credits_available: b?.credits_available,
     })
   }
   return res.json()

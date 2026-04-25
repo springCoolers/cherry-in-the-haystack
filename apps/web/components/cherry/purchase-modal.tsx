@@ -208,7 +208,18 @@ export function PurchaseModal({
       setPhase("success")
       onSuccess?.({ txHash, creditsAfter })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const e = err as { code?: string; status?: number; message?: string; credits_required?: number; credits_available?: number }
+      const code = e?.code
+      const status = e?.status
+      let msg = e?.message ?? String(err)
+      if (code === "INSUFFICIENT_CREDITS" || status === 402) {
+        const need = e?.credits_required ?? target?.creditsBase
+        const have = e?.credits_available
+        msg =
+          typeof have === "number"
+            ? `크레딧이 부족합니다. 필요: ${need}cr · 보유: ${have}cr`
+            : `크레딧이 부족합니다. 이 거래는 ${need}cr이 필요해요.`
+      }
       setErrorMsg(msg)
       setPhase("error")
     }
