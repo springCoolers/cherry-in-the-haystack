@@ -1,64 +1,34 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { KaasCatalogPage } from "@/components/cherry/kaas-catalog-page"
-import {
-  PurchaseModal,
-  type PurchaseAction,
-  type PurchaseAgent,
-  type PurchaseTarget,
-} from "@/components/cherry/purchase-modal"
+import { ShopByDomain } from "@/components/cherry/shop-by-domain"
+import { ShopByComponent } from "@/components/cherry/shop-by-component"
 import { StartFlowNav } from "@/components/cherry/start-flow-nav"
-import { fetchAgents } from "@/lib/api"
-import { getAccessToken, useAuthTick } from "@/lib/auth"
+import { useAuthTick } from "@/lib/auth"
 
-// Base costs mirror kaas-catalog-page (line 380-381). Sale discount math
-// already happens server-side, so we just pass the base here.
-const PURCHASE_BASE = 20
-const FOLLOW_BASE = 25
+type RootTab = "domain" | "component"
 
 export default function ShopPage() {
   useAuthTick()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
-  const token = mounted ? getAccessToken() : null
+  const [root, setRoot] = useState<RootTab>("domain")
 
-  const [agents, setAgents] = useState<PurchaseAgent[]>([])
-  const [modalOpen, setModalOpen] = useState(false)
-  const [action, setAction] = useState<PurchaseAction>("purchase")
-  const [target, setTarget] = useState<PurchaseTarget | null>(null)
-
-  // Load agents for the target-AI dropdown. Skip if unauth — the Buy click
-  // can still prompt sign-in via the modal showing "AI 없음".
-  useEffect(() => {
-    if (!token) return
-    fetchAgents()
-      .then((data) => {
-        if (!Array.isArray(data)) return
-        setAgents(
-          data.map((a) => ({
-            id: a.id,
-            name: a.name,
-            icon: a.icon,
-            api_key: a.api_key,
-            karma_tier: a.karma_tier,
-            credits: a.credits,
-          })),
-        )
-      })
-      .catch(() => setAgents([]))
-  }, [token])
-
-  function handleCatalogQuery(title: string, depth: string, conceptId?: string) {
-    if (!conceptId) return
-    const next: PurchaseAction = depth === "follow" ? "follow" : "purchase"
-    setAction(next)
-    setTarget({
-      conceptId,
-      conceptTitle: title,
-      creditsBase: next === "follow" ? FOLLOW_BASE : PURCHASE_BASE,
-    })
-    setModalOpen(true)
+  // Avoid SSR hydration mismatch — both server and the very first client
+  // render default to By Domain, then client re-renders if needed.
+  if (!mounted) {
+    return (
+      <div>
+        <header className="mb-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-extrabold text-[#3A2A1C]">Shop</h1>
+            <p className="text-[12px] text-[#9A7C55] mt-1">
+              Browse ready-made AIs or individual components.
+            </p>
+          </div>
+        </header>
+      </div>
+    )
   }
 
   return (
@@ -67,47 +37,74 @@ export default function ShopPage() {
         <div className="min-w-0">
           <h1 className="text-[22px] font-extrabold text-[#3A2A1C]">Shop</h1>
           <p className="text-[12px] text-[#9A7C55] mt-1">
-            Browse the skills your AI needs.
+            Browse ready-made AIs or individual components.
           </p>
         </div>
         <StartFlowNav current="shop" />
       </header>
 
-      <KaasCatalogPage onQuery={handleCatalogQuery} />
+      {/* Two big tabs */}
+      <div
+        role="tablist"
+        className="flex items-center gap-1 mb-4"
+      >
+        <RootTabButton
+          active={root === "domain"}
+          onClick={() => setRoot("domain")}
+          label="By Domain"
+          hint="Buy a complete AI"
+        />
+        <RootTabButton
+          active={root === "component"}
+          onClick={() => setRoot("component")}
+          label="By Component"
+          hint="Browse individual pieces"
+        />
+      </div>
 
-      <PurchaseModal
-        open={modalOpen}
-        action={action}
-        target={target}
-        agents={agents}
-        onClose={() => setModalOpen(false)}
-        onSuccess={() => {
-          // Notify the catalog so it re-runs Compare (updates OWNED badges
-          // + gap counts). Fires before the credit refresh so the UI updates
-          // immediately on success.
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("kaas-purchase-complete"))
-          }
-          // Refresh agent credits so the next modal open shows the updated
-          // balance in the AI dropdown.
-          if (!token) return
-          fetchAgents()
-            .then((data) => {
-              if (!Array.isArray(data)) return
-              setAgents(
-                data.map((a) => ({
-                  id: a.id,
-                  name: a.name,
-                  icon: a.icon,
-                  api_key: a.api_key,
-                  karma_tier: a.karma_tier,
-                  credits: a.credits,
-                })),
-              )
-            })
-            .catch(() => {})
-        }}
-      />
+      {root === "domain" ? <ShopByDomain /> : <ShopByComponent />}
     </div>
+  )
+}
+
+function RootTabButton({
+  active,
+  onClick,
+  label,
+  hint,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+  hint: string
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`flex-1 md:flex-none text-left px-4 py-3 rounded-xl transition-all cursor-pointer ${
+        active ? "shadow-sm" : "hover:bg-[#FBF6ED]"
+      }`}
+      style={{
+        backgroundColor: active ? "#FBF6ED" : "transparent",
+        border: `1.5px solid ${active ? "#C8301E" : "transparent"}`,
+      }}
+    >
+      <span
+        className={`block text-[14px] font-extrabold ${
+          active ? "text-[#3A2A1C]" : "text-[#6B4F2A]"
+        }`}
+      >
+        {label}
+      </span>
+      <span
+        className={`block mt-0.5 text-[10px] font-semibold ${
+          active ? "text-[#8F1D12]" : "text-[#9A7C55]"
+        }`}
+      >
+        {hint}
+      </span>
+    </button>
   )
 }

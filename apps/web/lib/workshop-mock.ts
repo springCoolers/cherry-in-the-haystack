@@ -28,6 +28,9 @@ export type SetTag =
   | "policy"
   | "quant"
   | "grounded"
+  | "writer"
+  | "tutor"
+  | "scribe"
 
 export interface SetMeta {
   label: string
@@ -41,6 +44,9 @@ export const SET_META: Record<SetTag, SetMeta> = {
   policy:   { label: "Policy Set",   symbol: "🜁", color: "#2D3B66", softBg: "#D8DEEF" },
   quant:    { label: "Quant Set",    symbol: "🜔", color: "#5E3A8A", softBg: "#E8DCF4" },
   grounded: { label: "Grounded Set", symbol: "🜚", color: "#3F5A2E", softBg: "#DCE8D1" },
+  writer:   { label: "Writer Set",   symbol: "✎", color: "#8B4F2A", softBg: "#F0E4D4" },
+  tutor:    { label: "Tutor Set",    symbol: "◈", color: "#2A6F5E", softBg: "#D4E7DF" },
+  scribe:   { label: "Scribe Set",   symbol: "✦", color: "#5E4A80", softBg: "#E0D8EE" },
 }
 
 export interface InventoryItem {
@@ -233,7 +239,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Docs",
     updatedAt: "2026-04-23",
     source: "builtin",
-    setTag: ["policy", "grounded"],
+    setTag: ["policy", "grounded", "scribe"],
     summary:
       "Cherry internal policy docs. Tool: search_catalog(query, limit).",
   },
@@ -256,7 +262,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Conversation",
     updatedAt: "2026-04-23",
     source: "builtin",
-    setTag: [],
+    setTag: ["writer", "tutor"],
     summary: "Full conversation context preserved within the session.",
   },
   {
@@ -266,7 +272,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Tool output",
     updatedAt: "2026-04-23",
     source: "builtin",
-    setTag: ["policy"],
+    setTag: ["policy", "scribe"],
     summary: "Retrieved tool results stay available across turns.",
   },
 
@@ -293,6 +299,39 @@ export const mockInventory: InventoryItem[] = [
     summary:
       "Retrieves first, cites doc IDs, flags missing fields with 'missing:<field>'.",
   },
+  {
+    id: "inv-p-writer",
+    title: "Writer",
+    type: "prompt",
+    category: "Writing",
+    updatedAt: "2026-04-25",
+    source: "builtin",
+    setTag: ["writer"],
+    summary:
+      "Sharp writing assistant — clear structure, active voice, concrete before/after edits. Never fabricates facts.",
+  },
+  {
+    id: "inv-p-tutor",
+    title: "Tutor",
+    type: "prompt",
+    category: "Teaching",
+    updatedAt: "2026-04-25",
+    source: "builtin",
+    setTag: ["tutor"],
+    summary:
+      "Patient tutor — gist + tiny example + common misconception. Always ends with one check-for-understanding question.",
+  },
+  {
+    id: "inv-p-scribe",
+    title: "Scribe",
+    type: "prompt",
+    category: "Summarization",
+    updatedAt: "2026-04-25",
+    source: "builtin",
+    setTag: ["scribe"],
+    summary:
+      "Document summarizer — bullet key points, list open questions, cite sources with [doc:<id>]. Refuses to invent quotes.",
+  },
 
   // ══════════ Phase 2 — Skills (7) ══════════
   {
@@ -302,7 +341,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Reasoning",
     updatedAt: "2026-04-24",
     source: "builtin",
-    setTag: ["quant"],
+    setTag: ["quant", "tutor"],
     summary:
       "Break the task into explicit subtasks and address each before synthesizing.",
   },
@@ -323,7 +362,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Grounding",
     updatedAt: "2026-04-24",
     source: "builtin",
-    setTag: ["quant", "grounded"],
+    setTag: ["quant", "grounded", "scribe"],
     summary: "Every factual claim carries an inline source or citation.",
   },
   {
@@ -367,7 +406,7 @@ export const mockInventory: InventoryItem[] = [
     category: "Multi-phase",
     updatedAt: "2026-04-24",
     source: "builtin",
-    setTag: ["quant", "grounded"],
+    setTag: ["quant", "grounded", "scribe"],
     summary:
       "Two-phase call: first produce a plan (no tools), then execute the plan with tools.",
   },

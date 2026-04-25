@@ -18,7 +18,13 @@
 
 import { useEffect, useState } from "react"
 import { CherryBao, type BaoVariant } from "./cherry-bao"
-import { purchaseConcept, followConcept, fetchBalance } from "@/lib/api"
+import {
+  purchaseConcept,
+  followConcept,
+  fetchBalance,
+  buySet,
+  type ShopSet,
+} from "@/lib/api"
 
 export type PurchaseAction = "purchase" | "follow"
 
@@ -27,6 +33,9 @@ export interface PurchaseTarget {
   conceptTitle: string
   /** Base cost in credits; server applies Karma tier discount. */
   creditsBase: number
+  /** When present, the modal runs in set-mode: calls `/shop/buy-and-install`
+   *  instead of the per-concept purchase endpoint. */
+  shopSet?: ShopSet
 }
 
 export interface PurchaseAgent {
@@ -56,6 +65,13 @@ const LOADING_MESSAGES = [
   "Packing the knowledge…",
   "Writing the receipt…",
   "Cherry is running…",
+]
+
+const SET_LOADING_MESSAGES = [
+  "Installing your AI…",
+  "Copying skills…",
+  "Wiring up tools…",
+  "Recording on-chain…",
 ]
 
 const VARIANT_BY_PHASE: Record<Phase, BaoVariant> = {
@@ -130,9 +146,32 @@ export function PurchaseModal({
     setPhase("loading")
     setErrorMsg("")
     try {
+      if (target.shopSet) {
+        // Set mode — calls `/shop/buy-and-install`.
+        const resp = await buySet(selectedAgent.api_key, target.shopSet.id, "status")
+        if (resp.partial) {
+          setErrorMsg(
+            "Some components failed to install. Your credits were fully refunded. Please try again.",
+          )
+          setPhase("error")
+          return
+        }
+        const prov = resp.provenance ?? ({} as any)
+        setResult({
+          txHash: prov.hash ?? null,
+          explorerUrl: prov.explorer_url ?? null,
+          chain: prov.chain ?? null,
+          onChain: !!prov.on_chain,
+          creditsUsed: resp.credits_consumed,
+          creditsAfter: resp.credits_after,
+        })
+        setPhase("success")
+        onSuccess?.({ txHash: prov.hash ?? null, creditsAfter: resp.credits_after })
+        return
+      }
+
+      // Component mode (kept for main-site catalog; Shop no longer uses this).
       const call = action === "purchase" ? purchaseConcept : followConcept
-      // Same default as main-site kaas-console.tsx — real on-chain recording
-      // on Status. Server computes + returns the explorer_url for us.
       const resp = await call(selectedAgent.api_key, target.conceptId, "status")
       let creditsAfter: number | undefined
       try {
@@ -140,7 +179,6 @@ export function PurchaseModal({
         creditsAfter = typeof bal?.credits === "number" ? bal.credits : undefined
       } catch { /* ignore */ }
       const prov = resp?.provenance ?? {}
-      // All chain metadata comes from the server — no client-side URL math.
       const txHash: string | null = prov.hash ?? null
       const chain: string | null = prov.chain ?? null
       const explorerUrl: string | null = prov.explorer_url ?? null
@@ -185,14 +223,20 @@ export function PurchaseModal({
                   {target.conceptTitle}
                 </h2>
                 <p className="mt-1 text-[12px] text-[#8E7555]">
-                  {action === "purchase" ? "Add this skill to your AI?" : "Follow this concept?"}
+                  {target.shopSet
+                    ? `Install this ${target.shopSet.slotCount}-slot AI?`
+                    : action === "purchase"
+                      ? "Add this skill to your AI?"
+                      : "Follow this concept?"}
                 </p>
               </>
             )}
             {phase === "loading" && (
               <>
                 <h2 className="text-[16px] font-bold text-[#3A2A1C] animate-pulse">
-                  {LOADING_MESSAGES[loadingMsgIdx]}
+                  {(target?.shopSet ? SET_LOADING_MESSAGES : LOADING_MESSAGES)[
+                    loadingMsgIdx % (target?.shopSet ? SET_LOADING_MESSAGES.length : LOADING_MESSAGES.length)
+                  ]}
                 </h2>
                 <p className="mt-1 text-[11px] text-[#B8A788]">Hang tight…</p>
               </>

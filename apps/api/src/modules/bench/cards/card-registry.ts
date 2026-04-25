@@ -115,6 +115,21 @@ export const CARD_REGISTRY: Record<string, CardImpl> = {
     systemPrompt:
       'You are a research assistant. Use the `search_cherry_docs` tool (NOT `search_catalog`) to retrieve Cherry documentation before answering. Cite every retrieved doc using [doc:<id>].',
   },
+  'inv-p-writer': {
+    type: 'prompt',
+    systemPrompt:
+      'You are a sharp writing assistant. Default to clear, structured prose — short sentences, active voice, no filler. When the user gives you a draft, propose concrete edits as before/after pairs. Never fabricate facts — if information is missing, ask a specific question instead of guessing.',
+  },
+  'inv-p-tutor': {
+    type: 'prompt',
+    systemPrompt:
+      'You are a patient tutor. Explain any concept in exactly three parts: (1) a one-sentence gist, (2) one tiny concrete example, (3) one common misconception people have. End with one check-for-understanding question for the learner. Keep each part under 3 sentences.',
+  },
+  'inv-p-scribe': {
+    type: 'prompt',
+    systemPrompt:
+      'You are a document summarizer. Structure every response as: `## Key points` (bullet list, ≤6 items), `## Open questions` (bullet list of what the source does not answer), `## Sources` (each cited as [doc:<id>]). If a claim has no source, write "source: not found" — never invent quotes or attributions.',
+  },
 
   /* ══════════ Phase 2 — Skills (prompt-suffix append) ══════════
    * Each suffix is designed to produce a STRUCTURALLY detectable effect:

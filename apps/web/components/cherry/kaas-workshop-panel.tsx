@@ -39,6 +39,28 @@ import {
   type WorkshopState,
 } from "@/lib/workshop-mock"
 import { JigsawConnector } from "./jigsaw-connector"
+import { CardSourceModal } from "./card-source-modal"
+
+/** Tiny book/doc glyph for the inventory card's "view source" button. */
+function SourceIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 3h8a2 2 0 0 1 2 2v12l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z" />
+      <line x1="7" y1="7" x2="13" y2="7" />
+      <line x1="7" y1="10" x2="11" y2="10" />
+    </svg>
+  )
+}
 
 interface KaasWorkshopPanelProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,8 +72,9 @@ type FilterKey = "all" | SkillType | "fullset"
 
 const ITEMS_PER_PAGE = 10 // 2 cols × 5 rows — fills visible area
 
-// Per-type color theme
-const TYPE_THEME: Record<SkillType, { bg: string; border: string; text: string; badge: string; label: string; dark: string }> = {
+// Per-type color theme — exported so Shop (and other consumers) can reuse
+// the same slot color/label mapping and stay visually consistent.
+export const TYPE_THEME: Record<SkillType, { bg: string; border: string; text: string; badge: string; label: string; dark: string }> = {
   prompt:        { bg: "#F5EDE1", border: "#C9A24A", text: "#8B6C2A", badge: "#FDF8E9", label: "PROMPT", dark: "#C9A24A" },
   mcp:           { bg: "#E3F2EC", border: "#2A5C3E", text: "#1F4430", badge: "#D5EBDC", label: "MCP",    dark: "#2A5C3E" },
   skill:         { bg: "#FBF6EC", border: "#C8301E", text: "#8F1D12", badge: "#FBE8E3", label: "SKILL",  dark: "#C8301E" },
@@ -1222,6 +1245,7 @@ function InventoryCard({
   isDragging: boolean
 }) {
   const theme = TYPE_THEME[item.type]
+  const [showSource, setShowSource] = useState(false)
   return (
     <div
       draggable
@@ -1246,13 +1270,38 @@ function InventoryCard({
             <div className="text-[10px] text-[#6B6480] mt-1 line-clamp-2">{item.summary}</div>
           )}
         </div>
-        <span
-          className="text-[8px] font-bold px-1.5 py-0.5 rounded tracking-[0.5px] flex-shrink-0 uppercase"
-          style={{ backgroundColor: theme.badge, color: theme.text }}
-        >
-          {theme.label}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Source inspector — read-only peek at the card body. */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowSource(true)
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            aria-label="View source"
+            title="View source (read-only)"
+            className="w-6 h-6 rounded flex items-center justify-center text-[12px] text-[#9A7C55] hover:bg-[#F5E4C2]/60 hover:text-[#3A2A1C] cursor-pointer"
+          >
+            <SourceIcon />
+          </button>
+          <span
+            className="text-[8px] font-bold px-1.5 py-0.5 rounded tracking-[0.5px] uppercase"
+            style={{ backgroundColor: theme.badge, color: theme.text }}
+          >
+            {theme.label}
+          </span>
+        </div>
       </div>
+
+      {showSource && (
+        <CardSourceModal
+          cardId={item.id}
+          title={item.title}
+          onClose={() => setShowSource(false)}
+        />
+      )}
 
       {/* Set signature — bottom-right. Shared cards show multiple badges side-by-side. */}
       {item.setTag && item.setTag.length > 0 && (

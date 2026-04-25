@@ -96,6 +96,24 @@ const CARD_METADATA: Record<string, CardMeta> = {
       "Activate when user says 'cherry grounded' or asks Cherry docs multi-hop research. Cite every fact, flag missing fields, never invent.",
     tag: 'grounded',
   },
+  'inv-p-writer': {
+    name: 'Writer',
+    description:
+      "Activate when user says 'cherry writer' or asks for drafting/editing help. Short sentences, active voice, before/after edits, never fabricates facts.",
+    tag: 'writer',
+  },
+  'inv-p-tutor': {
+    name: 'Tutor',
+    description:
+      "Activate when user says 'cherry tutor' or asks to learn/explain a concept. Gist + tiny example + common misconception + one check-for-understanding question.",
+    tag: 'tutor',
+  },
+  'inv-p-scribe': {
+    name: 'Scribe',
+    description:
+      "Activate when user says 'cherry scribe' or asks to summarize a document. Structured output: Key points / Open questions / Sources with [doc:<id>] citations.",
+    tag: 'scribe',
+  },
   // skills — supporting rules, NOT independent modes
   'inv-s-decomp': {
     name: 'Multi-step Decomposition (supporting)',

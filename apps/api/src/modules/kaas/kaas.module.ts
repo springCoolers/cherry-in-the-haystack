@@ -12,6 +12,7 @@ import { KaasCuratorRewardController } from './kaas-curator-reward.controller';
 import { KaasA2aController } from './kaas-a2a.controller';
 import { KaasWsGateway } from './kaas-ws.gateway';
 import { InstallBuildController } from './install-build.controller';
+import { ShopController } from './shop/shop.controller';
 
 import { KaasAgentService } from './kaas-agent.service';
 import { KaasKnowledgeService } from './kaas-knowledge.service';
@@ -21,6 +22,7 @@ import { KaasCuratorRewardService } from './kaas-curator-reward.service';
 import { KaasA2aService } from './kaas-a2a.service';
 import { KaasAgentDaemonService } from './kaas-agent-daemon.service';
 import { InstallBuildService } from './install-build.service';
+import { BuySetService } from './shop/buy-set.service';
 
 @Module({
   imports: [DatabaseModule],
@@ -35,6 +37,7 @@ import { InstallBuildService } from './install-build.service';
     KaasCuratorRewardController,
     KaasA2aController,
     InstallBuildController,
+    ShopController,
   ],
   providers: [
     KaasAgentService,
@@ -46,6 +49,7 @@ import { InstallBuildService } from './install-build.service';
     KaasA2aService,
     KaasAgentDaemonService,
     InstallBuildService,
+    BuySetService,
   ],
   exports: [
     KaasAgentService,

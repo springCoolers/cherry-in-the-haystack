@@ -490,6 +490,106 @@ export async function followConcept(
   return res.json()
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Shop — consumer storefront (sets only). Mirrors
+   `apps/api/src/modules/kaas/shop/` endpoints.
+   ════════════════════════════════════════════════════════════════ */
+
+export interface ShopSetComponent {
+  slot: string
+  cardId: string
+  type: string
+  title: string
+  summary: string
+}
+
+export interface ShopSet {
+  id: string
+  domain: string
+  title: string
+  subtitle: string
+  icon: string
+  equipped: {
+    prompt: string | null
+    mcp: string | null
+    skillA: string | null
+    skillB: string | null
+    skillC: string | null
+    orchestration: string | null
+    memory: string | null
+  }
+  slotCount: number
+  priceBundled: number
+  qualityScore: number
+  installs: number
+  components: ShopSetComponent[]
+}
+
+export interface CardSource {
+  id: string
+  type: "prompt" | "mcp" | "skill" | "orchestration" | "memory"
+  body: string
+  language: "markdown" | "json"
+}
+
+/** Read-only source for a single Workshop card (systemPrompt / promptSuffix
+ *  / tool schema / memory config). Used by the Workshop card inspector. */
+export async function fetchCardSource(cardId: string): Promise<CardSource> {
+  const res = await fetch(
+    `${KAAS_BASE}/shop/cards/${encodeURIComponent(cardId)}/source`,
+    { cache: "no-store" },
+  )
+  if (!res.ok) throw new Error(`fetchCardSource ${res.status}`)
+  return res.json()
+}
+
+export async function fetchShopSets(): Promise<ShopSet[]> {
+  const res = await fetch(`${KAAS_BASE}/shop/sets`, { cache: "no-store" })
+  if (!res.ok) throw new Error(`fetchShopSets ${res.status}`)
+  return res.json()
+}
+
+export interface BuySetResponse {
+  installed: Array<{ slot: string; card_id: string; dir: string; file: string; saved_path: string; size_bytes: number }>
+  skipped: Array<{ slot: string; card_id: string | null; reason: string }>
+  failed: Array<{ slot: string; card_id: string; error: string }>
+  meta_written: boolean
+  orphans_removed: string[]
+  local_skills_after: Array<{ dir: string; hasSkillMd: boolean; sizeBytes: number; mtime: string | null }>
+  warnings: string[]
+  activation_prompt: string
+  credits_consumed: number
+  credits_after: number
+  provenance: {
+    hash: string | null
+    chain: string
+    explorer_url: string | null
+    on_chain: boolean
+  }
+  partial: boolean
+}
+
+export async function buySet(
+  apiKey: string,
+  setId: string,
+  chain: "status" | "near" | "mock" = "status",
+): Promise<BuySetResponse> {
+  const res = await fetch(`${KAAS_BASE}/shop/buy-and-install`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ set_id: setId, api_key: apiKey, chain }),
+  })
+  // 207 Multi-Status 도 응답 파싱
+  if (!res.ok && res.status !== 207) {
+    const b = await res.json().catch(() => ({}))
+    throw Object.assign(new Error(b?.message ?? `buySet ${res.status}`), {
+      code: b?.code,
+      status: res.status,
+    })
+  }
+  return res.json()
+}
+
 /** 구매/팔로우 이력 */
 export async function fetchHistory(apiKey: string) {
   const res = await fetch(`${KAAS_BASE}/credits/history?api_key=${apiKey}`)
