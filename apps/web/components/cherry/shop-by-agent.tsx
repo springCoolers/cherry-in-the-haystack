@@ -21,7 +21,24 @@ import {
   type ClassifiedSkill,
 } from "@/lib/api"
 import { getAccessToken } from "@/lib/auth"
+import { mockInventory } from "@/lib/workshop-mock"
 import { PurchaseModal, type PurchaseTarget } from "./purchase-modal"
+
+/** Map a Workshop card slug (`p-hunter`) → human title + summary from the
+ *  shared inventory. The slug in self-report drops the `cherry-` prefix; the
+ *  inventory id is `inv-<slug>`. */
+function lookupCard(slug: string): { title: string; summary: string } | null {
+  const found = mockInventory.find((i) => i.id === `inv-${slug}`)
+  if (!found) return null
+  return { title: found.title, summary: found.summary }
+}
+
+/** Pretty-print kind for the badge. Concept = market knowledge, Workshop =
+ *  hand-built card from the inventory. */
+const KIND_LABEL: Record<string, string> = {
+  concept: "지식",
+  card: "워크샵 카드",
+}
 
 interface MyAgent {
   id: string
@@ -227,13 +244,15 @@ function DiffModal({
         >
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-[#9A7C55]">
-              Learn from another agent
+              Agent Trade · 5 cr / 파일
             </div>
-            <h2 className="mt-0.5 text-[15px] font-extrabold text-[#3A2A1C] truncate">
-              {target.name}'s knowledge
+            <h2 className="mt-1 text-[16px] font-extrabold text-[#3A2A1C] truncate">
+              📚 {target.name} 만 가진 지식
             </h2>
-            <p className="mt-0.5 text-[11px] text-[#8E7555]">
-              Skills {target.name} has that {myAgent.name} doesn't.
+            <p className="mt-1 text-[11px] text-[#6B4F2A] leading-snug">
+              <span className="font-semibold">{target.name}</span>의 에이전트가 보유 중이고,{" "}
+              <span className="font-semibold">{myAgent.name}</span>에는 아직 없는 스킬 파일이에요.
+              구매하면 5cr이 차감되고 곧바로 내 에이전트에 설치됩니다.
             </p>
           </div>
           <button
@@ -247,7 +266,7 @@ function DiffModal({
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {!diff && !error && (
-            <p className="text-[11px] italic text-[#9A7C55]">Loading…</p>
+            <ComparingState targetName={target.name} myName={myAgent.name} />
           )}
           {error && (
             <div
@@ -264,16 +283,27 @@ function DiffModal({
             if (buyable.length === 0) {
               return (
                 <p className="text-[12px] italic text-[#9A7C55] py-10 text-center">
-                  Nothing new to learn — {myAgent.name} already has every shared skill.
+                  배울 게 더 없어요 — {myAgent.name}은(는) 이미 공유 지식을 모두 갖고 있어요.
                 </p>
               )
             }
             return (
-              <ul className="space-y-2">
-                {buyable.map((item) => (
-                  <SkillRow key={item.slug} item={item} onBuy={buy} />
-                ))}
-              </ul>
+              <>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#9A7C55]">
+                    구매 가능한 지식{" "}
+                    <span className="font-mono text-[#3A2A1C]">({buyable.length})</span>
+                  </h3>
+                  <span className="text-[10px] text-[#9A7C55]">
+                    한 파일 = {AGENT_TRADE_FLAT_PRICE} cr
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {buyable.map((item) => (
+                    <SkillRow key={item.slug} item={item} onBuy={buy} />
+                  ))}
+                </ul>
+              </>
             )
           })()}
         </div>
@@ -295,9 +325,75 @@ function DiffModal({
   )
 }
 
-const KIND_THEME: Record<string, { label: string; bg: string; fg: string }> = {
-  concept: { label: "Concept",  bg: "#EAF1FB", fg: "#2F5BA8" },
-  card:    { label: "Workshop", bg: "#FBF1E4", fg: "#9C5A1F" },
+function ComparingState({ targetName, myName }: { targetName: string; myName: string }) {
+  const messages = [
+    "지식 체계를 비교하는 중…",
+    "스킬 파일 목록을 받아오는 중…",
+    "공통점과 차이점을 정렬하는 중…",
+    "구매 가능한 항목을 추리는 중…",
+  ]
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % messages.length), 1100)
+    return () => clearInterval(t)
+  }, [messages.length])
+
+  return (
+    <div className="py-10 flex flex-col items-center text-center">
+      {/* Two-agent comparison animation */}
+      <div className="flex items-center gap-3 mb-4">
+        <AgentBubble name={myName} />
+        <div className="flex flex-col items-center">
+          <span className="text-[18px] text-[#C8301E] animate-pulse leading-none">⇄</span>
+          <span className="mt-1 text-[8px] font-bold tracking-wider uppercase text-[#9A7C55]">
+            Comparing
+          </span>
+        </div>
+        <AgentBubble name={targetName} delay="0.3s" />
+      </div>
+
+      {/* Tri-dot bounce */}
+      <div className="flex gap-1.5 mb-3">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-[#C8301E] animate-bounce"
+            style={{ animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </div>
+
+      <p className="text-[12px] font-semibold text-[#3A2A1C] animate-pulse min-h-[18px]">
+        {messages[idx]}
+      </p>
+      <p className="mt-1 text-[10px] text-[#9A7C55]">
+        대상 에이전트가 직접 보고하는 self-report를 읽고 있어요.
+      </p>
+    </div>
+  )
+}
+
+function AgentBubble({ name, delay }: { name: string; delay?: string }) {
+  return (
+    <div
+      className="rounded-xl bg-white px-3 py-2 min-w-[80px] max-w-[120px] animate-pulse"
+      style={{
+        border: "1px solid #E9D1A6",
+        boxShadow: "0 1px 2px rgba(107,79,42,0.08)",
+        animationDelay: delay,
+      }}
+    >
+      <div className="text-[8px] font-bold uppercase tracking-wider text-[#9A7C55] mb-0.5">
+        Agent
+      </div>
+      <div className="text-[12px] font-extrabold text-[#3A2A1C] truncate">{name}</div>
+    </div>
+  )
+}
+
+const KIND_THEME: Record<string, { label: string; bg: string; fg: string; accent: string }> = {
+  concept: { label: "지식",       bg: "#EAF1FB", fg: "#2F5BA8", accent: "#2F5BA8" },
+  card:    { label: "워크샵 카드", bg: "#FBF1E4", fg: "#9C5A1F", accent: "#9C5A1F" },
 }
 
 function SkillRow({
@@ -307,36 +403,44 @@ function SkillRow({
   item: ClassifiedSkill
   onBuy: (item: ClassifiedSkill) => void
 }) {
-  const theme = KIND_THEME[item.kind] ?? { label: item.kind, bg: "#F0E7D4", fg: "#6B4F2A" }
+  const theme =
+    KIND_THEME[item.kind] ?? { label: item.kind, bg: "#F0E7D4", fg: "#6B4F2A", accent: "#6B4F2A" }
+  // For cards we fall back to local inventory metadata so the row shows a real
+  // title + description instead of just a cryptic slug.
+  const card = item.kind === "card" ? lookupCard(item.slug) : null
+  const title = item.title && item.title !== item.slug ? item.title : (card?.title ?? item.slug)
+  const summary = item.summary || card?.summary || ""
+
   return (
     <li
-      className="rounded-xl bg-white p-3 transition-all hover:-translate-y-0.5 hover:shadow-md flex items-center gap-3"
+      className="rounded-xl bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md flex items-start gap-3"
       style={{
         border: "1px solid #D4CEBD",
+        borderLeftWidth: "4px",
+        borderLeftColor: theme.accent,
         boxShadow: "0 1px 0 rgba(107,79,42,0.04), 0 2px 8px rgba(107,79,42,0.05)",
       }}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="flex items-center gap-1.5 mb-1">
           <span
-            className="text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded uppercase"
+            className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded uppercase"
             style={{ backgroundColor: theme.bg, color: theme.fg }}
           >
-            {theme.label}
+            {KIND_LABEL[item.kind] ?? theme.label}
           </span>
         </div>
         <div className="text-[13px] font-extrabold text-[#3A2A1C] truncate">
-          {item.title || item.slug}
+          {title}
         </div>
-        {item.summary ? (
-          <p className="mt-0.5 text-[11px] text-[#6B4F2A] leading-snug line-clamp-1">
-            {item.summary}
+        {summary && (
+          <p className="mt-1 text-[11px] text-[#6B4F2A] leading-snug line-clamp-2">
+            {summary}
           </p>
-        ) : (
-          <div className="mt-0.5 text-[10px] font-mono text-[#9A7C55] truncate">
-            {item.slug}
-          </div>
         )}
+        <div className="mt-1.5 text-[9px] font-mono text-[#9A7C55] truncate">
+          {item.slug}
+        </div>
       </div>
       <button
         onClick={() => onBuy(item)}
