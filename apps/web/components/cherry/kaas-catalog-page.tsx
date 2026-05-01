@@ -231,11 +231,8 @@ function ConceptCard({
     <button
       onClick={onSelect}
       className={cn(
-        "block w-full text-left rounded-md transition-all duration-150 cursor-pointer",
-        "border hover:shadow-sm relative bg-white",
-        isSelected
-          ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
-          : "border-[#E4E1EE] hover:border-[#C7B8E8]"
+        "transition-all duration-150 cursor-pointer hover:shadow-sm relative",
+        isSelected ? "shadow-sm ring-1 ring-[var(--cherry)]/20" : ""
       )}
       style={{
         display: "block",
@@ -243,6 +240,9 @@ function ConceptCard({
         textAlign: "left",
         padding: 16,
         borderRadius: 6,
+        backgroundColor: "#FFFFFF",
+        border: `1px solid ${isSelected ? "var(--cherry)" : "#E4E1EE"}`,
+        position: "relative",
         ...(onSale ? { borderTopRightRadius: saleCornerRadius } : {}),
       }}
     >
