@@ -1652,31 +1652,78 @@ export function KaasDashboardPage({ isAdmin = false, onTabChange }: { isAdmin?: 
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Header + Tabs */}
-      <div className="shrink-0 border-b border-[#E4E1EE] bg-white px-4 lg:px-6 pt-4 lg:pt-5 pb-0">
-        <h2 className="text-[16px] lg:text-[18px] font-extrabold text-[#1A1626] mb-2 lg:mb-3" style={{ letterSpacing: "-0.3px" }}>
+      {/* Header + Tabs — 인라인 style 로 spacing/border/flex 모두 박음 (Tailwind 클래스 누락에도 안 무너지게) */}
+      <div
+        className="shrink-0 bg-white"
+        style={{
+          flexShrink: 0,
+          borderBottom: "1px solid #E4E1EE",
+          backgroundColor: "#FFFFFF",
+          paddingLeft: 16,
+          paddingRight: 16,
+          paddingTop: 16,
+          paddingBottom: 0,
+        }}
+      >
+        <h2
+          className="font-extrabold text-[#1A1626]"
+          style={{
+            fontSize: 18,
+            fontWeight: 800,
+            color: "#1A1626",
+            marginBottom: 12,
+            letterSpacing: "-0.3px",
+          }}
+        >
           Dashboard
         </h2>
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
           {tabs.length > 1 ? (
-            <div className="flex gap-0 overflow-x-auto">
-              {tabs.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className={cn(
-                    "border-b-2 px-3 lg:px-4 py-2 lg:py-2.5 text-[12px] lg:text-[13px] font-semibold transition-colors whitespace-nowrap",
-                    activeTab === t.key
-                      ? "border-[var(--cherry)] text-[#1A1626]"
-                      : "border-transparent text-[#9E97B3] hover:text-[#3D3652]",
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                gap: 0,
+                overflowX: "auto",
+              }}
+            >
+              {tabs.map((t) => {
+                const isActive = activeTab === t.key
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className="font-semibold transition-colors"
+                    style={{
+                      borderBottom: `2px solid ${isActive ? "var(--cherry)" : "transparent"}`,
+                      paddingLeft: 16,
+                      paddingRight: 16,
+                      paddingTop: 10,
+                      paddingBottom: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: isActive ? "#1A1626" : "#9E97B3",
+                      whiteSpace: "nowrap",
+                      backgroundColor: "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
             </div>
           ) : <div />}
-          <div className="flex-shrink-0 pb-2 lg:pb-0">
+          <div style={{ flexShrink: 0, paddingBottom: 0 }}>
             <CompactPrivacyToggle />
           </div>
         </div>
