@@ -324,23 +324,25 @@ export default function CherryApp() {
         </main>
       </div>
 
-      {/* Floating Cherry Console — visible on all pages.
-          When the Dashboard modal is open, surface the active sub-tab so the LLM
-          can answer page-specific questions (Dashboard / Knowledge Curation / Prompt Templates). */}
-      <KaasConsole
-        ref={consoleRef}
-        currentPage={
-          showDashboard
-            ? dashboardTab === "curation"
-              ? "Dashboard › Knowledge Curation"
-              : dashboardTab === "concept-page"
-              ? "Dashboard › Concept Page"
-              : dashboardTab === "template"
-              ? "Dashboard › Prompt Templates"
-              : "Dashboard"
-            : activeNav
-        }
-      />
+      {/* Floating Cherry Console — 로그인된 사용자에게만 노출.
+          비로그인 시 콘솔이 보호된 엔드포인트를 호출해서 401 → /login 자동이동
+          되는 부작용 방지. */}
+      {token && (
+        <KaasConsole
+          ref={consoleRef}
+          currentPage={
+            showDashboard
+              ? dashboardTab === "curation"
+                ? "Dashboard › Knowledge Curation"
+                : dashboardTab === "concept-page"
+                ? "Dashboard › Concept Page"
+                : dashboardTab === "template"
+                ? "Dashboard › Prompt Templates"
+                : "Dashboard"
+              : activeNav
+          }
+        />
+      )}
 
       {/* Dashboard modal (통합: Dashboard + 지식 큐레이팅 + 프롬프트 템플릿) */}
       {showDashboard && (
