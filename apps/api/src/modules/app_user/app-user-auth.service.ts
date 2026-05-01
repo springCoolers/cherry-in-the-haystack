@@ -112,7 +112,8 @@ export class AppUserAuthService {
     });
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-    const loginLink = `${frontendUrl}/start/login?email=${encodeURIComponent(user.email)}&token=${signInToken}`;
+    const loginPath = dto.from === 'main' ? '/login' : '/start/login';
+    const loginLink = `${frontendUrl}${loginPath}?email=${encodeURIComponent(user.email)}&token=${signInToken}`;
 
     await sendEmail(
       user.email,
