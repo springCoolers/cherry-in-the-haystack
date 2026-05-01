@@ -231,13 +231,13 @@ function ConceptCard({
     <button
       onClick={onSelect}
       className={cn(
-        "block w-full text-left rounded-md p-4 transition-all duration-150 cursor-pointer",
+        "block w-full text-left rounded-md transition-all duration-150 cursor-pointer",
         "border hover:shadow-sm relative bg-white",
         isSelected
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
           : "border-[#E4E1EE] hover:border-[#C7B8E8]"
       )}
-      style={onSale ? { borderTopRightRadius: saleCornerRadius } : undefined}
+      style={{ padding: 16, ...(onSale ? { borderTopRightRadius: saleCornerRadius } : {}) }}
     >
       {/* SALE 코너 탭 — 카드 우상단 모서리에 딱 붙음. 카드의 우상단을 6px로 줄였으므로 탭도 같은 값으로 매칭 */}
       {onSale && (
@@ -275,7 +275,7 @@ function ConceptCard({
       ) : null}
 
       {/* Quality + Category */}
-      <div className="flex items-center gap-2 mb-2.5">
+      <div className="flex items-center" style={{ gap: 8, marginBottom: 10 }}>
         <Stars score={concept.qualityScore} />
         <span className="text-[10px] font-semibold" style={{ color: badge.text }}>
           {concept.category}
@@ -283,18 +283,27 @@ function ConceptCard({
       </div>
 
       {/* Title */}
-      <h3 className="text-[14px] font-bold text-[#1A1626] leading-snug mb-1.5">
+      <h3
+        className="text-[14px] font-bold text-[#1A1626] leading-snug"
+        style={{ marginBottom: 6 }}
+      >
         {concept.title}
       </h3>
 
       {/* Summary — 2 lines */}
-      <p className="text-[12px] text-text-muted leading-relaxed line-clamp-2 mb-3">
+      <p
+        className="text-[12px] text-text-muted leading-relaxed line-clamp-2"
+        style={{ marginBottom: 12 }}
+      >
         {concept.summary}
       </p>
 
       {/* Creator + Karma */}
       {concept.creator && (
-        <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+        <div
+          className="flex items-center text-[10px]"
+          style={{ gap: 6, marginBottom: 8 }}
+        >
           <span className="text-[#666]">by</span>
           <span className="font-semibold text-[#3D3652]">{concept.creator.name === "__SYSTEM__" ? "Market" : concept.creator.name}</span>
           <span className={cn(
@@ -310,7 +319,10 @@ function ConceptCard({
       )}
 
       {/* Footer: sources + updated + gap recommendation */}
-      <div className="flex items-center gap-3 text-[11px] text-text-muted">
+      <div
+        className="flex items-center text-[11px] text-text-muted"
+        style={{ gap: 12 }}
+      >
         <span>
           <span className="font-semibold text-[#3D3652]">{concept.sourceCount}</span> sources
         </span>
@@ -939,7 +951,7 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
       </div></div>
 
       {/* Cards grid — each card shows compare status after submit */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ gap: 12 }}>
         {filtered.map((c) => (
           <ConceptCard
             key={c.id}

@@ -184,7 +184,7 @@ function TreeStemButton(props: {
       onClick={() => onSelect(item.id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="absolute right-0 flex items-center text-left rounded-md px-2 text-[13px] transition-all duration-150 cursor-pointer"
+      className="absolute right-0 flex items-center transition-all duration-150 cursor-pointer"
       style={{
         left: leftPx,
         top: btnTop,
@@ -194,6 +194,11 @@ function TreeStemButton(props: {
         backgroundColor: bg,
         fontWeight: isActive ? 600 : 500,
         lineHeight: 1.25,
+        textAlign: "left",
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 6,
+        fontSize: 13,
       }}
       aria-current={isActive ? "page" : undefined}
     >
@@ -319,7 +324,7 @@ function NavButton({
       onClick={() => onSelect(item.id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full flex items-center text-left transition-all duration-150 cursor-pointer"
+      className="w-full flex items-center transition-all duration-150 cursor-pointer"
       style={{
         color,
         backgroundColor: bg,
@@ -331,6 +336,7 @@ function NavButton({
         borderRadius: 8,
         fontSize: 13.5,
         fontWeight: isActive ? 600 : 500,
+        textAlign: "left",
       }}
       aria-current={isActive ? "page" : undefined}
     >
@@ -365,7 +371,7 @@ function GroupHeaderButton({
       onClick={onToggle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full flex items-center text-left transition-all duration-150 cursor-pointer"
+      className="w-full flex items-center transition-all duration-150 cursor-pointer"
       style={{
         color,
         backgroundColor: bg,
@@ -376,6 +382,7 @@ function GroupHeaderButton({
         borderRadius: 8,
         fontSize: 13.5,
         fontWeight: 500,
+        textAlign: "left",
       }}
       aria-expanded={!isCollapsed}
     >
