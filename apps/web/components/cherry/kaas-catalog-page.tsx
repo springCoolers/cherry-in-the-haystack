@@ -237,7 +237,14 @@ function ConceptCard({
           ? "border-[var(--cherry)] shadow-sm ring-1 ring-[var(--cherry)]/20"
           : "border-[#E4E1EE] hover:border-[#C7B8E8]"
       )}
-      style={{ padding: 16, ...(onSale ? { borderTopRightRadius: saleCornerRadius } : {}) }}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: 16,
+        borderRadius: 6,
+        ...(onSale ? { borderTopRightRadius: saleCornerRadius } : {}),
+      }}
     >
       {/* SALE 코너 탭 — 카드 우상단 모서리에 딱 붙음. 카드의 우상단을 6px로 줄였으므로 탭도 같은 값으로 매칭 */}
       {onSale && (
@@ -950,8 +957,17 @@ export function KaasCatalogPage({ onQuery, onCompareResult, initialConceptId, on
         })}
       </div></div>
 
-      {/* Cards grid — each card shows compare status after submit */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ gap: 12 }}>
+      {/* Cards grid — each card shows compare status after submit.
+          grid 유틸 클래스가 청크에서 누락되면 카드들이 inline-block으로 흐르므로
+          핵심 layout(display:grid + columns)을 인라인으로 박아 방어. */}
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+        style={{
+          display: "grid",
+          gap: 12,
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        }}
+      >
         {filtered.map((c) => (
           <ConceptCard
             key={c.id}
